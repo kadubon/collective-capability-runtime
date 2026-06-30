@@ -1,0 +1,14 @@
+{
+  "accepted": true,
+  "candidate_only_reasons": [
+    "HTTP provider evidence is imported as report evidence and not as settlement."
+  ],
+  "packet_id": "packet.phase.integrator",
+  "safe_commands": [
+    "curl https://example.invalid/phase-report"
+  ],
+  "settled": false,
+  "settled_blockers": [
+    "External provider output has not discharged CCR phase, baseline, and residual gates."
+  ]
+}

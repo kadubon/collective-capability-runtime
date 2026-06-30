@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: uv sync --all-extras
+      - run: uv run ruff format --check .
+      - run: uv run ruff check .
+      - run: uv run mypy src
+      - run: uv run python -m compileall -q src tests
+      - run: uv run pytest
+      - run: uv run ccr schema validate --kind packet --file examples/minimal/packet.json
+      - run: uv run ccr schema validate --kind task --file examples/minimal/task.json
+      - run: uv run ccr schema validate --kind packet --file examples/phase_formation/packets/checked/packet.phase.seed.json
+      - run: uv run ccr schema validate --kind packet --file examples/phase_formation/packets/checked/packet.phase.integrator.json
+      - run: uv run ccr schema validate --kind packet --file examples/phase_formation/packets/candidate/packet.phase.duplicate.json
+      - run: uv run ccr schema validate --kind baseline --file examples/phase_formation/baseline.json
+      - run: uv run ccr schema validate --kind asi-proxy-threshold --file examples/phase_formation/threshold.json
+      - run: cp -R examples/phase_formation /tmp/ccr-phase-formation && uv run ccr --root /tmp/ccr-phase-formation phase form --profile development --json
+      - run: uv run ccr audit repo --json
+      - run: uv build
+      - run: uv run ccr audit release --dist dist --json
+      - run: uvx twine check dist/*
+
+  pic-compat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: kadubon/percolation-inversion-compiler
+          path: .tmp/pic-root
+      - uses: astral-sh/setup-uv@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: uv sync --all-extras
+      - run: uv run ccr audit pic --pic-root .tmp/pic-root --json

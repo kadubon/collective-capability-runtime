@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/ccr/schemas/phase-report.schema.json",
+  "title": "CCR Phase Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "packet_counts",
+    "task_counts",
+    "residual_counts",
+    "open_residual_count",
+    "blocking_residual_count",
+    "pic_report_count",
+    "candidate_only_reasons_count",
+    "non_claims"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.phase_report.v0.1" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "packet_counts": { "type": "object", "additionalProperties": { "type": "integer" } },
+    "task_counts": { "type": "object", "additionalProperties": { "type": "integer" } },
+    "residual_counts": { "type": "object", "additionalProperties": { "type": "integer" } },
+    "open_residual_count": { "type": "integer" },
+    "blocking_residual_count": { "type": "integer" },
+    "pic_report_count": { "type": "integer" },
+    "candidate_only_reasons_count": { "type": "integer" },
+    "non_claims": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

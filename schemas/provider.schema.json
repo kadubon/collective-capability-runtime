@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/provider.schema.json",
+  "title": "CCR Provider Plan, Run, or Import",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "provider"
+  ],
+  "properties": {
+    "schema_version": {
+      "enum": [
+        "ccr.provider_plan.v1",
+        "ccr.provider_run.v1",
+        "ccr.provider_import.v1"
+      ]
+    },
+    "provider": { "enum": ["pic", "http"] },
+    "action": { "type": "string" },
+    "accepted": { "type": "boolean" },
+    "settled": { "type": "boolean", "default": false },
+    "dry_run": { "type": "boolean" },
+    "network_call_performed": { "type": "boolean" },
+    "safe_commands": {
+      "type": "array",
+      "items": {}
+    },
+    "candidate_only_reasons": {
+      "type": "array",
+      "items": {}
+    },
+    "settled_blockers": {
+      "type": "array",
+      "items": {}
+    },
+    "report_path": { "type": "string" },
+    "residual_ready": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    }
+  }
+}

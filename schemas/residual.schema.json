@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/ccr/schemas/residual.schema.json",
+  "title": "CCR Residual Ledger Entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "residual_id",
+    "created_at",
+    "status",
+    "severity",
+    "kind",
+    "description",
+    "blocking",
+    "object_type",
+    "object_id",
+    "refs",
+    "source"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.residual.v0.1" },
+    "residual_id": { "$ref": "#/$defs/id" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "status": {
+      "type": "string",
+      "enum": ["open", "resolved", "quarantined"]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"]
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "missing_evidence",
+        "unverified_claim",
+        "scope_gap",
+        "authority_gap",
+        "hazard",
+        "identity_gap",
+        "stale_source",
+        "dependency_gap",
+        "queue_overload",
+        "negative_liquidity",
+        "settlement_blocker",
+        "candidate_only_reason",
+        "safe_command_hint",
+        "validation_error",
+        "provider_missing",
+        "other"
+      ]
+    },
+    "description": { "type": "string", "minLength": 1 },
+    "blocking": { "type": "boolean" },
+    "object_type": {
+      "type": "string",
+      "enum": ["packet", "task", "report", "phase", "runtime", "unknown"]
+    },
+    "object_id": { "type": "string" },
+    "refs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "source": { "type": "string" },
+    "repair_hint": { "type": "string" },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": true,
+      "default": {}
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true,
+      "default": {}
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{2,127}$"
+    }
+  }
+}

@@ -1,0 +1,147 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "artifact.phase.duplicate",
+      "content_sha256": "unknown",
+      "description": "Diagnostic-only duplicate packet.",
+      "kind": "text",
+      "mime_type": "text/plain",
+      "uri_or_path": "inline:duplicate"
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "claim.phase.duplicate",
+      "claim_text": "This candidate packet resembles checked work but has not passed verifier gates.",
+      "claim_type": "phase_proxy",
+      "domain": "local CCR development runtime",
+      "must_not_be_read_as": [
+        "positive phase contribution",
+        "settled packet"
+      ],
+      "receiver_family": [
+        "ai-agent"
+      ],
+      "settlement_target": "diagnostic_only",
+      "status": "candidate"
+    }
+  ],
+  "created_at": "2026-06-30T00:00:00Z",
+  "dependencies": [
+    {
+      "dependency_id": "packet.phase.seed",
+      "relation": "supports",
+      "required_status": "checked"
+    }
+  ],
+  "evidence": [],
+  "execution_availability": {
+    "claim": "No execution path is accepted for this candidate.",
+    "gates": [],
+    "mode": "unknown",
+    "side_effect_policy": "none"
+  },
+  "extensions": {},
+  "intent": "Demonstrate that candidate-only volume is excluded from positive phase contribution.",
+  "issuer": {
+    "actor_id": "agent.phase.gamma",
+    "actor_type": "agent",
+    "display_name": "Phase Gamma",
+    "signed": false
+  },
+  "lineage": {
+    "children": [],
+    "parents": [
+      "packet.phase.seed"
+    ],
+    "revision": 0,
+    "supersedes": []
+  },
+  "metrics": {
+    "hazard_load": 0,
+    "queue_load": 0,
+    "residual_load": 0,
+    "reuse_score": 0.2
+  },
+  "packet_id": "packet.phase.duplicate",
+  "packet_type": "workflow",
+  "pic_interop": {
+    "candidate_kind": "packet_json",
+    "enabled": true,
+    "identity_context_ref": null,
+    "pic_report_refs": [],
+    "profile": "development",
+    "recommended_commands": [
+      "pic agent check --compact --text \"Phase duplicate packet\" --profile development"
+    ],
+    "settlement_blockers": [
+      "No verifier report."
+    ],
+    "status_mapping": {
+      "pic_accepted_maps_to": "checked",
+      "pic_settled_false_maps_to": "provisional",
+      "pic_settled_true_maps_to": "checked"
+    }
+  },
+  "provenance": {
+    "content_sha256": "unknown",
+    "lineage_note": "Hand-authored local example.",
+    "origin_kind": "agent_output",
+    "sanitized": true,
+    "source_refs": [
+      "inline:duplicate"
+    ]
+  },
+  "residuals": [],
+  "reuse": {
+    "deprecation_conditions": [
+      "A verifier rejects the duplicate."
+    ],
+    "intended_downstream_uses": [
+      "false liquidity diagnostic"
+    ],
+    "reuse_mode": "none",
+    "transport_limits": [
+      "Do not count as positive packet capital."
+    ]
+  },
+  "risk": {
+    "authority_level": "none",
+    "hazard_level": "none",
+    "mitigations": [
+      "Candidate-only status."
+    ],
+    "misuse_risk": "low",
+    "overclaim_risk": "medium"
+  },
+  "schema_version": "ccr.packet.v0.1",
+  "scope": {
+    "out_of_scope": [
+      "Positive phase contribution",
+      "Real ASI claims"
+    ],
+    "profiles": [
+      "development"
+    ],
+    "refresh_conditions": [
+      "Promote only after verifier acceptance."
+    ],
+    "validity_domain": "Local CCR phase formation example."
+  },
+  "semantic_edges": [],
+  "status": "candidate",
+  "summary": "Candidate-only duplicate volume for diagnostic false liquidity load.",
+  "verifier_reports": [],
+  "verifiers": [
+    {
+      "acceptance_criteria": [
+        "A verifier must accept this packet before it contributes positively."
+      ],
+      "command_hint": "ccr verify --provider pic --packet packet.phase.duplicate --profile development --json",
+      "provider": "pic",
+      "purpose": "evidence_route",
+      "required": true,
+      "verifier_id": "verifier.phase.duplicate.pic"
+    }
+  ]
+}

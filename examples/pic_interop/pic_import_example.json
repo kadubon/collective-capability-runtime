@@ -1,0 +1,19 @@
+{
+  "accepted": true,
+  "candidate_only_reasons": [
+    "External evidence has not been independently checked by CCR."
+  ],
+  "packet_id": "packet.pic.interop",
+  "profile": "development",
+  "reasons": [
+    "PIC route accepted for candidate-level handling."
+  ],
+  "report_type": "AgentCheckReport",
+  "safe_commands": [
+    "pic phase plan --compact --profile development"
+  ],
+  "settled": false,
+  "settled_blockers": [
+    "CCR integration policy has not passed."
+  ]
+}

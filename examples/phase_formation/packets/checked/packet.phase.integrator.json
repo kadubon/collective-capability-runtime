@@ -1,0 +1,181 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "artifact.phase.integrator",
+      "content_sha256": "unknown",
+      "description": "Integrator packet linking a seed packet to a verifier-planning workflow.",
+      "kind": "json",
+      "mime_type": "application/json",
+      "uri_or_path": "examples/phase_formation/threshold.json"
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "claim.phase.integrator.edge",
+      "claim_text": "A checked semantic edge can connect packet.phase.seed to packet.phase.integrator for local phase observation.",
+      "claim_type": "phase_proxy",
+      "domain": "local CCR development runtime",
+      "must_not_be_read_as": [
+        "settled ASI phase",
+        "provider execution",
+        "model rewrite"
+      ],
+      "receiver_family": [
+        "ai-agent",
+        "human-operator"
+      ],
+      "settlement_target": "provisional",
+      "status": "checked"
+    }
+  ],
+  "created_at": "2026-06-30T00:00:00Z",
+  "dependencies": [
+    {
+      "dependency_id": "packet.phase.seed",
+      "relation": "supports",
+      "required_status": "checked"
+    }
+  ],
+  "evidence": [
+    {
+      "checker": "human.example",
+      "evidence_id": "evidence.phase.integrator.review",
+      "evidence_type": "human_review",
+      "ref": "examples/phase_formation/threshold.json",
+      "status": "accepted"
+    }
+  ],
+  "execution_availability": {
+    "claim": "The packet can feed a local dry-run phase formation cycle.",
+    "gates": [
+      "operator review",
+      "local JSON artifacts only"
+    ],
+    "mode": "dry_run",
+    "rollback": "Generated phase artifacts can be deleted without external effects.",
+    "side_effect_policy": "dry_run_only"
+  },
+  "extensions": {},
+  "intent": "Provide a checked integration packet and semantic edge for phase formation.",
+  "issuer": {
+    "actor_id": "agent.phase.beta",
+    "actor_type": "agent",
+    "display_name": "Phase Beta",
+    "signed": false
+  },
+  "lineage": {
+    "children": [],
+    "parents": [
+      "packet.phase.seed"
+    ],
+    "revision": 0,
+    "supersedes": []
+  },
+  "metrics": {
+    "hazard_load": 0,
+    "queue_load": 0,
+    "residual_load": 0,
+    "reuse_score": 0.85
+  },
+  "packet_id": "packet.phase.integrator",
+  "packet_type": "workflow",
+  "pic_interop": {
+    "candidate_kind": "packet_json",
+    "enabled": true,
+    "identity_context_ref": null,
+    "pic_report_refs": [],
+    "profile": "development",
+    "recommended_commands": [
+      "pic phase plan --compact --profile development"
+    ],
+    "settlement_blockers": [],
+    "status_mapping": {
+      "pic_accepted_maps_to": "checked",
+      "pic_settled_false_maps_to": "provisional",
+      "pic_settled_true_maps_to": "checked"
+    }
+  },
+  "provenance": {
+    "content_sha256": "unknown",
+    "lineage_note": "Hand-authored local example.",
+    "origin_kind": "human_seed",
+    "sanitized": true,
+    "source_refs": [
+      "examples/phase_formation/threshold.json"
+    ]
+  },
+  "residuals": [],
+  "reuse": {
+    "deprecation_conditions": [
+      "The example schema changes incompatibly."
+    ],
+    "intended_downstream_uses": [
+      "phase graph construction",
+      "phase certificate candidate generation"
+    ],
+    "reuse_mode": "project",
+    "transport_limits": [
+      "Protocol-relative local example only."
+    ]
+  },
+  "risk": {
+    "authority_level": "none",
+    "hazard_level": "none",
+    "mitigations": [
+      "Dry-run only."
+    ],
+    "misuse_risk": "low",
+    "overclaim_risk": "low"
+  },
+  "schema_version": "ccr.packet.v0.1",
+  "scope": {
+    "out_of_scope": [
+      "Production execution",
+      "Real ASI claims"
+    ],
+    "profiles": [
+      "development"
+    ],
+    "refresh_conditions": [
+      "Revalidate after schema updates."
+    ],
+    "validity_domain": "Local CCR phase formation example."
+  },
+  "semantic_edges": [
+    {
+      "edge_id": "edge.phase.seed.integrator",
+      "relation": "execution_path",
+      "source_ids": [
+        "packet.phase.seed"
+      ],
+      "status": "checked",
+      "target_ids": [
+        "packet.phase.integrator"
+      ]
+    }
+  ],
+  "status": "checked",
+  "summary": "Checked integrator packet that links the seed packet into an effective graph.",
+  "verifier_reports": [
+    {
+      "accepted": true,
+      "blocking_residuals": [],
+      "provider": "human",
+      "ref": "examples/phase_formation/threshold.json",
+      "report_id": "report.phase.integrator.review",
+      "settled": false
+    }
+  ],
+  "verifiers": [
+    {
+      "acceptance_criteria": [
+        "Semantic edge is local, dry-run, and non-settling."
+      ],
+      "command_hint": "ccr phase observe --json",
+      "provider": "human",
+      "purpose": "semantic_edge",
+      "required": true,
+      "verifier_id": "verifier.phase.integrator.human"
+    }
+  ]
+}

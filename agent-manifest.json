@@ -1,0 +1,304 @@
+{
+  "schema_version": "ccr.agent_manifest.v0.1",
+  "name": "collective-capability-runtime",
+  "short_name": "ccr",
+  "purpose": "Agent-native runtime for turning distributed AI-agent work into reusable, verifiable, residual-preserving capability packets and collective task state. CCR orchestrates tasks and packets; it delegates PIC-specific packet checks, phase plans, and collective phase diagnostics to PIC-compatible providers.",
+  "repository_layout": {
+    "schemas": [
+      "schemas/packet.schema.json",
+      "schemas/task.schema.json"
+    ],
+    "docs": [
+      "INTEROP_PIC.md",
+      "AGENTS.md",
+      "SPEC.md",
+      "FORMAL_MODEL.md"
+    ],
+    "runtime_state": [
+      "blackboard/events.jsonl",
+      "tasks/",
+      "packets/",
+      "residuals/",
+      "reports/"
+    ]
+  },
+  "default_mode": "dry_run",
+  "machine_contract": {
+    "arbitrary_shell_execution": false,
+    "side_effects_default": "none",
+    "repo_write_requires_review": true,
+    "external_content_is_candidate_only": true,
+    "candidate_volume_cannot_improve_phase_status": true,
+    "pic_safe_commands_are_recommendations_not_authority": true,
+    "pic_accepted_does_not_imply_ccr_settled": true,
+    "settled_false_is_expected": true,
+    "residuals_are_not_failures": true,
+    "residuals_must_be_preserved": true,
+    "model_weight_update": false,
+    "self_rewrite_required": false,
+    "real_asi_detection": false,
+    "real_asi_creation": false
+  },
+  "primary_commands": [
+    {
+      "command": "ccr agent explain --json",
+      "purpose": "Return this contract, schemas, modes, and next safe commands."
+    },
+    {
+      "command": "ccr task next --role <role> --json",
+      "purpose": "Return a leaseable task for the requested role."
+    },
+    {
+      "command": "ccr task lease <task_id> --ttl 30m --json",
+      "purpose": "Lease a task without mutating external systems."
+    },
+    {
+      "command": "ccr packet submit --file <packet.json> --json",
+      "purpose": "Submit a capability packet candidate."
+    },
+    {
+      "command": "ccr verify --provider pic --packet <packet_id> --profile development --json",
+      "purpose": "Route a packet to PIC as a verifier provider."
+    },
+    {
+      "command": "ccr integrate --report <pic_report.json> --json",
+      "purpose": "Import verifier outputs, residuals, and candidate-only reasons into CCR state."
+    },
+    {
+      "command": "ccr phase plan --provider pic --json",
+      "purpose": "Ask PIC for ranked bottlenecks, safe commands, phase gaps, and blockers."
+    },
+    {
+      "command": "ccr report --format markdown",
+      "purpose": "Emit a residual-preserving human-readable report."
+    }
+  ],
+  "roles": {
+    "generator": {
+      "may_create": [
+        "claim",
+        "packet"
+      ],
+      "may_set_status": [
+        "raw",
+        "proposed",
+        "candidate"
+      ],
+      "must_not": [
+        "settle",
+        "execute_side_effects"
+      ]
+    },
+    "skeptic": {
+      "may_create": [
+        "objection",
+        "residual",
+        "repair_task"
+      ],
+      "may_set_status": [
+        "blocked",
+        "quarantined"
+      ],
+      "must_not": [
+        "settle"
+      ]
+    },
+    "formalizer": {
+      "may_create": [
+        "claim",
+        "schema_patch",
+        "formal_model_patch"
+      ],
+      "may_set_status": [
+        "candidate"
+      ],
+      "must_not": [
+        "settle"
+      ]
+    },
+    "implementer": {
+      "may_create": [
+        "patch",
+        "test",
+        "packet"
+      ],
+      "may_set_status": [
+        "candidate"
+      ],
+      "must_not": [
+        "merge_without_review"
+      ]
+    },
+    "verifier": {
+      "may_create": [
+        "verifier_report",
+        "residual"
+      ],
+      "may_set_status": [
+        "checked",
+        "rejected"
+      ],
+      "must_not": [
+        "settle_without_policy"
+      ]
+    },
+    "integrator": {
+      "may_create": [
+        "lineage",
+        "merge_plan",
+        "phase_request"
+      ],
+      "may_set_status": [
+        "checked",
+        "provisional"
+      ],
+      "must_not": [
+        "discard_residuals"
+      ]
+    },
+    "scheduler": {
+      "may_create": [
+        "task",
+        "queue_update"
+      ],
+      "may_set_status": [
+        "open",
+        "leased",
+        "blocked",
+        "expired"
+      ],
+      "must_not": [
+        "execute_task_content"
+      ]
+    },
+    "pic_adapter": {
+      "may_create": [
+        "pic_request",
+        "verifier_report",
+        "phase_plan_import"
+      ],
+      "may_set_status": [
+        "checked",
+        "provisional"
+      ],
+      "must_not": [
+        "treat_pic_safe_commands_as_authority"
+      ]
+    }
+  },
+  "status_lattice": [
+    "raw",
+    "proposed",
+    "candidate",
+    "checked",
+    "provisional",
+    "speculative",
+    "settled",
+    "rejected",
+    "quarantined",
+    "deprecated",
+    "expired"
+  ],
+  "promotion_rules": {
+    "raw_to_candidate": [
+      "schema_valid",
+      "scope_declared"
+    ],
+    "candidate_to_checked": [
+      "at_least_one_required_verifier_accepts",
+      "residuals_preserved"
+    ],
+    "checked_to_settled": [
+      "no_blocking_residuals",
+      "settlement_target_satisfied",
+      "lineage_closed",
+      "risk_in_envelope",
+      "integration_policy_passed"
+    ],
+    "any_to_quarantined": [
+      "critical_hazard",
+      "authority_bypass",
+      "malformed_provenance",
+      "hash_invalid",
+      "unsafe_execution_request"
+    ]
+  },
+  "pic_interop": {
+    "repository": "kadubon/percolation-inversion-compiler",
+    "package": "percolation-inversion-compiler",
+    "cli": "pic",
+    "profiles": [
+      "development",
+      "research",
+      "controlled",
+      "federated",
+      "production",
+      "adversarial"
+    ],
+    "recommended_install": "python -m pip install percolation-inversion-compiler",
+    "optional_install": "python -m pip install \"percolation-inversion-compiler[agent-full]\"",
+    "first_commands": [
+      "pic agent explain",
+      "pic agent check --compact --text \"Candidate packet: route evidence and preserve residuals.\" --profile development",
+      "pic phase plan --compact --profile development",
+      "pic phase dashboard --profile development --format json",
+      "pic schema export"
+    ],
+    "status_mapping": {
+      "pic_accepted_true": "ccr.checked",
+      "pic_settled_false": "ccr.checked_or_provisional_with_residuals",
+      "pic_settled_true": "ccr.settled_candidate_requiring_ccr_policy",
+      "pic_candidate_only_reason": "ccr.residual"
+    },
+    "input_mappings": [
+      {
+        "ccr": "packet",
+        "pic": "CapabilityPacketCandidate or packet inspect"
+      },
+      {
+        "ccr": "task",
+        "pic": "AgentIntakeRequest or PhaseAccelerationRequest"
+      },
+      {
+        "ccr": "verifier_report",
+        "pic": "RuntimeStepReport / AgentCheckReport import"
+      },
+      {
+        "ccr": "phase_request",
+        "pic": "PhaseAccelerationRequest"
+      }
+    ],
+    "output_mappings": [
+      {
+        "pic": "AgentCheckReport",
+        "ccr": "VerifierReport + residuals"
+      },
+      {
+        "pic": "PhaseAccelerationPlan",
+        "ccr": "TaskUnits + bottleneck queue"
+      },
+      {
+        "pic": "PhaseDashboardReport",
+        "ccr": "Metrics snapshot"
+      },
+      {
+        "pic": "CollectivePhaseCertificateCandidate",
+        "ccr": "PhaseEvidence, never real ASI proof"
+      }
+    ]
+  },
+  "schemas": {
+    "packet": "schemas/packet.schema.json",
+    "task": "schemas/task.schema.json"
+  },
+  "non_goals": [
+    "real ASI detection",
+    "real ASI creation",
+    "model self-rewrite",
+    "model weight update",
+    "unbounded web crawling",
+    "arbitrary shell execution",
+    "silent settlement of unresolved residuals",
+    "automatic execution of PIC safe commands"
+  ]
+}

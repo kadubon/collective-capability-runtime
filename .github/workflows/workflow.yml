@@ -1,0 +1,60 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: kadubon/percolation-inversion-compiler
+          path: .tmp/pic-root
+      - uses: astral-sh/setup-uv@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: uv sync --all-extras
+      - run: uv run ruff format --check .
+      - run: uv run ruff check .
+      - run: uv run mypy src
+      - run: uv run python -m compileall -q src tests
+      - run: uv run pytest
+      - run: uv run ccr schema validate --kind packet --file examples/minimal/packet.json
+      - run: uv run ccr schema validate --kind task --file examples/minimal/task.json
+      - run: uv run ccr schema validate --kind packet --file examples/phase_formation/packets/checked/packet.phase.seed.json
+      - run: uv run ccr schema validate --kind packet --file examples/phase_formation/packets/checked/packet.phase.integrator.json
+      - run: uv run ccr schema validate --kind packet --file examples/phase_formation/packets/candidate/packet.phase.duplicate.json
+      - run: uv run ccr schema validate --kind baseline --file examples/phase_formation/baseline.json
+      - run: uv run ccr schema validate --kind asi-proxy-threshold --file examples/phase_formation/threshold.json
+      - run: cp -R examples/phase_formation /tmp/ccr-phase-formation && uv run ccr --root /tmp/ccr-phase-formation phase form --profile development --json
+      - run: uv run ccr audit repo --json
+      - run: uv run ccr audit pic --pic-root .tmp/pic-root --json
+      - run: uv build
+      - run: uv run ccr audit release --dist dist --json
+      - run: uvx twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/collective-capability-runtime
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

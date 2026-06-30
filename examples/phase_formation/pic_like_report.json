@@ -1,0 +1,19 @@
+{
+  "accepted": true,
+  "candidate_only_reasons": [
+    "PIC-like report is accepted for candidate-level handling only."
+  ],
+  "packet_id": "packet.phase.seed",
+  "profile": "development",
+  "reasons": [
+    "Verifier route accepted the packet-level claim."
+  ],
+  "report_type": "AgentCheckReport",
+  "safe_commands": [
+    "pic phase plan --compact --profile development"
+  ],
+  "settled": false,
+  "settled_blockers": [
+    "CCR phase certificate candidate remains unsettled until CCR gates pass."
+  ]
+}

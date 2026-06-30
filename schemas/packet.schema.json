@@ -1,0 +1,1065 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/packet.schema.json",
+  "title": "CCR Capability Packet",
+  "description": "Agent-native capability packet schema for Collective Capability Runtime. Designed to interoperate with PIC CapabilityPacketCandidate, VerifiedCapabilityPacket, PacketPromotionReport, PhaseAccelerationPlan, and CollectivePhaseCertificate workflows without reimplementing PIC.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "packet_id",
+    "created_at",
+    "issuer",
+    "status",
+    "packet_type",
+    "summary",
+    "claims",
+    "artifacts",
+    "scope",
+    "provenance",
+    "verifiers",
+    "residuals",
+    "risk",
+    "reuse",
+    "lineage",
+    "pic_interop"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ccr.packet.v0.1"
+    },
+    "packet_id": {
+      "$ref": "#/$defs/id"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "issuer": {
+      "$ref": "#/$defs/actor"
+    },
+    "status": {
+      "type": "string",
+      "description": "CCR status. PIC accepted=true normally maps only to checked unless settlement blockers are discharged.",
+      "enum": [
+        "raw",
+        "proposed",
+        "candidate",
+        "checked",
+        "settled",
+        "provisional",
+        "speculative",
+        "rejected",
+        "quarantined",
+        "deprecated",
+        "expired"
+      ]
+    },
+    "packet_type": {
+      "type": "string",
+      "enum": [
+        "claim",
+        "code",
+        "test",
+        "workflow",
+        "prompt",
+        "dataset",
+        "verifier",
+        "adapter",
+        "documentation",
+        "theorem_fragment",
+        "benchmark",
+        "repair",
+        "queue_policy",
+        "phase_evidence",
+        "abstraction_token",
+        "trace",
+        "other"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "intent": {
+      "type": "string",
+      "description": "Why this packet exists. Must be operational, not metaphysical ASI proof."
+    },
+    "claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/claim"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dependency"
+      },
+      "default": []
+    },
+    "semantic_edges": {
+      "type": "array",
+      "description": "Candidate typed relations for PIC semantic edge checks and CCR graph construction.",
+      "items": {
+        "$ref": "#/$defs/semantic_edge"
+      },
+      "default": []
+    },
+    "execution_availability": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Records execution-available claims without implying execution.",
+      "required": [
+        "claim",
+        "mode",
+        "gates",
+        "side_effect_policy"
+      ],
+      "properties": {
+        "claim": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "not_applicable",
+            "analysis_only",
+            "dry_run",
+            "sandboxed",
+            "allowlisted_external",
+            "unknown"
+          ]
+        },
+        "gates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "side_effect_policy": {
+          "type": "string",
+          "enum": [
+            "none",
+            "dry_run_only",
+            "sandbox_only",
+            "operator_approval_required",
+            "unsafe_not_allowed"
+          ]
+        },
+        "rollback": {
+          "type": "string"
+        },
+        "authority_required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      },
+      "default": {
+        "claim": "No execution-available claim supplied.",
+        "mode": "not_applicable",
+        "gates": [],
+        "side_effect_policy": "none"
+      }
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "evidence": {
+      "type": "array",
+      "description": "Evidence records. Registry metadata and agent text are not evidence unless linked to verifier output or explicit source provenance.",
+      "items": {
+        "$ref": "#/$defs/evidence"
+      },
+      "default": []
+    },
+    "verifiers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/verifier_request"
+      }
+    },
+    "verifier_reports": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/verifier_report_ref"
+      },
+      "default": []
+    },
+    "residuals": {
+      "type": "array",
+      "description": "Residuals are expected and preserved. They are not command failures.",
+      "items": {
+        "$ref": "#/$defs/residual"
+      },
+      "default": []
+    },
+    "risk": {
+      "$ref": "#/$defs/risk_ledger"
+    },
+    "reuse": {
+      "$ref": "#/$defs/reuse"
+    },
+    "lineage": {
+      "$ref": "#/$defs/lineage"
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "estimated_search_cost_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "verification_cost": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "integration_cost": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "reuse_score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "residual_load": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "hazard_load": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "queue_load": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "default": {}
+    },
+    "pic_interop": {
+      "$ref": "#/$defs/pic_interop"
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Namespaced extension area. Use x_<namespace> keys.",
+      "propertyNames": {
+        "pattern": "^x_[A-Za-z0-9_.-]+$"
+      },
+      "additionalProperties": true,
+      "default": {}
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{2,127}$"
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor_id",
+        "actor_type"
+      ],
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/id"
+        },
+        "actor_type": {
+          "type": "string",
+          "enum": [
+            "human",
+            "agent",
+            "tool",
+            "ci",
+            "repository",
+            "unknown"
+          ]
+        },
+        "display_name": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "identity_context_ref": {
+          "type": "string"
+        },
+        "signed": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "claim_text",
+        "claim_type",
+        "status",
+        "settlement_target"
+      ],
+      "properties": {
+        "claim_id": {
+          "$ref": "#/$defs/id"
+        },
+        "claim_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_type": {
+          "type": "string",
+          "enum": [
+            "factual",
+            "implementation",
+            "theorem",
+            "benchmark",
+            "safety",
+            "interop",
+            "phase_proxy",
+            "execution_available",
+            "reuse_value",
+            "other"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "raw",
+            "candidate",
+            "checked",
+            "settled",
+            "provisional",
+            "speculative",
+            "rejected",
+            "expired"
+          ]
+        },
+        "settlement_target": {
+          "type": "string",
+          "enum": [
+            "settled",
+            "provisional",
+            "speculative",
+            "diagnostic_only"
+          ]
+        },
+        "domain": {
+          "type": "string"
+        },
+        "receiver_family": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "must_not_be_read_as": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "kind",
+        "uri_or_path",
+        "content_sha256"
+      ],
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "file",
+            "directory",
+            "url",
+            "git_ref",
+            "patch",
+            "command_output",
+            "text",
+            "json",
+            "markdown",
+            "notebook",
+            "other"
+          ]
+        },
+        "uri_or_path": {
+          "type": "string"
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$|^unknown$"
+        },
+        "mime_type": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "validity_domain",
+        "out_of_scope",
+        "profiles"
+      ],
+      "properties": {
+        "validity_domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "out_of_scope": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "profiles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "development",
+              "research",
+              "controlled",
+              "federated",
+              "production",
+              "adversarial",
+              "custom"
+            ]
+          }
+        },
+        "expiration": {
+          "type": "string"
+        },
+        "refresh_conditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dependency_id",
+        "relation"
+      ],
+      "properties": {
+        "dependency_id": {
+          "$ref": "#/$defs/id"
+        },
+        "relation": {
+          "type": "string",
+          "enum": [
+            "requires",
+            "supports",
+            "conflicts_with",
+            "supersedes",
+            "imports",
+            "verifies",
+            "tests",
+            "documents",
+            "adapts",
+            "unknown"
+          ]
+        },
+        "required_status": {
+          "type": "string",
+          "enum": [
+            "candidate",
+            "checked",
+            "settled",
+            "provisional",
+            "speculative",
+            "any"
+          ],
+          "default": "checked"
+        }
+      }
+    },
+    "semantic_edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "edge_id",
+        "source_ids",
+        "target_ids",
+        "relation",
+        "status"
+      ],
+      "properties": {
+        "edge_id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1
+        },
+        "target_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1
+        },
+        "relation": {
+          "type": "string",
+          "enum": [
+            "theorem_to_code",
+            "code_to_test",
+            "prompt_to_output",
+            "trace_to_claim",
+            "claim_to_verifier",
+            "rollback_support",
+            "execution_path",
+            "queue_repair",
+            "alt_lift",
+            "trc_trace",
+            "sqot_queue",
+            "other"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "candidate",
+            "checked",
+            "settled",
+            "provisional",
+            "speculative",
+            "rejected"
+          ]
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin_kind",
+        "source_refs",
+        "content_sha256"
+      ],
+      "properties": {
+        "origin_kind": {
+          "type": "string",
+          "enum": [
+            "human_seed",
+            "agent_output",
+            "repository",
+            "web",
+            "feed",
+            "paper",
+            "ci",
+            "verifier",
+            "derived",
+            "unknown"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$|^unknown$"
+        },
+        "sanitized": {
+          "type": "boolean",
+          "default": true
+        },
+        "lineage_note": {
+          "type": "string"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "evidence_type",
+        "ref",
+        "status"
+      ],
+      "properties": {
+        "evidence_id": {
+          "$ref": "#/$defs/id"
+        },
+        "evidence_type": {
+          "type": "string",
+          "enum": [
+            "test_result",
+            "citation",
+            "hash",
+            "signature",
+            "benchmark",
+            "reproduction",
+            "human_review",
+            "pic_report",
+            "ci_log",
+            "other"
+          ]
+        },
+        "ref": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "submitted",
+            "checked",
+            "accepted",
+            "rejected",
+            "expired",
+            "candidate_only"
+          ]
+        },
+        "checker": {
+          "type": "string"
+        }
+      }
+    },
+    "verifier_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verifier_id",
+        "provider",
+        "required",
+        "purpose"
+      ],
+      "properties": {
+        "verifier_id": {
+          "$ref": "#/$defs/id"
+        },
+        "provider": {
+          "type": "string",
+          "enum": [
+            "pic",
+            "ccr",
+            "ci",
+            "human",
+            "custom"
+          ]
+        },
+        "purpose": {
+          "type": "string",
+          "enum": [
+            "schema",
+            "evidence_route",
+            "semantic_edge",
+            "residual",
+            "authority",
+            "rollback",
+            "identity",
+            "alt_admission",
+            "sqot_queue",
+            "ecpt_phase",
+            "benchmark",
+            "security",
+            "other"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "command_hint": {
+          "type": "string"
+        },
+        "acceptance_criteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "verifier_report_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_id",
+        "provider",
+        "ref",
+        "accepted",
+        "settled"
+      ],
+      "properties": {
+        "report_id": {
+          "$ref": "#/$defs/id"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "accepted": {
+          "type": "boolean"
+        },
+        "settled": {
+          "type": "boolean"
+        },
+        "blocking_residuals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "default": []
+        }
+      }
+    },
+    "residual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "residual_id",
+        "severity",
+        "kind",
+        "description",
+        "blocking"
+      ],
+      "properties": {
+        "residual_id": {
+          "$ref": "#/$defs/id"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "missing_evidence",
+            "unverified_claim",
+            "scope_gap",
+            "authority_gap",
+            "hazard",
+            "identity_gap",
+            "stale_source",
+            "dependency_gap",
+            "queue_overload",
+            "negative_liquidity",
+            "settlement_blocker",
+            "other"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "repair_hint": {
+          "type": "string"
+        }
+      }
+    },
+    "risk_ledger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hazard_level",
+        "authority_level",
+        "misuse_risk",
+        "overclaim_risk"
+      ],
+      "properties": {
+        "hazard_level": {
+          "type": "string",
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "authority_level": {
+          "type": "string",
+          "enum": [
+            "none",
+            "read_only",
+            "local_write",
+            "repo_write",
+            "network",
+            "external_side_effect"
+          ]
+        },
+        "misuse_risk": {
+          "type": "string",
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "overclaim_risk": {
+          "type": "string",
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "mitigations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "reuse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reuse_mode",
+        "intended_downstream_uses",
+        "transport_limits"
+      ],
+      "properties": {
+        "reuse_mode": {
+          "type": "string",
+          "enum": [
+            "none",
+            "local",
+            "project",
+            "cross_project",
+            "agent_to_agent",
+            "public"
+          ]
+        },
+        "intended_downstream_uses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "transport_limits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deprecation_conditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parents",
+        "children",
+        "revision"
+      ],
+      "properties": {
+        "parents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "supersedes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "default": []
+        }
+      }
+    },
+    "pic_interop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "candidate_kind",
+        "profile",
+        "status_mapping",
+        "recommended_commands"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "candidate_kind": {
+          "type": "string",
+          "enum": [
+            "agent_text",
+            "packet_json",
+            "runtime_step_input",
+            "external_intake",
+            "agent_message",
+            "phase_lab_report",
+            "alt_packet",
+            "unknown"
+          ]
+        },
+        "profile": {
+          "type": "string",
+          "enum": [
+            "development",
+            "research",
+            "controlled",
+            "federated",
+            "production",
+            "adversarial"
+          ]
+        },
+        "identity_context_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status_mapping": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pic_accepted_maps_to",
+            "pic_settled_true_maps_to",
+            "pic_settled_false_maps_to"
+          ],
+          "properties": {
+            "pic_accepted_maps_to": {
+              "type": "string",
+              "enum": [
+                "checked",
+                "candidate"
+              ]
+            },
+            "pic_settled_true_maps_to": {
+              "type": "string",
+              "enum": [
+                "settled",
+                "checked"
+              ]
+            },
+            "pic_settled_false_maps_to": {
+              "type": "string",
+              "enum": [
+                "checked",
+                "provisional",
+                "speculative"
+              ]
+            }
+          }
+        },
+        "recommended_commands": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pic_report_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "settlement_blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    }
+  }
+}

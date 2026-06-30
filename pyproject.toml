@@ -1,0 +1,109 @@
+[project]
+name = "collective-capability-runtime"
+version = "1.0.0"
+description = "Agent-native runtime for protocol-relative ASI-proxy phase formation."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Collective Capability Runtime contributors" }]
+keywords = [
+  "asi-proxy",
+  "ai-agents",
+  "agent-runtime",
+  "capability-packets",
+  "collective-phase",
+  "phase-formation",
+  "blackboard",
+  "residual-ledger",
+  "json-schema",
+  "trusted-publishing",
+  "verification",
+  "pic-interop",
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Scientific/Engineering",
+  "Typing :: Typed",
+]
+dependencies = [
+  "jsonschema>=4.23",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2",
+  "ruff>=0.5",
+  "mypy>=1.10",
+  "types-jsonschema>=4.23",
+]
+
+[project.scripts]
+ccr = "ccr.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/kadubon/collective-capability-runtime"
+Repository = "https://github.com/kadubon/collective-capability-runtime"
+Issues = "https://github.com/kadubon/collective-capability-runtime/issues"
+Changelog = "https://github.com/kadubon/collective-capability-runtime/blob/main/CHANGELOG.md"
+Security = "https://github.com/kadubon/collective-capability-runtime/blob/main/SECURITY.md"
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ccr"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"schemas" = "ccr/data/schemas"
+"agent-manifest.json" = "ccr/data/agent-manifest.json"
+"INTEROP_PIC.md" = "ccr/data/INTEROP_PIC.md"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/schemas",
+  "/examples",
+  "/tests",
+  "/README.md",
+  "/LICENSE",
+  "/NOTICE",
+  "/AGENTS.md",
+  "/SPEC.md",
+  "/FORMAL_MODEL.md",
+  "/INTEROP_PIC.md",
+  "/SECURITY.md",
+  "/GOVERNANCE.md",
+  "/CONTRIBUTING.md",
+  "/CODE_OF_CONDUCT.md",
+  "/CHANGELOG.md",
+  "/AUDIT.md",
+  "/agent-manifest.json",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unused_configs = true

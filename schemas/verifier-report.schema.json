@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/ccr/schemas/verifier-report.schema.json",
+  "title": "CCR Verifier Report",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "report_id",
+    "provider",
+    "created_at",
+    "accepted",
+    "settled",
+    "packet_id",
+    "residuals"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.verifier_report.v0.1" },
+    "report_id": { "$ref": "#/$defs/id" },
+    "provider": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "profile": { "type": "string" },
+    "packet_id": { "type": ["string", "null"] },
+    "accepted": { "type": "boolean" },
+    "settled": { "type": "boolean" },
+    "ccr_status": { "type": "string" },
+    "residuals": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/id" }
+    },
+    "safe_commands": {
+      "type": "array",
+      "items": {}
+    },
+    "original_report_ref": { "type": "string" }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{2,127}$"
+    }
+  }
+}

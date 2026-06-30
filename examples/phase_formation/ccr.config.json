@@ -1,0 +1,21 @@
+{
+  "created_at": "2026-06-30T00:00:00Z",
+  "default_mode": "dry_run",
+  "external_side_effects_default": "none",
+  "non_claims": [
+    "CCR does not detect real ASI.",
+    "CCR does not create real ASI.",
+    "CCR does not self-modify models.",
+    "CCR does not update model weights.",
+    "CCR does not grant execution authority.",
+    "CCR does not bypass safety.",
+    "CCR treats external content as candidate-only until checked.",
+    "CCR preserves residuals; settled=false is expected and not a crash."
+  ],
+  "resource_envelope": {
+    "agent_count": 2,
+    "profile": "development",
+    "wall_clock_window": "example-static"
+  },
+  "schema_version": "ccr.config.v0.1"
+}

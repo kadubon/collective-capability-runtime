@@ -1,0 +1,7 @@
+Collective Capability Runtime
+Copyright 2026 Collective Capability Runtime contributors
+
+This product includes software developed under the Apache License, Version 2.0.
+
+CCR is designed to interoperate with Percolation Inversion Compiler (PIC), but
+PIC is not bundled as a hard dependency.

@@ -1,0 +1,22 @@
+{
+  "accepted": true,
+  "candidate_only_reasons": [],
+  "cannot_promote_because": [
+    "CCR threshold and residual gates remain external to the PIC candidate."
+  ],
+  "missing_obligations": [
+    "Run ccr phase threshold with the CCR threshold spec.",
+    "Run ccr phase compare against the resource-matched CCR baseline."
+  ],
+  "packet_id": "packet.pic.interop",
+  "profile": "development",
+  "report_type": "CollectivePhaseCertificateCandidate",
+  "safe_commands": [
+    "ccr phase certify --json"
+  ],
+  "settled": true,
+  "settled_blockers": [
+    "PIC settled=true is provider evidence, not CCR settlement authority."
+  ],
+  "workflow_usable": true
+}

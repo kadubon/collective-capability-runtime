@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/phase-certificate-candidate.schema.json",
+  "title": "CCR Collective Phase Certificate Candidate",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "certificate_id",
+    "certificate_status",
+    "accepted",
+    "settled",
+    "protocol_relative_only",
+    "proves_real_asi",
+    "graph_id",
+    "observation_id"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.phase_certificate_candidate.v1" },
+    "certificate_id": { "$ref": "#/$defs/id" },
+    "certificate_status": { "enum": ["accepted", "abstain", "rejected"] },
+    "accepted": { "type": "boolean" },
+    "settled": { "type": "boolean", "const": false },
+    "protocol_relative_only": { "type": "boolean", "const": true },
+    "proves_real_asi": { "type": "boolean", "const": false },
+    "proves_physical_or_oracle_truth": { "type": "boolean", "const": false },
+    "graph_id": { "$ref": "#/$defs/id" },
+    "observation_id": { "$ref": "#/$defs/id" },
+    "threshold_status": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "defects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["defect_id", "defect_type", "residual_preserved"]
+      },
+      "default": []
+    },
+    "reasons": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{2,255}$"
+    }
+  }
+}

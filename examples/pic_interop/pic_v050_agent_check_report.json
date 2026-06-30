@@ -1,0 +1,23 @@
+{
+  "accepted": true,
+  "candidate_only_reasons": [
+    "External evidence route is usable but not independently checked inside CCR."
+  ],
+  "missing_obligations": [
+    "Attach CCR packet artifact digest before promotion."
+  ],
+  "packet_id": "packet.pic.interop",
+  "profile": "development",
+  "reasons": [
+    "PIC v0.5.0 agent check produced a workflow-usable candidate route."
+  ],
+  "report_type": "AgentCheckReport",
+  "safe_commands": [
+    "pic phase plan --compact --profile development"
+  ],
+  "settled": false,
+  "settled_blockers": [
+    "CCR residual ledger gate has not run."
+  ],
+  "workflow_usable": true
+}

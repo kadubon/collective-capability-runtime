@@ -1,0 +1,16 @@
+{
+  "maximum_false_liquidity_load": 0.5,
+  "maximum_residual_debt": 0.0,
+  "maximum_salience_obstruction": 0.5,
+  "minimum_accepted_packet_count": 2,
+  "minimum_closure_witness_count": 0,
+  "minimum_effective_edge_count": 1,
+  "minimum_execution_available_path_density": 0.5,
+  "minimum_verification_throughput": 0.5,
+  "profile": "development",
+  "required_authority_status": "explicit-scope-bounded",
+  "required_identity_mode": "declared",
+  "required_rollback_availability": true,
+  "schema_version": "ccr.asi_proxy_threshold.v1",
+  "threshold_id": "threshold.phase_formation.development"
+}

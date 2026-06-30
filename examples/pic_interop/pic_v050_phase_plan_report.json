@@ -1,0 +1,33 @@
+{
+  "accepted": true,
+  "bottlenecks": [
+    {
+      "bottleneck_id": "bn.verifier.route",
+      "kind": "missing_verifier",
+      "rank": 1,
+      "reason": "Packet has a PIC route but no independent CCR verifier record."
+    }
+  ],
+  "candidate_only_reasons": [
+    "Phase planner output is recommendation-only."
+  ],
+  "cannot_promote_because": [
+    "Baseline comparison has not shown resource-matched improvement."
+  ],
+  "packet_id": "packet.pic.interop",
+  "phase_gap_vector": {
+    "baseline_delta": 0.0,
+    "execution_available_path_density": 0.33,
+    "verified_composability": 0.5
+  },
+  "profile": "development",
+  "report_type": "PhaseAccelerationPlan",
+  "safe_commands": [
+    "ccr phase form --profile development --json"
+  ],
+  "settled": false,
+  "settled_blockers": [
+    "The PIC phase plan does not execute or settle CCR packets."
+  ],
+  "workflow_usable": true
+}

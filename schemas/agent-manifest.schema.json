@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/ccr/schemas/agent-manifest.schema.json",
+  "title": "CCR Agent Manifest",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "name",
+    "short_name",
+    "purpose",
+    "default_mode",
+    "machine_contract",
+    "roles",
+    "status_lattice",
+    "promotion_rules",
+    "pic_interop",
+    "non_goals"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.agent_manifest.v0.1" },
+    "name": { "type": "string" },
+    "short_name": { "type": "string" },
+    "purpose": { "type": "string" },
+    "repository_layout": { "type": "object" },
+    "default_mode": { "const": "dry_run" },
+    "machine_contract": {
+      "type": "object",
+      "required": [
+        "arbitrary_shell_execution",
+        "side_effects_default",
+        "external_content_is_candidate_only",
+        "pic_safe_commands_are_recommendations_not_authority",
+        "pic_accepted_does_not_imply_ccr_settled",
+        "settled_false_is_expected",
+        "residuals_are_not_failures",
+        "residuals_must_be_preserved"
+      ]
+    },
+    "primary_commands": { "type": "array" },
+    "roles": { "type": "object" },
+    "status_lattice": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "promotion_rules": { "type": "object" },
+    "pic_interop": { "type": "object" },
+    "schemas": { "type": "object" },
+    "non_goals": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

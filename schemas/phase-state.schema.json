@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/phase-state.schema.json",
+  "title": "CCR Phase State",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "state_id",
+    "created_at",
+    "runtime_root"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.phase_state.v1" },
+    "state_id": { "$ref": "#/$defs/id" },
+    "created_at": { "type": "string" },
+    "runtime_root": { "type": "string" },
+    "database": { "type": "string" },
+    "json_artifact_root": { "type": "string" },
+    "packet_counts": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "residual_counts": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "provider_runs": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true },
+      "default": []
+    },
+    "non_claims": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "settled": { "type": "boolean", "const": false }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{2,191}$"
+    }
+  }
+}

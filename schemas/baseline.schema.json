@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/baseline.schema.json",
+  "title": "CCR Resource-Matched Baseline",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "baseline_id",
+    "comparison_class",
+    "resource_envelope",
+    "metrics",
+    "validity_domain"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.baseline.v1" },
+    "baseline_id": { "$ref": "#/$defs/id" },
+    "comparison_class": { "type": "string", "minLength": 1 },
+    "resource_envelope": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": { "type": "number" },
+      "minProperties": 1
+    },
+    "observable_metrics": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "validity_domain": { "type": "string", "minLength": 1 },
+    "protocol_relative_only": { "type": "boolean", "default": true },
+    "settled": { "type": "boolean", "const": false }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{2,191}$"
+    }
+  }
+}

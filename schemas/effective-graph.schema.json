@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/effective-graph.schema.json",
+  "title": "CCR Effective Packet Graph",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "graph_id",
+    "nodes",
+    "edges",
+    "protocol_relative_only",
+    "proves_real_asi",
+    "settled"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.effective_graph.v1" },
+    "graph_id": { "$ref": "#/$defs/id" },
+    "generated_at": { "type": "string" },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    },
+    "accepted_packet_capital": { "type": "integer", "minimum": 0 },
+    "candidate_only_packets": { "type": "integer", "minimum": 0 },
+    "positive_edge_count": { "type": "integer", "minimum": 0 },
+    "execution_available_path_count": { "type": "integer", "minimum": 0 },
+    "executed_path_count": { "type": "integer", "minimum": 0, "maximum": 0 },
+    "protocol_relative_only": { "type": "boolean", "const": true },
+    "proves_real_asi": { "type": "boolean", "const": false },
+    "settled": { "type": "boolean", "const": false }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{2,191}$"
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "node_id",
+        "packet_id",
+        "status",
+        "positive_contribution",
+        "execution_available",
+        "executed"
+      ],
+      "properties": {
+        "node_id": { "$ref": "#/$defs/id" },
+        "packet_id": { "$ref": "#/$defs/id" },
+        "status": { "type": "string" },
+        "positive_contribution": { "type": "boolean" },
+        "candidate_only": { "type": "boolean" },
+        "execution_available": { "type": "boolean" },
+        "executed": { "type": "boolean", "const": false },
+        "reasons": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "edge_id",
+        "source_node_ids",
+        "target_node_id",
+        "relation_type",
+        "positive_contribution"
+      ],
+      "properties": {
+        "edge_id": { "$ref": "#/$defs/id" },
+        "source_node_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "target_node_id": { "$ref": "#/$defs/id" },
+        "relation_type": { "type": "string" },
+        "positive_contribution": { "type": "boolean" },
+        "settled": { "type": "boolean", "const": false }
+      }
+    }
+  }
+}

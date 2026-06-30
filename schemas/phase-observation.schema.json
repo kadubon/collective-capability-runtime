@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/phase-observation.schema.json",
+  "title": "CCR Phase Observation",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "observation_id",
+    "graph_id",
+    "positive_packet_count",
+    "effective_edge_count",
+    "execution_available_path_density",
+    "residual_debt",
+    "false_liquidity_load",
+    "verification_throughput",
+    "protocol_relative_only",
+    "proves_real_asi",
+    "settled"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.phase_observation.v1" },
+    "observation_id": { "$ref": "#/$defs/id" },
+    "graph_id": { "$ref": "#/$defs/id" },
+    "generated_at": { "type": "string" },
+    "accepted": { "type": "boolean" },
+    "positive_packet_count": { "type": "integer", "minimum": 0 },
+    "accepted_packet_count": { "type": "integer", "minimum": 0 },
+    "effective_edge_count": { "type": "integer", "minimum": 0 },
+    "execution_available_path_count": { "type": "integer", "minimum": 0 },
+    "executed_path_count": { "type": "integer", "minimum": 0, "maximum": 0 },
+    "execution_available_path_density": { "type": "number", "minimum": 0 },
+    "autocatalytic_closure_score": { "type": "number", "minimum": 0 },
+    "closure_witness_count": { "type": "integer", "minimum": 0 },
+    "residual_debt": { "type": "number", "minimum": 0 },
+    "false_liquidity_load": { "type": "number", "minimum": 0 },
+    "salience_obstruction_load": { "type": "number", "minimum": 0 },
+    "verification_throughput": { "type": "number", "minimum": 0 },
+    "phase_gap_vector": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "resource_envelope": {
+      "type": "object",
+      "additionalProperties": true,
+      "default": {}
+    },
+    "protocol_relative_only": { "type": "boolean", "const": true },
+    "proves_real_asi": { "type": "boolean", "const": false },
+    "settled": { "type": "boolean", "const": false }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{2,191}$"
+    }
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/asi-proxy-threshold.schema.json",
+  "title": "CCR ASI-Proxy Threshold Spec or Status",
+  "oneOf": [
+    { "$ref": "#/$defs/spec" },
+    { "$ref": "#/$defs/status" }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{2,191}$"
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "schema_version",
+        "threshold_id",
+        "profile",
+        "minimum_accepted_packet_count",
+        "minimum_effective_edge_count",
+        "maximum_residual_debt"
+      ],
+      "properties": {
+        "schema_version": { "const": "ccr.asi_proxy_threshold.v1" },
+        "threshold_id": { "$ref": "#/$defs/id" },
+        "profile": { "type": "string" },
+        "minimum_accepted_packet_count": { "type": "integer", "minimum": 0 },
+        "minimum_effective_edge_count": { "type": "integer", "minimum": 0 },
+        "minimum_execution_available_path_density": { "type": "number", "minimum": 0 },
+        "minimum_closure_witness_count": { "type": "integer", "minimum": 0 },
+        "minimum_verification_throughput": { "type": "number", "minimum": 0 },
+        "maximum_residual_debt": { "type": "number", "minimum": 0 },
+        "maximum_false_liquidity_load": { "type": "number", "minimum": 0 },
+        "maximum_salience_obstruction": { "type": "number", "minimum": 0 },
+        "required_authority_status": { "type": "string" },
+        "required_identity_mode": { "type": "string" },
+        "required_rollback_availability": { "type": "boolean" }
+      }
+    },
+    "status": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "schema_version",
+        "status_id",
+        "observation_id",
+        "accepted",
+        "certificate_status",
+        "component_status",
+        "protocol_relative_only",
+        "proves_real_asi",
+        "settled"
+      ],
+      "properties": {
+        "schema_version": { "const": "ccr.asi_proxy_threshold_status.v1" },
+        "status_id": { "$ref": "#/$defs/id" },
+        "observation_id": { "$ref": "#/$defs/id" },
+        "accepted": { "type": "boolean" },
+        "certificate_status": { "enum": ["accepted", "abstain", "rejected"] },
+        "component_status": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" }
+        },
+        "failed_components": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "threshold_distance": { "type": "number" },
+        "protocol_relative_only": { "type": "boolean", "const": true },
+        "proves_real_asi": { "type": "boolean", "const": false },
+        "settled": { "type": "boolean", "const": false }
+      }
+    }
+  }
+}

@@ -1,0 +1,163 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "artifact.phase.seed",
+      "content_sha256": "unknown",
+      "description": "Seed packet for a reusable phase-formation walkthrough.",
+      "kind": "markdown",
+      "mime_type": "text/markdown",
+      "uri_or_path": "examples/phase_formation/README.md"
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "claim.phase.seed.execution_available",
+      "claim_text": "A checked packet can expose a dry-run execution-available path without executing it.",
+      "claim_type": "execution_available",
+      "domain": "local CCR development runtime",
+      "must_not_be_read_as": [
+        "executed path",
+        "real ASI detection",
+        "authority grant"
+      ],
+      "receiver_family": [
+        "ai-agent",
+        "human-operator"
+      ],
+      "settlement_target": "provisional",
+      "status": "checked"
+    }
+  ],
+  "created_at": "2026-06-30T00:00:00Z",
+  "dependencies": [],
+  "evidence": [
+    {
+      "checker": "human.example",
+      "evidence_id": "evidence.phase.seed.review",
+      "evidence_type": "human_review",
+      "ref": "examples/phase_formation/README.md",
+      "status": "accepted"
+    }
+  ],
+  "execution_availability": {
+    "claim": "The packet can be used as a dry-run planning input.",
+    "gates": [
+      "operator review",
+      "no external side effects"
+    ],
+    "mode": "dry_run",
+    "rollback": "No external effects are produced.",
+    "side_effect_policy": "dry_run_only"
+  },
+  "extensions": {},
+  "intent": "Provide a checked seed packet for effective graph construction.",
+  "issuer": {
+    "actor_id": "agent.phase.alpha",
+    "actor_type": "agent",
+    "display_name": "Phase Alpha",
+    "signed": false
+  },
+  "lineage": {
+    "children": [
+      "packet.phase.integrator"
+    ],
+    "parents": [],
+    "revision": 0,
+    "supersedes": []
+  },
+  "metrics": {
+    "hazard_load": 0,
+    "queue_load": 0,
+    "residual_load": 0,
+    "reuse_score": 0.9
+  },
+  "packet_id": "packet.phase.seed",
+  "packet_type": "workflow",
+  "pic_interop": {
+    "candidate_kind": "packet_json",
+    "enabled": true,
+    "identity_context_ref": null,
+    "pic_report_refs": [],
+    "profile": "development",
+    "recommended_commands": [
+      "pic agent check --compact --text \"Phase seed packet\" --profile development"
+    ],
+    "settlement_blockers": [],
+    "status_mapping": {
+      "pic_accepted_maps_to": "checked",
+      "pic_settled_false_maps_to": "provisional",
+      "pic_settled_true_maps_to": "checked"
+    }
+  },
+  "provenance": {
+    "content_sha256": "unknown",
+    "lineage_note": "Hand-authored local example.",
+    "origin_kind": "human_seed",
+    "sanitized": true,
+    "source_refs": [
+      "examples/phase_formation/README.md"
+    ]
+  },
+  "residuals": [],
+  "reuse": {
+    "deprecation_conditions": [
+      "The example schema changes incompatibly."
+    ],
+    "intended_downstream_uses": [
+      "phase graph construction",
+      "threshold observation"
+    ],
+    "reuse_mode": "project",
+    "transport_limits": [
+      "Do not treat as settled proof."
+    ]
+  },
+  "risk": {
+    "authority_level": "none",
+    "hazard_level": "none",
+    "mitigations": [
+      "Dry-run only."
+    ],
+    "misuse_risk": "low",
+    "overclaim_risk": "low"
+  },
+  "schema_version": "ccr.packet.v0.1",
+  "scope": {
+    "out_of_scope": [
+      "Production execution",
+      "Real ASI claims"
+    ],
+    "profiles": [
+      "development"
+    ],
+    "refresh_conditions": [
+      "Revalidate after schema updates."
+    ],
+    "validity_domain": "Local CCR phase formation example."
+  },
+  "semantic_edges": [],
+  "status": "checked",
+  "summary": "Checked seed packet with dry-run execution availability.",
+  "verifier_reports": [
+    {
+      "accepted": true,
+      "blocking_residuals": [],
+      "provider": "human",
+      "ref": "examples/phase_formation/README.md",
+      "report_id": "report.phase.seed.review",
+      "settled": false
+    }
+  ],
+  "verifiers": [
+    {
+      "acceptance_criteria": [
+        "Dry-run only and no real ASI claim."
+      ],
+      "command_hint": "ccr phase graph --json",
+      "provider": "human",
+      "purpose": "evidence_route",
+      "required": true,
+      "verifier_id": "verifier.phase.seed.human"
+    }
+  ]
+}

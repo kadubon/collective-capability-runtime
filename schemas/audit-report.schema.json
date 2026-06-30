@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/audit-report.schema.json",
+  "title": "CCR Repository Audit Report",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "report_id",
+    "created_at",
+    "ok",
+    "accepted",
+    "finding_count",
+    "blocking_finding_count",
+    "findings",
+    "settled"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.audit_report.v1" },
+    "report_id": { "$ref": "#/$defs/id" },
+    "created_at": { "type": "string" },
+    "ok": { "type": "boolean" },
+    "accepted": { "type": "boolean" },
+    "settled": { "type": "boolean", "const": false },
+    "finding_count": { "type": "integer", "minimum": 0 },
+    "blocking_finding_count": { "type": "integer", "minimum": 0 },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{2,191}$"
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "finding_id",
+        "kind",
+        "location",
+        "severity",
+        "blocking",
+        "description",
+        "residual_ready"
+      ],
+      "properties": {
+        "finding_id": { "$ref": "#/$defs/id" },
+        "kind": { "type": "string" },
+        "location": { "type": "string" },
+        "severity": { "enum": ["info", "low", "medium", "high", "critical"] },
+        "blocking": { "type": "boolean" },
+        "description": { "type": "string" },
+        "residual_ready": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}

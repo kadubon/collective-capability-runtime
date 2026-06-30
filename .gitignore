@@ -1,0 +1,28 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Local CCR runtime state at repository root
+/ccr.config.json
+/blackboard/
+/tasks/
+/packets/
+/residuals/
+/reports/
+/ccr.sqlite
+
+# Generated outputs when running the phase formation example
+/examples/phase_formation/blackboard/
+/examples/phase_formation/tasks/
+/examples/phase_formation/residuals/
+/examples/phase_formation/reports/providers/
+/examples/phase_formation/phase/
+/examples/phase_formation/ccr.sqlite*

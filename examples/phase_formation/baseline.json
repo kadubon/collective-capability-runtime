@@ -1,0 +1,25 @@
+{
+  "baseline_id": "baseline.phase_formation.resource_matched",
+  "comparison_class": "local_agent_runtime",
+  "metrics": {
+    "effective_edge_count": 1,
+    "execution_available_path_density": 0.25,
+    "positive_packet_count": 1,
+    "verification_throughput": 0.25
+  },
+  "observable_metrics": [
+    "positive_packet_count",
+    "effective_edge_count",
+    "execution_available_path_density",
+    "verification_throughput"
+  ],
+  "protocol_relative_only": true,
+  "resource_envelope": {
+    "agent_count": 2,
+    "profile": "development",
+    "wall_clock_window": "example-static"
+  },
+  "schema_version": "ccr.baseline.v1",
+  "settled": false,
+  "validity_domain": "Local CCR phase formation example."
+}

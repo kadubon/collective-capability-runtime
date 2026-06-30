@@ -1,0 +1,23 @@
+{
+  "accepted": false,
+  "candidate_only_reasons": [
+    "PIC CLI was unavailable, so no PIC execution evidence exists."
+  ],
+  "error": "PIC executable 'pic' is unavailable.",
+  "packet_id": "packet.pic.interop",
+  "provider": "pic",
+  "report_type": "ProviderMissingReport",
+  "residuals": [
+    {
+      "blocking": false,
+      "description": "Install PIC or import a PIC-compatible report.",
+      "kind": "provider_missing"
+    }
+  ],
+  "safe_commands": [
+    "python -m pip install percolation-inversion-compiler"
+  ],
+  "settled": false,
+  "settled_blockers": [],
+  "workflow_usable": false
+}

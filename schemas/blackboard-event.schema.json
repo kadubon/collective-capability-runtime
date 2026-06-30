@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/ccr/schemas/blackboard-event.schema.json",
+  "title": "CCR Blackboard Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "timestamp",
+    "actor",
+    "action",
+    "object_type",
+    "object_id",
+    "status_before",
+    "status_after",
+    "refs",
+    "residuals",
+    "dry_run",
+    "note"
+  ],
+  "properties": {
+    "event_id": { "$ref": "#/$defs/id" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "actor": { "type": "string", "minLength": 1 },
+    "action": { "type": "string", "minLength": 1 },
+    "object_type": {
+      "type": "string",
+      "enum": ["runtime", "task", "packet", "residual", "report", "verifier", "phase", "other"]
+    },
+    "object_id": { "type": "string", "minLength": 1 },
+    "status_before": { "type": ["string", "null"] },
+    "status_after": { "type": ["string", "null"] },
+    "refs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "residuals": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "dry_run": { "type": "boolean" },
+    "note": { "type": "string" }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{2,127}$"
+    }
+  }
+}

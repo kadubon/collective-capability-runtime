@@ -1,0 +1,83 @@
+{
+  "blackboard_refs": [],
+  "completion": {},
+  "constraints": {
+    "allowed_commands": [],
+    "authority_policy": "read_only",
+    "forbidden_actions": [
+      "git operation",
+      "external side effect",
+      "automatic PIC execution"
+    ],
+    "max_runtime_minutes": 30,
+    "network_policy": "none",
+    "side_effect_policy": "dry_run_only"
+  },
+  "created_at": "2026-06-30T00:00:00Z",
+  "dependencies": [],
+  "expected_outputs": [
+    {
+      "acceptance_criteria": [
+        "Packet remains candidate until verifier output is imported."
+      ],
+      "destination": "packets/candidate",
+      "kind": "packet",
+      "schema_ref": "schemas/packet.schema.json"
+    }
+  ],
+  "extensions": {},
+  "inputs": [
+    {
+      "kind": "file",
+      "notes": "Minimal seed document.",
+      "ref": "examples/minimal/seed.md",
+      "required": true
+    }
+  ],
+  "lease": {
+    "lease_required": true,
+    "leased_at": null,
+    "leased_by": null,
+    "renewal_allowed": true,
+    "ttl_minutes": 30
+  },
+  "objective": "Create or inspect a schema-valid candidate packet without external side effects.",
+  "pic_interop": {
+    "candidate_only_until_checked": true,
+    "enabled": true,
+    "identity_context_required": false,
+    "input_mapping": "packet_to_packet_inspect",
+    "output_mapping": "pic_report_to_verifier_report",
+    "pic_profile": "development",
+    "recommended_pic_commands": [
+      "pic agent check --compact --text \"Minimal CCR task\" --profile development"
+    ]
+  },
+  "priority": 70,
+  "residual_policy": {
+    "blocking_residuals_prevent_settlement": true,
+    "minimum_residual_fields": [
+      "residual_id",
+      "kind",
+      "description",
+      "blocking"
+    ],
+    "preserve_residuals": true,
+    "residual_destination": "residuals/open"
+  },
+  "role": "generator",
+  "schema_version": "ccr.task.v0.1",
+  "status": "open",
+  "task_id": "task.minimal.generator",
+  "title": "Prepare minimal CCR packet",
+  "verifier_plan": {
+    "failure_route": "residual",
+    "optional_verifiers": [
+      "human"
+    ],
+    "promotion_gate": "pic_checked",
+    "required_verifiers": [
+      "pic"
+    ]
+  }
+}
