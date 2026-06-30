@@ -185,6 +185,7 @@ def audit_repository(root: Path) -> dict[str, Any]:
     _check_first_time_agent_docs(root, findings)
     _check_public_release_hygiene(root, findings)
     _check_publish_workflow_secrets(root, findings)
+    _check_publish_workflow_order(root, findings)
     _check_generated_example_artifacts(root, findings)
     _check_non_claims(root, findings)
     _check_spdx(root, findings)
@@ -348,6 +349,30 @@ def _check_publish_workflow_secrets(root: Path, findings: list[dict[str, Any]]) 
                     f"Publish workflow must use trusted publishing, not {needle}.",
                 )
             )
+
+
+def _check_publish_workflow_order(root: Path, findings: list[dict[str, Any]]) -> None:
+    path = root / PUBLISH_WORKFLOW
+    if not path.exists():
+        return
+    text = path.read_text(encoding="utf-8")
+    pic_checkout_index = text.find("path: .tmp/pic-root")
+    release_audit_index = text.find("uv run ccr audit release --dist dist --json")
+    if (
+        pic_checkout_index != -1
+        and release_audit_index != -1
+        and pic_checkout_index < release_audit_index
+    ):
+        findings.append(
+            _finding(
+                "publish-pic-checkout-before-release-audit",
+                PUBLISH_WORKFLOW,
+                "high",
+                True,
+                "Publish workflow checks out PIC before the CCR release audit, which can "
+                "contaminate the source-tree hygiene scan.",
+            )
+        )
 
 
 def _check_generated_example_artifacts(root: Path, findings: list[dict[str, Any]]) -> None:

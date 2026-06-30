@@ -109,6 +109,34 @@ def test_audit_fails_when_publish_workflow_uses_pypi_secret(tmp_path):
     assert any(finding["kind"] == "publish-secret-required" for finding in report["findings"])
 
 
+def test_audit_fails_when_publish_workflow_checks_out_pic_before_release_audit(tmp_path):
+    repo = _copy_repo(tmp_path)
+    workflow = repo / PUBLISH_WORKFLOW
+    early_pic_checkout = (
+        "      - run: uv sync --all-extras\n"
+        "      - uses: actions/checkout@v4\n"
+        "        with:\n"
+        "          repository: kadubon/percolation-inversion-compiler\n"
+        "          path: .tmp/pic-root\n"
+    )
+    workflow.write_text(
+        workflow.read_text(encoding="utf-8").replace(
+            "      - run: uv sync --all-extras\n",
+            early_pic_checkout,
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    report = audit_repository(repo)
+
+    assert report["ok"] is False
+    assert any(
+        finding["kind"] == "publish-pic-checkout-before-release-audit"
+        for finding in report["findings"]
+    )
+
+
 def test_audit_fails_when_generated_phase_artifacts_are_present(tmp_path):
     repo = _copy_repo(tmp_path)
     generated = repo / "examples" / "phase_formation" / "ccr.sqlite"

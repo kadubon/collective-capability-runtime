@@ -10,10 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with:
-          repository: kadubon/percolation-inversion-compiler
-          path: .tmp/pic-root
       - uses: astral-sh/setup-uv@v4
       - uses: actions/setup-python@v5
         with:
@@ -33,10 +29,14 @@ jobs:
       - run: uv run ccr schema validate --kind asi-proxy-threshold --file examples/phase_formation/threshold.json
       - run: cp -R examples/phase_formation /tmp/ccr-phase-formation && uv run ccr --root /tmp/ccr-phase-formation phase form --profile development --json
       - run: uv run ccr audit repo --json
-      - run: uv run ccr audit pic --pic-root .tmp/pic-root --json
       - run: uv build
       - run: uv run ccr audit release --dist dist --json
       - run: uvx twine check dist/*
+      - uses: actions/checkout@v4
+        with:
+          repository: kadubon/percolation-inversion-compiler
+          path: .tmp/pic-root
+      - run: uv run ccr audit pic --pic-root .tmp/pic-root --json
       - uses: actions/upload-artifact@v4
         with:
           name: python-package-distributions
