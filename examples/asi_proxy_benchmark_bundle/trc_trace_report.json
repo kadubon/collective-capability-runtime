@@ -1,22 +1,56 @@
 {
-  "accepted": true,
-  "execution_available": true,
-  "execution_blockers": [],
-  "missing_obligations": [],
+  "accepted": false,
+  "execution_available": false,
+  "execution_blockers": [
+    "authority_scope_mismatch",
+    "fixture_only_authority_non_executable"
+  ],
+  "missing_obligations": [
+    "fixture_only_authority_non_executable",
+    "authority_scope_mismatch"
+  ],
   "ok": true,
   "real_world_operation_gate": {
+    "authority_gate": {
+      "note": "",
+      "ok": false,
+      "residual_kinds": [
+        "authority_scope_mismatch",
+        "fixture_only_authority_non_executable"
+      ]
+    },
     "executed": false,
-    "operation_ready": true,
+    "operation_ready": false,
+    "physical_dispatch_ready": false,
+    "provider_dispatch_ready": false,
     "requires_explicit_authority": true,
     "requires_provider_config": true,
-    "safe_commands_are_authority": false
+    "safe_commands_are_authority": false,
+    "side_effect_policy": "dry_run_only"
   },
-  "residuals": [],
+  "residuals": [
+    {
+      "blocking": true,
+      "description": "fixture only authority non executable",
+      "kind": "fixture_only_authority_non_executable",
+      "residual_id": "trc:56c9c788525ba0a7",
+      "step_id": "step:provider-plan"
+    },
+    {
+      "blocking": true,
+      "description": "authority scope mismatch",
+      "kind": "authority_scope_mismatch",
+      "residual_id": "trc:9ac759ffe2ce6d93",
+      "step_id": "step:provider-plan"
+    }
+  ],
   "schema_version": "pic.trc_trace_report.v1",
   "settled": false,
-  "status": "provisional",
+  "status": "diagnostic",
   "trace_id": "trace:asi-proxy:operation-fixture",
   "trc_trace_nf": {
+    "fixture_mode": true,
+    "side_effect_policy": "dry_run_only",
     "steps": [
       {
         "action_type": "provider-handoff",
@@ -38,6 +72,10 @@
           "logical_tick": 1,
           "synchronization": "fixture"
         },
+        "evidence_refs": [
+          "packet:benchmark:checked",
+          "phase-report:benchmark"
+        ],
         "input_ref": "packet:benchmark:checked",
         "output_ref": "provider-plan:benchmark:dry-run",
         "postcondition": {
@@ -48,8 +86,7 @@
           "blocking_residuals_preserved": true,
           "packet_checked": true
         },
-        "residuals": [],
-        "resource_use": {
+        "resource_ledger": {
           "network_calls": 0,
           "provider_calls": 0,
           "wall_time_budget_seconds": 30
@@ -65,14 +102,21 @@
           "observation_error": 0.0,
           "operation_fidelity": "dry_run"
         },
-        "tool_call": "ccr.operation.plan",
+        "tool": "ccr.operation.plan",
         "validity_domain": {
           "environment": "local-benchmark",
           "network": "none",
           "profile": "development"
+        },
+        "witness": {
+          "kind": "dry_run_trace_fixture",
+          "ref": "examples/asi_proxy_benchmark_bundle/trc_agent_trace.json"
         }
       }
-    ]
+    ],
+    "trace_id": "trace:asi-proxy:operation-fixture"
   },
-  "warnings": []
+  "warnings": [
+    "authority freshness/scope/trust blocks operation claims"
+  ]
 }

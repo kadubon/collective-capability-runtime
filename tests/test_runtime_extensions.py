@@ -232,13 +232,16 @@ def test_trc_operation_plan_requires_pic_checked_operation_ready_trace(
             "schema_version": "pic.trc_trace_report.v1",
             "settled": False,
             "trace_id": "trace:complete",
+            "real_world_operation_gate": {"operation_ready": True},
             "trc_trace_nf": {
+                "evaluation_clock": "2026-07-01T00:00:00Z",
                 "steps": [
                     {
                         "action_type": "tool-call",
                         "authority_envelope": {
+                            "expires_at": "2099-01-01T00:00:00Z",
                             "issuer": "operator:test",
-                            "scope": "local_fixture",
+                            "scopes": ["local_fixture", "local-test", "environment:local-test"],
                             "status": "approved",
                         },
                         "input_ref": "input:fixture",
@@ -272,6 +275,49 @@ def test_trc_operation_plan_requires_pic_checked_operation_ready_trace(
     assert dispatch["ok"] is True
     assert dispatch["executed"] is False
     assert dispatch["network_call_performed"] is False
+
+    scope_mismatch = operation_plan_from_pic_trace(
+        {
+            "execution_available": True,
+            "execution_blockers": [],
+            "residuals": [],
+            "schema_version": "pic.trc_trace_report.v1",
+            "settled": False,
+            "trace_id": "trace:scope-mismatch",
+            "real_world_operation_gate": {"operation_ready": True},
+            "trc_trace_nf": {
+                "evaluation_clock": "2026-07-01T00:00:00Z",
+                "steps": [
+                    {
+                        "authority_envelope": {
+                            "expires_at": "2099-01-01T00:00:00Z",
+                            "scope": "other-domain",
+                            "status": "approved",
+                        },
+                        "step_id": "s1",
+                        "validity_domain": {"environment": "local-test"},
+                    }
+                ],
+            },
+        }
+    )
+    execute_without_approval = operation_dispatch(
+        runtime_root,
+        plan=complete,
+        provider_name="http",
+        config={
+            "allow_execute": True,
+            "endpoint": "https://example.invalid/ccr",
+            "side_effect_policy": "provider_webhook_allowed",
+        },
+        execute=True,
+    )
+
+    assert scope_mismatch["real_world_operation_ready"] is False
+    assert "authority_scope_mismatch" in scope_mismatch["execution_blockers"]
+    assert execute_without_approval["ok"] is False
+    assert execute_without_approval["executed"] is False
+    assert execute_without_approval["residual_ready"]["kind"] == "operator_approval_required"
 
 
 def test_import_jsonl_validates_each_line_and_reports_duplicates(
@@ -330,7 +376,7 @@ def test_asi_proxy_bundle_examples_validate_and_import(runtime_root: Path) -> No
     assert validate_instance("residual", residual_data, root=runtime_root).ok
     operation_data = json.loads(operation_plan.read_text(encoding="utf-8"))
     assert validate_instance("trc-operation-plan", operation_data, root=runtime_root).ok
-    assert operation_data["real_world_operation_ready"] is True
+    assert operation_data["real_world_operation_ready"] is False
     assert operation_data["executed"] is False
 
     task_import = import_task_jsonl(

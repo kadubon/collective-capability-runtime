@@ -12,7 +12,11 @@
     "side_effect_policy": "none_without_execute_flag"
   },
   "executed": false,
-  "execution_blockers": [],
+  "execution_blockers": [
+    "authority_scope_mismatch",
+    "fixture_only_authority_non_executable",
+    "trace_not_execution_available"
+  ],
   "non_claims": [
     "CCR does not detect real ASI.",
     "CCR does not create real ASI.",
@@ -71,9 +75,31 @@
     }
   ],
   "pic_trace_report_schema_version": "pic.trc_trace_report.v1",
-  "plan_id": "trc-operation-plan:1e23f097b9994bd188a8a934",
-  "real_world_operation_ready": true,
-  "residuals": [],
+  "plan_id": "trc-operation-plan:b352d6babf6d88a3c92d56e1",
+  "real_world_operation_ready": false,
+  "residuals": [
+    {
+      "blocking": true,
+      "description": "fixture only authority non executable",
+      "kind": "fixture_only_authority_non_executable",
+      "residual_id": "trc:56c9c788525ba0a7",
+      "step_id": "step:provider-plan"
+    },
+    {
+      "blocking": true,
+      "description": "authority scope mismatch",
+      "kind": "authority_scope_mismatch",
+      "residual_id": "trc:9ac759ffe2ce6d93",
+      "step_id": "step:provider-plan"
+    },
+    {
+      "blocking": true,
+      "description": "PIC did not mark this TRC trace as operation-ready.",
+      "kind": "trace_not_execution_available",
+      "residual_id": "operation-residual:9119b989a69e9a8a4e29dd04",
+      "status": "open"
+    }
+  ],
   "schema_version": "ccr.trc_operation_plan.v1",
   "settled": false,
   "source_trace_id": "trace:asi-proxy:operation-fixture"

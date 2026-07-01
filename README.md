@@ -17,11 +17,14 @@ packets form a collective system that improves downstream problem-solving
 relative to a resource-matched baseline while preserving hazards, residuals,
 authority bounds, and non-execution-by-default constraints.
 
-v1.1.0 adds PIC v0.6.0 interop helpers and TRC operation planning. CCR can
-consume a PIC trace-check report, build a `ccr.trc_operation_plan.v1` dry-run
-plan, and dispatch only when an operator supplies provider configuration plus
-explicit `--execute`. The plan remains residual-preserving evidence, not
-settlement or real-world execution proof.
+v1.2.0 adds PIC v0.6.0/v0.7.0 interop helpers and TRC operation planning. CCR can
+consume a PIC trace-check or operation-gate report, build a
+`ccr.trc_operation_plan.v1` dry-run plan, run
+`ccr.trc_operation_preflight.v1`, and dispatch only when an operator supplies
+provider configuration plus explicit `--execute`. Expired, fixture-only,
+time-unknown, untrusted, or out-of-scope authority envelopes fail closed. The
+plan remains residual-preserving evidence, not settlement or real-world
+execution proof.
 
 ## Non-Claims
 
@@ -35,6 +38,8 @@ CCR does not:
 - bypass safety
 - treat PIC `accepted=true` as CCR `settled`
 - treat execution-available paths as executed paths
+- treat `operation_ready`, `provider_dispatch_ready`, or
+  `physical_dispatch_ready` as outcome proof
 - execute provider safe commands automatically
 
 Residuals are expected runtime state. `settled=false` is not a command crash.
@@ -64,6 +69,10 @@ uv run pytest
 uv run ccr audit repo --json
 uv run ccr audit pic --pic-root <PIC_ROOT> --json
 uv run ccr provider health --provider pic --json
+uv run ccr operation preflight --trace pic-trc-gate.json --provider http --config provider.json --json
+uv run ccr operation plan --trace pic-trc-gate.json --json
+uv run ccr operation dispatch --plan trc-operation-plan.json --provider http --config provider.json --execute --json
+uv run ccr operation observe --dispatch-report dispatch.json --observation observation.json --json
 ```
 
 `<PIC_ROOT>` means a local checkout of

@@ -97,7 +97,7 @@ class HttpProvider(Provider):
             headers.setdefault("Content-Type", "application/json")
         request = Request(endpoint, data=body, headers=headers, method=method)
         try:
-            with urlopen(request, timeout=timeout_seconds) as response:
+            with urlopen(request, timeout=timeout_seconds) as response:  # nosec B310
                 raw = response.read(byte_limit + 1)
                 truncated = len(raw) > byte_limit
                 raw = raw[:byte_limit]

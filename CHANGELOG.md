@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.0 - 2026-07-01
+
+- Added `ccr.trc_operation_preflight.v1` and
+  `ccr.trc_operation_observation.v1` schemas plus `ccr operation preflight`,
+  `dispatch`, and `observe` commands.
+- Re-checks TRC authority freshness during operation plan construction so
+  expired, time-unknown, fixture-only, or inactive authority fails closed even
+  when a stale PIC trace report claims readiness.
+- Accepts PIC `pic.trc_operation_gate_report.v1` as a non-executing operation
+  planning input while preserving residuals, `executed=false`, and
+  `settled=false`.
+- Documents that `operation_ready`, `provider_dispatch_ready`, and
+  `physical_dispatch_ready` are not execution or physical outcome proof.
+
 ## 1.1.0 - 2026-07-01
 
 - Added PIC-oriented workcell, distillation, residual, scheduler, foundry, and

@@ -40,7 +40,9 @@ from ccr.extensions import (
     import_residual_jsonl,
     import_task_jsonl,
     operation_dispatch,
+    operation_observe,
     operation_plan_from_pic_trace,
+    operation_preflight_from_pic_trace,
     residual_emit_tasks,
     residual_rank,
     residual_repair_plan,
@@ -317,6 +319,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     operation = sub.add_parser("operation", help="TRC-governed real-world operation plans.")
     operation_sub = operation.add_subparsers(dest="operation_command", required=True)
+    operation_preflight_cmd = operation_sub.add_parser(
+        "preflight",
+        help="Build a non-executing operation preflight from a PIC TRC report.",
+    )
+    operation_preflight_cmd.add_argument("--trace", required=True)
+    operation_preflight_cmd.add_argument("--provider", required=True)
+    operation_preflight_cmd.add_argument("--config")
+    operation_preflight_cmd.add_argument("--json", action="store_true", dest="json_output")
+    operation_preflight_cmd.set_defaults(func=cmd_operation_preflight)
     operation_plan_cmd = operation_sub.add_parser(
         "plan",
         help="Create a dry-run operation plan from a PIC TRC trace report.",
@@ -334,6 +345,24 @@ def build_parser() -> argparse.ArgumentParser:
     operation_execute_cmd.add_argument("--execute", action="store_true")
     operation_execute_cmd.add_argument("--json", action="store_true", dest="json_output")
     operation_execute_cmd.set_defaults(func=cmd_operation_execute)
+    operation_dispatch_cmd = operation_sub.add_parser(
+        "dispatch",
+        help="Explicitly dispatch a TRC operation through a provider.",
+    )
+    operation_dispatch_cmd.add_argument("--plan", required=True)
+    operation_dispatch_cmd.add_argument("--provider", required=True)
+    operation_dispatch_cmd.add_argument("--config")
+    operation_dispatch_cmd.add_argument("--execute", action="store_true")
+    operation_dispatch_cmd.add_argument("--json", action="store_true", dest="json_output")
+    operation_dispatch_cmd.set_defaults(func=cmd_operation_execute)
+    operation_observe_cmd = operation_sub.add_parser(
+        "observe",
+        help="Attach observation evidence to a dispatch report.",
+    )
+    operation_observe_cmd.add_argument("--dispatch-report", required=True)
+    operation_observe_cmd.add_argument("--observation", required=True)
+    operation_observe_cmd.add_argument("--json", action="store_true", dest="json_output")
+    operation_observe_cmd.set_defaults(func=cmd_operation_observe)
 
     verify = sub.add_parser("verify", help="Run or plan a verifier provider.")
     verify.add_argument("--provider", required=True)
@@ -824,6 +853,18 @@ def cmd_operation_plan(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def cmd_operation_preflight(args: argparse.Namespace) -> int:
+    trace_report = _read_object(Path(args.trace))
+    config = _read_object(Path(args.config)) if args.config else None
+    result = operation_preflight_from_pic_trace(
+        trace_report,
+        provider_name=args.provider,
+        config=config,
+    )
+    _emit_json(result)
+    return EXIT_SUCCESS if result.get("ok") else EXIT_POLICY_FAILURE
+
+
 def cmd_operation_execute(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     plan = _read_object(Path(args.plan))
@@ -834,6 +875,15 @@ def cmd_operation_execute(args: argparse.Namespace) -> int:
         provider_name=args.provider,
         config=config,
         execute=bool(args.execute),
+    )
+    _emit_json(result)
+    return EXIT_SUCCESS if result.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_operation_observe(args: argparse.Namespace) -> int:
+    result = operation_observe(
+        dispatch_report=_read_object(Path(args.dispatch_report)),
+        observation=_read_object(Path(args.observation)),
     )
     _emit_json(result)
     return EXIT_SUCCESS if result.get("ok") else EXIT_POLICY_FAILURE

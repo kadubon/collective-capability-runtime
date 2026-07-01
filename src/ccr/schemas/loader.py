@@ -28,6 +28,8 @@ SCHEMA_FILENAMES = {
     "provider": "provider.schema.json",
     "audit-report": "audit-report.schema.json",
     "trc-operation-plan": "trc-operation-plan.schema.json",
+    "trc-operation-preflight": "trc-operation-preflight.schema.json",
+    "trc-operation-observation": "trc-operation-observation.schema.json",
 }
 
 

@@ -71,6 +71,12 @@ and certificate candidate.
 What not to claim: PIC accepted, workflow usable, or settled output alone is
 not CCR settlement and not proof of real ASI.
 
+TRC operation reports: CCR accepts PIC `pic.trc_trace_report.v1` and
+`pic.trc_operation_gate_report.v1` as non-executing inputs. It re-checks
+authority freshness during plan construction so stale hand-written reports fail
+closed. `operation_ready` is not execution, `provider_dispatch_ready` is not
+dispatch, and `physical_dispatch_ready` is not physical outcome proof.
+
 ## Shared Non-Claims
 
 CCR and PIC interop MUST preserve these constraints:
@@ -118,6 +124,7 @@ ccr integrate --report reports/pic/<report>.json --json
 | PIC surface | CCR v1.1 mapping | Compatibility rule |
 |---|---|---|
 | `pic agent check --compact` | `verify --provider pic` plan/execute and `provider import --provider pic` | Optional provider; missing CLI becomes provider-missing residual-ready JSON. |
+| `pic trc operation-gate` | `ccr operation preflight` and `ccr operation plan` | Requires approved/active, fresh, scoped authority. Fixture dry-runs are diagnostic-only and non-executable. |
 | `pic packet inspect` | dry-run command hint | Inspection is never executed automatically. |
 | `pic phase plan --compact` | phase-plan report import and bottleneck diagnostics | `phase_gap_vector`, `bottlenecks`, and `safe_commands` stay diagnostic/task-hint inputs. |
 | `pic runtime collective-certify` | external certificate-candidate evidence | PIC output never settles CCR by itself. |

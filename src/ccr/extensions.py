@@ -649,6 +649,201 @@ def schedule_emit_sqot_report(root: Path) -> dict[str, Any]:
     }
 
 
+_ACTIVE_AUTHORITY_STATUSES = {"active", "approved"}
+_AUTHORITY_BLOCKER_KINDS = {
+    "authority_issuer_untrusted",
+    "authority_scope_mismatch",
+    "authority_status_not_active",
+    "authority_time_unknown",
+    "expired_authority_envelope",
+    "fixture_only_authority_non_executable",
+    "missing_authority_envelope",
+}
+
+
+def _operation_scope_tokens(value: Any) -> set[str]:
+    tokens: set[str] = set()
+    if value in (None, ""):
+        return tokens
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if item in (None, ""):
+                continue
+            tokens.add(str(item))
+            tokens.add(f"{key}:{item}")
+    elif isinstance(value, list | tuple | set):
+        for item in value:
+            tokens.update(_operation_scope_tokens(item))
+    else:
+        tokens.add(str(value))
+    return {token.strip().lower() for token in tokens if token.strip()}
+
+
+def _operation_authority_scope_tokens(authority: dict[str, Any]) -> set[str]:
+    tokens: set[str] = set()
+    for key in (
+        "scope",
+        "scopes",
+        "validity_domain",
+        "validity_domains",
+        "provider_target",
+        "provider_targets",
+        "provider",
+        "providers",
+    ):
+        tokens.update(_operation_scope_tokens(authority.get(key)))
+    return tokens
+
+
+def _operation_scope_matches(authority: dict[str, Any], required: set[str]) -> bool:
+    if not required:
+        return True
+    authority_tokens = _operation_authority_scope_tokens(authority)
+    return "*" in authority_tokens or required.issubset(authority_tokens)
+
+
+def _parse_operation_time(value: Any) -> datetime | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    with suppress(ValueError):
+        parsed = datetime.fromisoformat(text)
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    return None
+
+
+def _operation_reference_time(report: dict[str, Any], trace_nf: dict[str, Any]) -> datetime | None:
+    for value in (
+        report.get("operation_evaluation_clock"),
+        report.get("evaluation_clock"),
+        trace_nf.get("operation_evaluation_clock"),
+        trace_nf.get("evaluation_clock"),
+        trace_nf.get("reference_time"),
+    ):
+        parsed = _parse_operation_time(value)
+        if parsed is not None:
+            return parsed
+    for step in [item for item in trace_nf.get("steps", []) if isinstance(item, dict)]:
+        clock = step.get("clock_cell")
+        if not isinstance(clock, dict):
+            continue
+        for key in ("operation_evaluation_clock", "evaluation_time", "reference_time", "wall_time"):
+            parsed = _parse_operation_time(clock.get(key))
+            if parsed is not None:
+                return parsed
+    return None
+
+
+def _operation_fixture_dry_run(report: dict[str, Any], trace_nf: dict[str, Any]) -> bool:
+    gate = report.get("real_world_operation_gate")
+    side_effect_policy = "none_without_execute_flag"
+    if isinstance(gate, dict):
+        side_effect_policy = str(gate.get("side_effect_policy") or side_effect_policy)
+    side_effect_policy = str(
+        report.get("side_effect_policy") or trace_nf.get("side_effect_policy") or side_effect_policy
+    )
+    return bool(report.get("fixture_mode") or trace_nf.get("fixture_mode")) and (
+        side_effect_policy == "dry_run_only"
+    )
+
+
+def _deep_get_dict(data: dict[str, Any], path: str) -> Any:
+    current: Any = data
+    for part in path.split("."):
+        if not isinstance(current, dict):
+            return None
+        current = current.get(part)
+    return current
+
+
+def _authority_freshness_residuals(
+    trace_report: dict[str, Any],
+    trace_nf: dict[str, Any],
+    *,
+    existing_residuals: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    residuals: list[dict[str, Any]] = []
+    seen = {
+        (str(item.get("kind", "")), str(item.get("step_id", "")))
+        for item in existing_residuals or []
+        if isinstance(item, dict)
+    }
+    trace_id = str(trace_report.get("trace_id", "trace"))
+    reference = _operation_reference_time(trace_report, trace_nf)
+    fixture_dry_run = _operation_fixture_dry_run(trace_report, trace_nf)
+
+    def append_once(kind: str, step_id: str, description: str) -> None:
+        key = (kind, step_id)
+        if key in seen:
+            return
+        residual = _operation_residual(kind, description)
+        residual["step_id"] = step_id
+        residuals.append(residual)
+        seen.add(key)
+
+    for step in [item for item in trace_nf.get("steps", []) if isinstance(item, dict)]:
+        step_id = str(step.get("step_id", "step"))
+        authority = step.get("authority_envelope")
+        if not isinstance(authority, dict) or str(authority.get("status", "")).lower() == "missing":
+            continue
+        status = str(authority.get("status", "")).lower()
+        if status not in _ACTIVE_AUTHORITY_STATUSES:
+            append_once(
+                "authority_status_not_active",
+                step_id,
+                f"Authority status is not active/approved for {trace_id}:{step_id}.",
+            )
+        expires_at = authority.get("expires_at")
+        if expires_at in (None, ""):
+            if not fixture_dry_run:
+                append_once(
+                    "authority_time_unknown",
+                    step_id,
+                    f"Authority expiry/reference time is unknown for {trace_id}:{step_id}.",
+                )
+        else:
+            expiry = _parse_operation_time(expires_at)
+            if expiry is None:
+                append_once(
+                    "authority_time_unknown",
+                    step_id,
+                    f"Authority expiry/reference time is unknown for {trace_id}:{step_id}.",
+                )
+            elif reference is None:
+                if not fixture_dry_run:
+                    append_once(
+                        "authority_time_unknown",
+                        step_id,
+                        f"Authority expiry/reference time is unknown for {trace_id}:{step_id}.",
+                    )
+            elif expiry <= reference:
+                append_once(
+                    "expired_authority_envelope",
+                    step_id,
+                    f"Authority envelope is expired for {trace_id}:{step_id}.",
+                )
+            if str(expires_at) == FIXED_CREATED_AT and fixture_dry_run:
+                append_once(
+                    "fixture_only_authority_non_executable",
+                    step_id,
+                    f"Fixture-only authority is not executable for {trace_id}:{step_id}.",
+                )
+        required_scope = _operation_scope_tokens(step.get("validity_domain"))
+        if not _operation_scope_matches(authority, required_scope):
+            append_once(
+                "authority_scope_mismatch",
+                step_id,
+                f"Authority scope does not cover validity domain for {trace_id}:{step_id}.",
+            )
+    return residuals
+
+
 def operation_plan_from_pic_trace(trace_report: dict[str, Any]) -> dict[str, Any]:
     """Create a TRC-governed real-world operation plan from a PIC trace report.
 
@@ -659,7 +854,7 @@ def operation_plan_from_pic_trace(trace_report: dict[str, Any]) -> dict[str, Any
     if not isinstance(trace_report, dict):
         raise ValueError("trace report must be a JSON object")
     schema = str(trace_report.get("schema_version", ""))
-    pic_checked = schema == "pic.trc_trace_report.v1"
+    pic_checked = schema in {"pic.trc_trace_report.v1", "pic.trc_operation_gate_report.v1"}
     trace_nf = trace_report.get("trc_trace_nf", {})
     if not isinstance(trace_nf, dict):
         trace_nf = {}
@@ -673,30 +868,43 @@ def operation_plan_from_pic_trace(trace_report: dict[str, Any]) -> dict[str, Any
         execution_blockers.append("pic_trc_trace_report_required")
         residuals.append(
             _operation_residual(
-                "pic_trc_trace_report_required",
-                "Real-world operation planning requires a PIC trace-check report.",
+                "pic_trc_trace_or_gate_report_required",
+                "Real-world operation planning requires a PIC trace-check "
+                "or operation-gate report.",
             )
         )
-    if not bool(trace_report.get("execution_available", False)):
+    if schema == "pic.trc_operation_gate_report.v1":
+        pic_operation_ready = bool(trace_report.get("operation_ready", False))
+    else:
+        gate = trace_report.get("real_world_operation_gate")
+        gate_ready = bool(gate.get("operation_ready", False)) if isinstance(gate, dict) else False
+        pic_operation_ready = bool(trace_report.get("execution_available", False)) and gate_ready
+    residuals.extend(
+        _authority_freshness_residuals(
+            trace_report,
+            trace_nf,
+            existing_residuals=residuals,
+        )
+    )
+    authority_blockers = {
+        str(item.get("kind"))
+        for item in residuals
+        if str(item.get("kind")) in _AUTHORITY_BLOCKER_KINDS
+    }
+    execution_blockers.extend(sorted(authority_blockers))
+    if not pic_operation_ready:
         execution_blockers.append("trace_not_execution_available")
         residuals.append(
             _operation_residual(
                 "trace_not_execution_available",
-                "PIC did not mark this TRC trace as execution-available.",
+                "PIC did not mark this TRC trace as operation-ready.",
             )
         )
     operations = [_operation_step(step, index) for index, step in enumerate(steps)]
     ready = (
         pic_checked
-        and bool(trace_report.get("execution_available", False))
-        and not {
-            item
-            for item in execution_blockers
-            if item
-            not in {
-                "trace_not_execution_available",
-            }
-        }
+        and pic_operation_ready
+        and not {item for item in execution_blockers if item}
     )
     return {
         "constraints": {
@@ -724,6 +932,66 @@ def operation_plan_from_pic_trace(trace_report: dict[str, Any]) -> dict[str, Any
         "schema_version": "ccr.trc_operation_plan.v1",
         "settled": False,
         "source_trace_id": str(trace_report.get("trace_id", "trace")),
+    }
+
+
+def operation_preflight_from_pic_trace(
+    trace_report: dict[str, Any],
+    *,
+    provider_name: str,
+    config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a non-executing CCR operation preflight report."""
+
+    plan = operation_plan_from_pic_trace(trace_report)
+    residuals = [dict(item) for item in plan["residuals"] if isinstance(item, dict)]
+    execution_blockers = list(plan["execution_blockers"])
+    if not isinstance(config, dict):
+        execution_blockers.append("provider_config_required")
+        residuals.append(
+            _operation_residual(
+                "provider_config_required",
+                "Operation preflight requires explicit provider config.",
+            )
+        )
+    side_effect_policy = "none_without_execute_flag"
+    if isinstance(config, dict):
+        side_effect_policy = str(config.get("side_effect_policy", side_effect_policy))
+        if config.get("allow_execute") and not config.get("operator_approval_ref"):
+            execution_blockers.append("operator_approval_required")
+            residuals.append(
+                _operation_residual(
+                    "operator_approval_required",
+                    "Provider dispatch requires a user/operator approval reference.",
+                )
+            )
+    provider_dispatch_ready = (
+        bool(plan["real_world_operation_ready"])
+        and isinstance(config, dict)
+        and bool(config.get("allow_execute"))
+        and bool(config.get("operator_approval_ref"))
+        and side_effect_policy not in {"dry_run_only", "none", "none_without_execute_flag"}
+        and not execution_blockers
+    )
+    return {
+        "accepted": True,
+        "executed": False,
+        "execution_blockers": sorted(set(execution_blockers)),
+        "non_claims": [
+            *list(NON_CLAIMS),
+            "Preflight is not dispatch.",
+            "Provider dispatch readiness is not execution.",
+        ],
+        "ok": bool(plan["real_world_operation_ready"]) and not execution_blockers,
+        "operation_plan": plan,
+        "operation_ready": bool(plan["real_world_operation_ready"]),
+        "physical_dispatch_ready": False,
+        "provider": provider_name,
+        "provider_dispatch_ready": provider_dispatch_ready,
+        "residuals": residuals,
+        "schema_version": "ccr.trc_operation_preflight.v1",
+        "settled": False,
+        "side_effect_policy": side_effect_policy,
     }
 
 
@@ -786,6 +1054,35 @@ def operation_dispatch(
             "residual_ready": residual,
             "schema_version": "ccr.trc_operation_dispatch.v1",
         }
+    side_effect_policy = str(config.get("side_effect_policy", "none_without_execute_flag"))
+    if not config.get("operator_approval_ref"):
+        residual = _operation_residual(
+            "operator_approval_required",
+            "Operation execution requires a user/operator approval reference.",
+        )
+        return {
+            "executed": False,
+            "network_call_performed": False,
+            "ok": False,
+            "plan": provider_plan,
+            "provider": provider_name,
+            "residual_ready": residual,
+            "schema_version": "ccr.trc_operation_dispatch.v1",
+        }
+    if side_effect_policy in {"dry_run_only", "none", "none_without_execute_flag"}:
+        residual = _operation_residual(
+            "side_effect_policy_execution_required",
+            "Operation execution requires an explicit non-dry-run side-effect policy.",
+        )
+        return {
+            "executed": False,
+            "network_call_performed": False,
+            "ok": False,
+            "plan": provider_plan,
+            "provider": provider_name,
+            "residual_ready": residual,
+            "schema_version": "ccr.trc_operation_dispatch.v1",
+        }
     report = provider.execute(
         action="trc_operation",
         payload=payload,
@@ -809,6 +1106,43 @@ def operation_dispatch(
         "provider": provider_name,
         "report": report,
         "schema_version": "ccr.trc_operation_dispatch.v1",
+    }
+
+
+def operation_observe(
+    *,
+    dispatch_report: dict[str, Any],
+    observation: dict[str, Any],
+) -> dict[str, Any]:
+    """Attach observation evidence to a dispatch report without proving physical outcome."""
+
+    executed = bool(
+        dispatch_report.get("executed")
+        or dispatch_report.get("network_call_performed")
+        or _deep_get_dict(dispatch_report, "report.network_call_performed")
+    )
+    physical_actuation_observed = bool(observation.get("physical_actuation_observed", False))
+    residuals: list[dict[str, Any]] = []
+    if physical_actuation_observed and not observation.get("verifier_acceptance_ref"):
+        residuals.append(
+            _operation_residual(
+                "physical_outcome_verifier_required",
+                "Physical actuation observation requires a scoped verifier before outcome claims.",
+            )
+        )
+    return {
+        "dispatch_executed": executed,
+        "executed": False,
+        "non_claims": [
+            *list(NON_CLAIMS),
+            "Observation evidence is not physical outcome proof without verifier acceptance.",
+        ],
+        "observation": observation,
+        "ok": not residuals,
+        "physical_outcome_proven": False,
+        "residuals": residuals,
+        "schema_version": "ccr.trc_operation_observation.v1",
+        "settled": False,
     }
 
 
@@ -1210,7 +1544,7 @@ def _operation_step(step: dict[str, Any], index: int) -> dict[str, Any]:
     authority = step.get("authority_envelope")
     postcondition = step.get("postcondition")
     precondition = step.get("precondition")
-    resource_use = step.get("resource_use")
+    resource_use = step.get("resource_use") or step.get("resource_ledger")
     rollback = step.get("rollback_escrow_obligation")
     return {
         "action_type": str(step.get("action_type", "tool-call")),
@@ -1226,7 +1560,7 @@ def _operation_step(step: dict[str, Any], index: int) -> dict[str, Any]:
         "tolerance_ledger": step.get("tolerance_ledger")
         if isinstance(step.get("tolerance_ledger"), dict)
         else {},
-        "tool_call": str(step.get("tool_call", "")),
+        "tool_call": str(step.get("tool_call") or step.get("tool", "")),
         "validity_domain": step.get("validity_domain")
         if isinstance(step.get("validity_domain"), dict)
         else {},

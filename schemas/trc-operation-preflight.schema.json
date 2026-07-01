@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ccr/trc-operation-preflight.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ok",
+    "accepted",
+    "settled",
+    "executed",
+    "operation_ready",
+    "provider_dispatch_ready",
+    "physical_dispatch_ready",
+    "side_effect_policy",
+    "operation_plan",
+    "residuals",
+    "execution_blockers",
+    "non_claims"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ccr.trc_operation_preflight.v1"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "accepted": {
+      "type": "boolean"
+    },
+    "settled": {
+      "const": false
+    },
+    "executed": {
+      "const": false
+    },
+    "operation_ready": {
+      "type": "boolean"
+    },
+    "provider_dispatch_ready": {
+      "type": "boolean"
+    },
+    "physical_dispatch_ready": {
+      "type": "boolean"
+    },
+    "side_effect_policy": {
+      "type": "string"
+    },
+    "operation_plan": {
+      "type": "object"
+    },
+    "residuals": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "execution_blockers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "non_claims": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

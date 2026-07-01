@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ccr/trc-operation-observation.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ok",
+    "settled",
+    "executed",
+    "dispatch_executed",
+    "physical_outcome_proven",
+    "observation",
+    "residuals",
+    "non_claims"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ccr.trc_operation_observation.v1"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "settled": {
+      "const": false
+    },
+    "executed": {
+      "const": false
+    },
+    "dispatch_executed": {
+      "type": "boolean"
+    },
+    "physical_outcome_proven": {
+      "const": false
+    },
+    "observation": {
+      "type": "object"
+    },
+    "residuals": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "non_claims": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

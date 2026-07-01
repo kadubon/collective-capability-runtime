@@ -6,7 +6,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import shutil
-import subprocess
+import subprocess  # nosec B404
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +16,7 @@ from ccr.io import json_file_name
 from ccr.packets.distill import packet_summary_text
 from ccr.time import now_iso
 
+# Security: PIC CLI execution uses shell=False, fixed argv, and a timeout.
 PIC_PROFILES = {"development", "research", "controlled", "federated", "production", "adversarial"}
 
 
@@ -78,7 +79,8 @@ class PicVerifierProvider(BaseVerifierProvider):
             }
         plan = self.plan_verify(packet, profile=profile, packet_path=packet_path)
         argv = [str(executable), *plan["verification_argv"][1:]]
-        completed = subprocess.run(
+        # argv is fixed, shell=False, and the process is timeout-bound.
+        completed = subprocess.run(  # nosec B603
             argv,
             capture_output=True,
             check=False,
