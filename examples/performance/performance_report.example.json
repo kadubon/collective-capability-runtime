@@ -1,0 +1,40 @@
+{
+  "cache_bytes": 0,
+  "cache_entries": 0,
+  "capital_witness_index_entries": 0,
+  "cli_startup_ms": 0,
+  "duplicate_hash_count": 0,
+  "graph_edges": 0,
+  "graph_nodes": 0,
+  "index_rebuild_required": false,
+  "json_read_count": 0,
+  "json_write_count": 0,
+  "jsonl_lines_processed": 0,
+  "non_claims": [
+    "accepted_report_is_not_settlement",
+    "token_extraction_is_not_settlement",
+    "token_admissibility_is_not_capital_admission",
+    "operation_ready_is_not_execution",
+    "provider_dispatch_ready_is_not_dispatch",
+    "physical_dispatch_ready_is_not_physical_outcome_proof",
+    "safe_commands_are_hints_not_authority",
+    "duplicate_mass_cannot_increase_support",
+    "cache_hit_is_not_proof"
+  ],
+  "ok": true,
+  "p50_command_ms": 0,
+  "p95_command_ms": 0,
+  "p99_command_ms": 0,
+  "recommended_speedups": [
+    "stream_jsonl",
+    "reuse_schema_validators",
+    "content_hash_invalidation"
+  ],
+  "residual_index_entries": 0,
+  "schema_validator_cache_hits": 0,
+  "schema_validator_cache_misses": 0,
+  "schema_version": "ccr.performance_report.v1",
+  "settled": false,
+  "sqlite_query_count": 0,
+  "sqlite_write_count": 0
+}

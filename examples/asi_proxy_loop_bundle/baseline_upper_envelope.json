@@ -1,0 +1,17 @@
+{
+  "baseline_id": "baseline:asi-proxy-loop-v090",
+  "baseline_policy_class": "upper-envelope",
+  "confidence_budget": {
+    "alpha": 0.05
+  },
+  "control_observability": {
+    "status": "accepted"
+  },
+  "envelope_coordinates": {
+    "coord:verification-throughput": 0.0
+  },
+  "refresh_contract": {
+    "max_age": "P1D"
+  },
+  "schema_version": "ccr.baseline_upper_envelope.example.v1"
+}

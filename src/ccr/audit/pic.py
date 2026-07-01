@@ -19,10 +19,18 @@ EXPECTED_PIC_COMMANDS = [
     "pic agent check --compact",
     "pic packet inspect",
     "pic phase plan --compact",
+    "pic phase acceleration-report",
     "pic runtime collective-certify",
+    "pic token admissibility",
+    "pic token extract-pipeline",
     "pic trc trace-normalize",
     "pic trc trace-check",
     "pic trc trace-to-packet",
+    "pic trc operation-gate",
+    "pic mcp invocation-preflight",
+    "pic a2a handoff-check",
+    "pic sqot protocol-integrity",
+    "pic bit mec-frontier",
 ]
 
 SUPPORTED_PIC_IMPORT_FIELDS = [
@@ -39,6 +47,15 @@ SUPPORTED_PIC_IMPORT_FIELDS = [
     "cannot_promote_because",
     "execution_blockers",
     "real_world_operation_gate",
+    "capital_witnesses",
+    "certified_acceleration_candidate",
+    "certified_acceleration_interval_candidate",
+    "ccr_tasks",
+    "mcp_tool_gate",
+    "a2a_agent_gate",
+    "operation_residuals",
+    "token_id",
+    "candidate_token",
 ]
 
 PIC_ROUTE_TEXT = "python -m pip install percolation-inversion-compiler"
@@ -166,6 +183,7 @@ def _check_pic_source_tree(
             "percolation-inversion-compiler",
             "pic agent check --compact",
             "pic phase plan --compact",
+            "pic token admissibility",
             "safe_commands",
             "settled=false",
         ],
@@ -198,6 +216,29 @@ def _check_pic_source_tree(
                     "authority_envelope",
                     "resource_ledger",
                     "tolerance_ledger",
+                ],
+            }
+        )
+    if pic_repo_version is not None and (
+        pic_repo_version.startswith("0.8.") or pic_repo_version.startswith("0.9.")
+    ):
+        required_files.update(
+            {
+                "docs/asi-proxy-loop.md": [
+                    "Token extraction is not settlement",
+                    "safe commands are hints",
+                ],
+                "docs/agent-loop-protocol.md": ["CCR `loop next`", "non-mutating"],
+                "docs/token-extraction.md": ["Token admissibility", "capital admission"],
+                "docs/operation-gate.md": ["provider dispatch readiness", "physical outcome"],
+                "docs/phase-acceleration-interval.md": [
+                    "certified_acceleration_interval_candidate",
+                    "proxy-only evidence",
+                ],
+                "docs/cross-repo-loop-conformance.md": ["PIC-TS", "CCR imports"],
+                "examples/asi_proxy_loop_bundle/target.json": ["target:asi-proxy-loop-v090"],
+                "examples/asi_proxy_loop_bundle/pic_token_admissibility.example.json": [
+                    "pic.token_admissibility_report.v1"
                 ],
             }
         )
@@ -243,14 +284,20 @@ def _check_pic_repo_version(version: str | None, findings: list[dict[str, Any]])
             )
         )
         return
-    if not (version.startswith("0.5.") or version.startswith("0.6.")):
+    if not (
+        version.startswith("0.5.")
+        or version.startswith("0.6.")
+        or version.startswith("0.7.")
+        or version.startswith("0.8.")
+        or version.startswith("0.9.")
+    ):
         findings.append(
             _finding(
                 "unsupported-pic-version",
                 "pyproject.toml",
                 "medium",
                 False,
-                f"PIC source version is {version}; CCR v1.1 matrix targets PIC v0.5.x/v0.6.x.",
+                f"PIC source version is {version}; CCR v1.4 matrix targets PIC v0.5.x-v0.9.x.",
                 repair_hint="Review INTEROP_PIC.md before relying on this PIC version.",
             )
         )
@@ -305,6 +352,8 @@ def _check_non_claim_boundary(
             "docs/porting.md",
             "docs/phase-acceleration.md",
             "docs/v060-audit.md",
+            "docs/asi-proxy-loop.md",
+            "docs/token-extraction.md",
         ],
     )
     required_ccr = [

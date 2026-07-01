@@ -1,0 +1,55 @@
+{
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/trace-indexed-resource-flow.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "description": "Additive v0.9/v1.4 public report schema. It validates the shared safety envelope while allowing repo-specific fields.",
+  "properties": {
+    "accepted": {
+      "type": "boolean"
+    },
+    "blockers": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "capital_admitted": {
+      "type": "boolean"
+    },
+    "certified_acceleration_candidate": {
+      "type": "boolean"
+    },
+    "certified_acceleration_interval_candidate": {
+      "type": "boolean"
+    },
+    "executed": {
+      "type": "boolean"
+    },
+    "non_claims": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "residuals": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "type": "string"
+    },
+    "settled": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema_version"
+  ],
+  "title": "Trace Indexed Resource Flow",
+  "type": "object"
+}

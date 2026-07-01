@@ -57,6 +57,18 @@
   },
   "primary_commands": [
     {
+      "command": "ccr loop next --json",
+      "purpose": "Return the next advisory non-mutating residual or token action for the ASI-proxy loop."
+    },
+    {
+      "command": "ccr token import --file token-report.json --provider pic --json",
+      "purpose": "Import a token candidate as task/residual work without settlement or capital admission."
+    },
+    {
+      "command": "ccr performance report --json",
+      "purpose": "Inspect local cache, index, duplicate, and residual counts without network or provider execution."
+    },
+    {
       "command": "ccr agent explain --json",
       "purpose": "Return this contract, schemas, modes, and next safe commands."
     },

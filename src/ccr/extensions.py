@@ -12,7 +12,7 @@ import tempfile
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TypedDict, cast
 
 from ccr.adapters.pic import PicVerifierProvider
 from ccr.blackboard.events import make_event
@@ -27,8 +27,10 @@ from ccr.residuals.store import iter_residuals, save_residual
 from ccr.runtime.init import init_runtime
 from ccr.runtime.state import packet_counts, task_counts
 from ccr.schemas.validation import validate_instance
+from ccr.storage.sqlite import index_runtime, init_database
 from ccr.tasks.scheduler import next_task
 from ccr.tasks.store import iter_tasks, submit_task, validate_task
+from ccr.time import now_iso
 
 FIXED_CREATED_AT = "1970-01-01T00:00:00Z"
 WORKCELL_ROLES = (
@@ -40,6 +42,14 @@ WORKCELL_ROLES = (
     "integrator",
     "scheduler",
 )
+
+
+class SmoothBatchItem(TypedDict):
+    kind: str
+    priority: int
+    reason: str
+
+
 WORKCELL_TEMPLATES = {
     "benchmark-compare",
     "packet-distillation",
@@ -489,10 +499,16 @@ def foundry_dashboard(root: Path) -> dict[str, Any]:
         str(packet.get("packet_id")): packet_blocking_reasons(packet, blocking_index)
         for packet in packets
     }
+    content_hashes = [_packet_content_hash(packet) for packet in packets]
+    duplicate_hashes = sorted(
+        {content_hash for content_hash in content_hashes if content_hashes.count(content_hash) > 1}
+    )
     metrics = {
+        "alias_count": 0,
         "baseline_refresh_age": "unknown",
         "blocking_residuals": sum(1 for item in residuals if item.get("blocking")),
         "blocking_residual_edge_count": blocking_index["edge_count"],
+        "canonical_packet_count": len(set(content_hashes)),
         "candidate_inflow": sum(1 for packet in packets if packet.get("status") == "candidate"),
         "capital_admitted_packet_count": sum(
             1
@@ -506,9 +522,12 @@ def foundry_dashboard(root: Path) -> dict[str, Any]:
             1 for reasons in packet_reasons.values() if "dependency_blocked" in reasons
         ),
         "diagnostic_reserve": "unknown",
+        "duplicate_mass_count": max(0, len(content_hashes) - len(set(content_hashes))),
+        "exact_duplicate_count": len(duplicate_hashes),
         "lineage_blocked_packet_count": sum(
             1 for reasons in packet_reasons.values() if "lineage_blocked" in reasons
         ),
+        "near_duplicate_candidate_count": 0,
         "negative_liquidity_count": sum(
             1 for item in residuals if item.get("kind") == "negative_liquidity"
         ),
@@ -528,6 +547,7 @@ def foundry_dashboard(root: Path) -> dict[str, Any]:
         ),
         "positive_progress_packets": len(checked_positive),
         "provider_run_count": _json_count(root / "reports" / "providers"),
+        "quotient_type_count": len(set(content_hashes)),
         "queue_latency": "unknown",
         "settled_packet_growth": sum(
             1 for packet in checked_positive if packet.get("status") == "settled"
@@ -595,7 +615,7 @@ def foundry_allocate(
     cuts = foundry_active_cuts(root)["active_cuts"]
     primary = cuts[0] if cuts else {"cut_kind": "baseline_refresh_cut", "priority": 40}
     residuals: list[dict[str, Any]] = []
-    accepted_strategies = {"active-cut", "phase-response"}
+    accepted_strategies = {"active-cut", "phase-response", "smooth-asi-proxy"}
     if strategy not in accepted_strategies:
         residuals.append(_diagnostic_residual("foundry", strategy, "unsupported_strategy"))
     utility_interval: list[float] | None = None
@@ -642,6 +662,33 @@ def foundry_allocate(
         "recommended_settlement_effort": primary["cut_kind"],
         "verifier_capacity_allocation": "spread_across_active_cuts",
     }
+    if strategy == "smooth-asi-proxy":
+        smooth = foundry_smooth_next(root)
+        allocation.update(
+            {
+                "baseline_refresh_priority": max(
+                    int(allocation["baseline_refresh_priority"]),
+                    _priority_from_batch(smooth["recommended_batch"], "baseline_refresh"),
+                ),
+                "duplicate_suppression_priority": _priority_from_batch(
+                    smooth["recommended_batch"],
+                    "duplicate_suppression",
+                ),
+                "expected_capital_interval_narrowing": smooth[
+                    "expected_capital_interval_narrowing"
+                ],
+                "expected_latency_reduction": smooth["expected_latency_reduction"],
+                "expected_residual_reduction": smooth["expected_residual_reduction"],
+                "quotient_compression_priority": _priority_from_batch(
+                    smooth["recommended_batch"],
+                    "quotient_compression",
+                ),
+                "token_extraction_priority": _priority_from_batch(
+                    smooth["recommended_batch"],
+                    "token_extraction",
+                ),
+            }
+        )
     if utility_interval is not None and utility_interval[0] > 0:
         allocation["phase_response_utility_interval"] = utility_interval
         allocation["verifier_capacity_allocation"] = "prioritize_positive_phase_response_cut"
@@ -669,6 +716,128 @@ def foundry_allocate(
         "settled": False,
         "strategy": strategy,
         "tasks_written": task_ids,
+    }
+
+
+def foundry_smooth_next(root: Path) -> dict[str, Any]:
+    """Return an advisory smooth ASI-proxy work batch without mutation."""
+
+    dashboard = foundry_dashboard(root)
+    metrics = dashboard["metrics"]
+    batch: list[SmoothBatchItem] = [
+        {
+            "kind": "residual_repair",
+            "priority": 90 if metrics.get("blocking_residuals", 0) else 20,
+            "reason": "reduce blocking residual count",
+        },
+        {
+            "kind": "baseline_refresh",
+            "priority": 80 if metrics.get("baseline_refresh_age") == "unknown" else 30,
+            "reason": "refresh baseline upper envelope before outcome comparison",
+        },
+        {
+            "kind": "duplicate_suppression",
+            "priority": 75 if metrics.get("duplicate_mass_count", 0) else 20,
+            "reason": "duplicate mass cannot increase support",
+        },
+        {
+            "kind": "token_extraction",
+            "priority": 65,
+            "reason": "convert finite traces into candidate tokens for checking",
+        },
+        {
+            "kind": "quotient_compression",
+            "priority": 60 if metrics.get("canonical_packet_count", 0) else 25,
+            "reason": "reduce redundant packet mass under declared quotient context",
+        },
+    ]
+    batch = sorted(batch, key=lambda item: (-int(item["priority"]), str(item["kind"])))
+    return {
+        "diagnostic_reserve_preserved": True,
+        "duplicate_suppression": "prioritized"
+        if metrics.get("duplicate_mass_count", 0)
+        else "watch",
+        "expected_capital_interval_narrowing": "diagnostic:requires_interval_report",
+        "expected_latency_reduction": "diagnostic:compact_loop_and_active_cut_batch",
+        "expected_residual_reduction": "diagnostic:blocking_residuals_first",
+        "external_execution": False,
+        "mode": "advisory",
+        "mutated_runtime": False,
+        "network_call_performed": False,
+        "non_claims": [*NON_CLAIMS, "smooth_next_is_advisory_only"],
+        "ok": True,
+        "recommended_batch": batch,
+        "schema_version": "ccr.foundry_smooth_next.v1",
+        "settled": False,
+    }
+
+
+def foundry_frontier(root: Path) -> dict[str, Any]:
+    """Return BIT-inspired frontier diagnostics from local reports and packets."""
+
+    dashboard = foundry_dashboard(root)
+    metrics = dashboard["metrics"]
+    reports_dir = root / "reports"
+    cegar_blockers = 0
+    mec_candidates = 0
+    dominated = 0
+    unseen = 0.0
+    duplicate = float(metrics.get("duplicate_mass_count", 0))
+    false_entry = 0.0
+    for path in sorted(reports_dir.rglob("*.json") if reports_dir.exists() else []):
+        with suppress(Exception):
+            data = read_json(path)
+        if not isinstance(data, dict):
+            continue
+        schema = str(data.get("schema_version", ""))
+        if "cegar" in schema:
+            cegar_blockers += len(data.get("blockers", []))
+        if "mec_frontier" in schema:
+            mec_candidates += len(data.get("frontier", []))
+            dominated += int(_float_value(data.get("dominated_certificate_count")))
+        unseen += _float_value(data.get("unseen_frontier_mass"))
+        duplicate += _float_value(data.get("duplicate_frontier_mass"))
+        false_entry += _float_value(data.get("false_entry_bound"))
+    return {
+        "cegar_blocker_count": cegar_blockers,
+        "dominated_certificate_count": dominated,
+        "duplicate_frontier_mass": duplicate,
+        "false_entry_bound": false_entry,
+        "mec_candidate_count": mec_candidates,
+        "non_claims": [*NON_CLAIMS, "frontier_report_does_not_promote_diagnostic_clauses"],
+        "ok": True,
+        "schema_version": "ccr.foundry_frontier.v1",
+        "settled": False,
+        "unseen_frontier_mass": unseen,
+    }
+
+
+def foundry_voi(root: Path) -> dict[str, Any]:
+    """Return local expected-value-of-information proxy diagnostics."""
+
+    dashboard = foundry_dashboard(root)
+    metrics = dashboard["metrics"]
+    blocking = int(metrics.get("blocking_residuals", 0))
+    duplicate = int(metrics.get("duplicate_mass_count", 0))
+    score = (
+        blocking * 3
+        + duplicate * 2
+        + (1 if metrics.get("baseline_refresh_age") == "unknown" else 0)
+    )
+    return {
+        "diagnostic_reserve_preserved": True,
+        "expected_value_of_information_proxy": score,
+        "next_best_probe": "repair_blocking_residual"
+        if blocking
+        else "refresh_baseline"
+        if metrics.get("baseline_refresh_age") == "unknown"
+        else "deduplicate_packets"
+        if duplicate
+        else "collect_candidate_token_trace",
+        "non_claims": [*NON_CLAIMS, "voi_is_a_local_priority_proxy_not_expected_truth"],
+        "ok": True,
+        "schema_version": "ccr.foundry_voi.v1",
+        "settled": False,
     }
 
 
@@ -911,19 +1080,37 @@ def phase_acceleration_report(
         and not all(value == 0 for value in tau_baseline.values())
     )
     report_ok = bool(target_report["ok"] and baseline_report["ok"] and not blockers)
+    interval_evidence = _phase_interval_evidence(
+        target=target,
+        baseline=baseline,
+        margin_delta=margin_delta,
+        certified_candidate=certified_candidate,
+    )
     report = {
+        "acceleration_interval": interval_evidence["acceleration_interval"],
         "authority_ok": target_report["authority_ok"],
         "baseline_envelope_ok": baseline_report["ok"],
+        "baseline_refresh_age": interval_evidence["baseline_refresh_age"],
+        "baseline_stale": interval_evidence["baseline_stale"],
         "blockers": blockers,
         "capital_witnesses": normalized_witnesses,
         "certified_acceleration_candidate": certified_candidate,
+        "certified_acceleration_interval_candidate": interval_evidence[
+            "certified_acceleration_interval_candidate"
+        ],
+        "charge_upper_bounds": interval_evidence["charge_upper_bounds"],
+        "confidence_budget": interval_evidence["confidence_budget"],
+        "dynamic_regime_surface_ref": interval_evidence["dynamic_regime_surface_ref"],
+        "evidence_status": interval_evidence["evidence_status"],
         "finality_ok": all(item.get("finality_valid") is True for item in normalized_witnesses)
         if normalized_witnesses
         else False,
         "hazard_ok": target_report["hazard_ok"],
         "horizon": target.get("horizon"),
+        "interval_residuals": interval_evidence["interval_residuals"],
         "k_alt_lower": dict(sorted(k_alt.items())),
         "k_baseline_upper": dict(sorted(k_baseline.items())),
+        "margin_interval": interval_evidence["margin_interval"],
         "margin_delta": margin_delta,
         "non_claims": [
             *NON_CLAIMS,
@@ -935,10 +1122,16 @@ def phase_acceleration_report(
         "residuals": sorted(residuals, key=lambda item: item["kind"]),
         "schema_version": "ccr.phase_acceleration_report.v1",
         "settled": False,
+        "stopped_evidence_sheaf_ref": interval_evidence["stopped_evidence_sheaf_ref"],
         "target_id": target.get("target_id"),
         "target_validity_ok": target_report["ok"],
         "tau_alt": tau_alt,
         "tau_baseline_upper": tau_baseline,
+        "time_uniform_evidence": interval_evidence["time_uniform_evidence"],
+        "total_charge_upper_bound": interval_evidence["total_charge_upper_bound"],
+        "transport_error_upper_bound": interval_evidence["charge_upper_bounds"].get(
+            "transport_error_upper_bound"
+        ),
         "viability_ok": target_report["viability_ok"],
     }
     reports_dir = root / "phase" / "acceleration"
@@ -1004,6 +1197,631 @@ def phase_capital_witness_list(root: Path) -> dict[str, Any]:
         "schema_version": "ccr.capital_witness_list.v1",
         "settled": False,
         "witnesses": witnesses,
+    }
+
+
+def compact_report(
+    payload: dict[str, Any],
+    *,
+    next_safe_action: str | None = None,
+) -> dict[str, Any]:
+    """Build a deterministic compact agent-facing summary."""
+
+    residuals = [item for item in payload.get("residuals", []) if isinstance(item, dict)]
+    blockers = payload.get("blockers")
+    if not isinstance(blockers, list):
+        blockers = _blocking_kinds(residuals)
+    if next_safe_action is None:
+        recommended = payload.get("recommended_action")
+        recommended_safe_command = (
+            recommended.get("safe_command", "") if isinstance(recommended, dict) else ""
+        )
+        next_safe_action = str(
+            payload.get("next_safe_action")
+            or payload.get("safe_command")
+            or recommended_safe_command
+        )
+    return {
+        "accepted": payload.get("accepted"),
+        "blockers": sorted(str(item) for item in blockers if str(item)),
+        "next_safe_action": next_safe_action,
+        "non_claims": list(payload.get("non_claims", NON_CLAIMS)),
+        "ok": bool(payload.get("ok", False)),
+        "residual_count": len(residuals),
+        "schema_version": "ccr.compact_report.v1",
+        "settled": bool(payload.get("settled", False)),
+    }
+
+
+def loop_init(root: Path, *, target: dict[str, Any], baseline: dict[str, Any]) -> dict[str, Any]:
+    """Initialize a local ASI-proxy loop state without external execution."""
+
+    init_runtime(root)
+    loop_dir = _loop_dir(root)
+    loop_dir.mkdir(parents=True, exist_ok=True)
+    target_path = loop_dir / "target.json"
+    baseline_path = loop_dir / "baseline_upper_envelope.json"
+    write_json_atomic(target_path, target, overwrite=True)
+    write_json_atomic(baseline_path, baseline, overwrite=True)
+    state = {
+        "baseline_ref": str(baseline.get("baseline_id") or baseline_path),
+        "baseline_upper_envelope_path": str(baseline_path),
+        "created_at": now_iso(),
+        "external_execution": False,
+        "last_import_refs": [],
+        "mode": "local_advisory",
+        "network_call_performed": False,
+        "non_claims": [
+            *list(NON_CLAIMS),
+            "loop_state_is_not_execution_authority",
+            "safe_commands_are_hints_only",
+        ],
+        "ok": True,
+        "schema_version": "ccr.loop_state.v1",
+        "settled": False,
+        "target_id": str(target.get("target_id") or "target"),
+        "target_path": str(target_path),
+    }
+    write_json_atomic(_loop_state_path(root), state, overwrite=True)
+    return {
+        "loop_state": state,
+        "mutated_runtime": True,
+        "ok": True,
+        "schema_version": "ccr.loop_init.v1",
+        "settled": False,
+    }
+
+
+def loop_status(root: Path) -> dict[str, Any]:
+    """Return local loop status without mutating runtime."""
+
+    state = _read_loop_state(root)
+    initialized = bool(state)
+    dashboard = foundry_dashboard(root)
+    return {
+        "active_cut_count": len(dashboard.get("active_cuts", [])),
+        "loop_initialized": initialized,
+        "loop_state": state,
+        "metrics": dashboard.get("metrics", {}),
+        "mutated_runtime": False,
+        "non_claims": [*list(NON_CLAIMS), "loop_status_is_read_only"],
+        "ok": True,
+        "schema_version": "ccr.loop_status.v1",
+        "settled": False,
+    }
+
+
+def loop_next(root: Path, *, compact: bool = False) -> dict[str, Any]:
+    """Return the next safe advisory loop action without mutating runtime."""
+
+    dashboard = foundry_dashboard(root)
+    cuts = [item for item in dashboard.get("active_cuts", []) if isinstance(item, dict)]
+    active_cut = str(cuts[0].get("cut_kind")) if cuts else "baseline_refresh_cut"
+    blocking = [
+        item for item in iter_residuals(root, status="open") if item.get("blocking") is True
+    ][:5]
+    tasks = foundry_recommended_tasks(root, cut_kind=active_cut)[:5]
+    state = _read_loop_state(root)
+    safe_command = _loop_safe_command(active_cut, state=state)
+    action_kind = _loop_action_kind(active_cut, bool(blocking), bool(tasks))
+    result = {
+        "active_cut": active_cut,
+        "blocking_residuals": [_ranked_residual(item) for item in blocking],
+        "candidate_tasks": [
+            {
+                "objective": str(task.get("objective", "")),
+                "role": str(task.get("role", "")),
+                "task_id": str(task.get("task_id", "")),
+                "title": str(task.get("title", "")),
+            }
+            for task in tasks
+        ],
+        "mode": "advisory",
+        "mutated_runtime": False,
+        "non_claims": [
+            *list(NON_CLAIMS),
+            "loop_next_does_not_execute_commands",
+            "safe_commands_are_hints_only",
+        ],
+        "ok": True,
+        "recommended_action": {
+            "external_execution": False,
+            "kind": action_kind,
+            "requires_operator_approval": False,
+            "safe_command": safe_command,
+            "writes_runtime": False,
+        },
+        "schema_version": "ccr.loop_next.v1",
+        "settled": False,
+        "why": _loop_next_reasons(active_cut, dashboard, blocking),
+    }
+    if compact:
+        return {
+            **compact_report(result, next_safe_action=safe_command),
+            "recommended_action": result["recommended_action"],
+            "schema_version": "ccr.loop_next.compact.v1",
+        }
+    return result
+
+
+def loop_step(root: Path, *, strategy: str, write_tasks: bool = False) -> dict[str, Any]:
+    """Run one advisory foundry step; writes tasks only when explicitly requested."""
+
+    allocation = foundry_allocate(root, strategy=strategy, write_tasks=write_tasks)
+    return {
+        "allocation": allocation,
+        "mutated_runtime": bool(allocation.get("mutated_runtime")),
+        "non_claims": [*list(NON_CLAIMS), "loop_step_is_not_provider_execution"],
+        "ok": bool(allocation.get("ok")),
+        "schema_version": "ccr.loop_step.v1",
+        "settled": False,
+        "strategy": strategy,
+    }
+
+
+def loop_import_report(root: Path, *, file: Path, provider: str) -> dict[str, Any]:
+    """Import a local report into loop storage and materialize valid embedded objects."""
+
+    init_runtime(root)
+    report = read_json(file)
+    if not isinstance(report, dict):
+        raise ValueError("loop import-report requires a JSON object")
+    import_id = stable_id("loop-report", provider, report)
+    imports_dir = _loop_dir(root) / "imports"
+    imports_dir.mkdir(parents=True, exist_ok=True)
+    report_path = imports_dir / f"{json_file_name(import_id)}.json"
+    write_json_atomic(
+        report_path,
+        {**report, "ccr_loop_import_id": import_id, "ccr_loop_provider": provider},
+        overwrite=True,
+    )
+    materialized = _materialize_loop_report(root, report, provider=provider, import_id=import_id)
+    _append_loop_import_ref(root, import_id)
+    return {
+        "import_id": import_id,
+        "materialized": materialized,
+        "mutated_runtime": True,
+        "ok": True,
+        "path": str(report_path),
+        "provider": provider,
+        "schema_version": "ccr.loop_import_report.v1",
+        "settled": False,
+    }
+
+
+def loop_import_jsonl(root: Path, *, kind: str, file: Path, provider: str) -> dict[str, Any]:
+    """Import loop JSONL through existing task/residual/capital-witness importers."""
+
+    if kind == "tasks":
+        report = import_task_jsonl(root, file=file, provider=provider)
+    elif kind == "residuals":
+        report = import_residual_jsonl(root, file=file, provider=provider)
+    elif kind == "capital-witnesses":
+        report = phase_capital_witness_import(root, file=file, provider=provider)
+    else:
+        raise ValueError("loop import-jsonl kind must be tasks, residuals, or capital-witnesses")
+    return {
+        "import_report": report,
+        "kind": kind,
+        "mutated_runtime": True,
+        "ok": bool(report.get("ok", False)),
+        "provider": provider,
+        "schema_version": "ccr.loop_import_jsonl.v1",
+        "settled": False,
+    }
+
+
+def loop_export_bundle(root: Path, *, output_dir: Path) -> dict[str, Any]:
+    """Export a local cross-repo loop bundle without network or provider execution."""
+
+    init_runtime(root)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    state = _read_loop_state(root)
+    target = _read_optional_json_path(state.get("target_path")) if state else {}
+    baseline = _read_optional_json_path(state.get("baseline_upper_envelope_path")) if state else {}
+    witnesses = phase_capital_witness_list(root).get("witnesses", [])
+    files: dict[str, Any] = {
+        "a2a_gate_binding.example.json": _loop_a2a_example(),
+        "baseline_upper_envelope.json": baseline,
+        "ccr_loop_state.json": state or _empty_loop_state(),
+        "foundry_active_cuts.json": foundry_active_cuts(root),
+        "mcp_gate_binding.example.json": _loop_mcp_example(),
+        "observation_residuals.example.json": _loop_observation_example(),
+        "performance_report.example.json": loop_bench(root),
+        "pic_extraction_pipeline.example.json": _loop_token_pipeline_example(),
+        "pic_token_admissibility.example.json": _loop_token_admissibility_example(),
+        "target.json": target,
+    }
+    written: list[str] = []
+    for name, payload in files.items():
+        path = output_dir / name
+        write_json_atomic(path, payload, overwrite=True)
+        written.append(str(path))
+    capital_path = output_dir / "capital_witnesses.jsonl"
+    capital_path.write_text(
+        "".join(canonical_dumps(item) + "\n" for item in witnesses),
+        encoding="utf-8",
+    )
+    written.append(str(capital_path))
+    if target and baseline:
+        acceleration = phase_acceleration_report(
+            root,
+            target=target,
+            baseline=baseline,
+            capital_witnesses=[item for item in witnesses if isinstance(item, dict)],
+        )
+    else:
+        acceleration = {
+            "certified_acceleration_interval_candidate": False,
+            "interval_residuals": [
+                _diagnostic_residual("loop", "bundle", "target_and_baseline_required")
+            ],
+            "ok": False,
+            "schema_version": "ccr.phase_acceleration_report.v1",
+            "settled": False,
+        }
+    path = output_dir / "phase_acceleration_interval_report.expected.json"
+    write_json_atomic(path, acceleration, overwrite=True)
+    written.append(str(path))
+    return {
+        "file_count": len(written),
+        "mutated_runtime": False,
+        "ok": True,
+        "output_dir": str(output_dir),
+        "schema_version": "ccr.loop_export_bundle.v1",
+        "settled": False,
+        "written_files": sorted(written),
+    }
+
+
+def loop_bench(root: Path) -> dict[str, Any]:
+    """Return deterministic local performance and scale diagnostics."""
+
+    init_runtime(root)
+    status = loop_status(root)
+    return {
+        "json_backend": "stdlib",
+        "loop_initialized": status["loop_initialized"],
+        "metrics": status["metrics"],
+        "mutated_runtime": False,
+        "non_claims": [
+            *list(NON_CLAIMS),
+            "performance_report_is_diagnostic_not_wall_clock_proof",
+        ],
+        "ok": True,
+        "packet_counts_by_status": packet_counts(root),
+        "schema_version": "ccr.loop_performance_report.v1",
+        "settled": False,
+        "task_counts_by_status": task_counts(root),
+        "wall_clock_thresholds_enforced": False,
+    }
+
+
+def loop_doctor(root: Path) -> dict[str, Any]:
+    """Return loop health diagnostics without mutation."""
+
+    availability = availability_report(root)
+    status = loop_status(root)
+    residuals: list[dict[str, Any]] = []
+    if not status["loop_initialized"]:
+        residuals.append(_diagnostic_residual("loop", "state", "loop_state_not_initialized"))
+    if not availability.get("operation_dispatch_enabled", False):
+        residuals.append(
+            _diagnostic_residual("loop", "availability", "operation_dispatch_disabled")
+        )
+    blockers = _blocking_kinds(residuals)
+    return {
+        "availability": availability,
+        "blockers": blockers,
+        "mutated_runtime": False,
+        "ok": not blockers,
+        "residuals": sorted(residuals, key=lambda item: item["kind"]),
+        "schema_version": "ccr.loop_doctor.v1",
+        "settled": False,
+        "status": status,
+    }
+
+
+def token_distill(root: Path, *, trace: dict[str, Any]) -> dict[str, Any]:
+    """Distill a trace into a candidate token report without executing it."""
+
+    init_runtime(root)
+    trace_id = str(trace.get("trace_id") or trace.get("id") or _hash_text(canonical_dumps(trace)))
+    residuals = _missing_residuals(
+        "token",
+        trace_id,
+        trace,
+        ("trace_id", "steps", "provenance", "task_context"),
+    )
+    if not (trace.get("instrumentation_contract") or trace.get("instrumentation_contract_ref")):
+        residuals.append(
+            _diagnostic_residual("token", trace_id, "instrumentation_contract_required")
+        )
+    blockers = _blocking_kinds(residuals)
+    token_id = stable_id("token-candidate", trace_id, trace)
+    return {
+        "accepted": not blockers,
+        "blockers": blockers,
+        "candidate_token": {
+            "candidate_only": True,
+            "content_hash": stable_id("trace", trace),
+            "token_id": token_id,
+            "trace_id": trace_id,
+        },
+        "non_claims": [
+            *NON_CLAIMS,
+            "token_distill_does_not_execute_token",
+            "token_distill_is_not_settlement",
+        ],
+        "ok": True,
+        "residuals": sorted(residuals, key=lambda item: item["kind"]),
+        "schema_version": "ccr.token_distill.v1",
+        "settled": False,
+    }
+
+
+def token_import(root: Path, *, file: Path, provider: str) -> dict[str, Any]:
+    """Import a token report as candidate work without capital admission."""
+
+    init_runtime(root)
+    report = read_json(file)
+    if not isinstance(report, dict):
+        raise ValueError("token import requires a JSON object")
+    token = (
+        report.get("candidate_token") if isinstance(report.get("candidate_token"), dict) else report
+    )
+    if not isinstance(token, dict):
+        raise ValueError("token import requires a token object")
+    token_id = str(token.get("token_id") or stable_id("token", token))
+    token_dir = root / "tokens" / "candidate"
+    token_dir.mkdir(parents=True, exist_ok=True)
+    destination = token_dir / json_file_name(token_id)
+    write_json_atomic(
+        destination,
+        {
+            **token,
+            "ccr_provider": provider,
+            "imported_at": now_iso(),
+            "source_report": str(file),
+            "status": "candidate",
+        },
+        overwrite=True,
+    )
+    task = make_task(
+        kind="token_check",
+        title="Check imported token candidate",
+        objective=(
+            f"Check token candidate {token_id} for admissibility, leakage, transport, and cost."
+        ),
+        role="verifier",
+        source=f"ccr.token.{provider}",
+        priority=75,
+        inputs=[{"kind": "artifact", "ref": token_id, "required": True}],
+    )
+    residual = build_residual(
+        kind="candidate_only_reason",
+        description="Imported token candidate requires admissibility and capital checks.",
+        blocking=False,
+        object_type="runtime",
+        object_id="token-import",
+        refs=[str(destination)],
+        source=f"ccr.token.{provider}",
+        extensions={"token_id": token_id},
+    )
+    with suppress(FileExistsError):
+        submit_task(root, task)
+    save_residual(root, residual, overwrite=True)
+    return {
+        "capital_admitted": False,
+        "imported_token_id": token_id,
+        "non_claims": [*NON_CLAIMS, "token_import_is_not_capital_admission"],
+        "ok": True,
+        "residual_id": residual["residual_id"],
+        "schema_version": "ccr.token_import.v1",
+        "settled": False,
+        "task_id": task["task_id"],
+    }
+
+
+def token_dedup(root: Path) -> dict[str, Any]:
+    """Report exact duplicate token candidates from local token artifacts."""
+
+    tokens = _read_token_candidates(root)
+    groups: dict[str, list[str]] = {}
+    for token in tokens:
+        token_id = str(token.get("token_id") or stable_id("token", token))
+        claim = token.get("claim") or token.get("summary") or token.get("description") or token
+        groups.setdefault(stable_id("token-claim", canonical_dumps(claim).casefold()), []).append(
+            token_id
+        )
+    aliases = [
+        {"canonical_id": ids[0], "alias_ids": ids[1:]} for ids in groups.values() if len(ids) > 1
+    ]
+    return {
+        "accepted": True,
+        "alias_ledger": aliases,
+        "blockers": [],
+        "canonical_token_count": len(groups),
+        "duplicate_mass_count": sum(len(item["alias_ids"]) for item in aliases),
+        "non_claims": [*NON_CLAIMS, "duplicate_mass_cannot_increase_support"],
+        "ok": True,
+        "schema_version": "ccr.token_dedup.v1",
+        "settled": False,
+        "token_count": len(tokens),
+    }
+
+
+def token_next(root: Path) -> dict[str, Any]:
+    """Return the next token-related advisory action."""
+
+    dedup = token_dedup(root)
+    kind = "token_dedup" if dedup["duplicate_mass_count"] else "token_admissibility"
+    return {
+        "mode": "advisory",
+        "non_claims": [*NON_CLAIMS, "token_next_is_not_execution_authority"],
+        "ok": True,
+        "recommended_action": {
+            "external_execution": False,
+            "kind": kind,
+            "requires_operator_approval": False,
+            "safe_command": "pic token dedup --tokens <tokens.jsonl>"
+            if kind == "token_dedup"
+            else "pic token admissibility --token <token.json>",
+            "writes_runtime": False,
+        },
+        "schema_version": "ccr.token_next.v1",
+        "settled": False,
+    }
+
+
+def graph_quotient(root: Path, *, packets_file: Path) -> dict[str, Any]:
+    """Check duplicate-aware graph quotient diagnostics from JSONL packets."""
+
+    _ = root
+    rows = [
+        item
+        for _line, item, error in _iter_jsonl(packets_file)
+        if error is None and isinstance(item, dict)
+    ]
+    groups: dict[str, list[str]] = {}
+    for index, packet in enumerate(rows):
+        packet_id = str(packet.get("packet_id") or f"packet:{index}")
+        groups.setdefault(_packet_content_hash(packet), []).append(packet_id)
+    aliases = [
+        {"canonical_id": ids[0], "alias_ids": ids[1:]} for ids in groups.values() if len(ids) > 1
+    ]
+    return {
+        "accepted": True,
+        "alias_ledger": aliases,
+        "canonical_packet_count": len(groups),
+        "duplicate_mass_count": sum(len(item["alias_ids"]) for item in aliases),
+        "non_claims": [*NON_CLAIMS, "graph_quotient_is_context_relative"],
+        "ok": True,
+        "schema_version": "ccr.graph_quotient.v1",
+        "settled": False,
+    }
+
+
+def performance_report(root: Path) -> dict[str, Any]:
+    """Return deterministic local performance diagnostics."""
+
+    packets = list(iter_packets(root))
+    residuals = list(iter_residuals(root))
+    tasks = list(iter_tasks(root))
+    return {
+        "cache_bytes": _directory_size(root / "cache"),
+        "cache_entries": _json_count(root / "cache"),
+        "capital_witness_index_entries": _json_count(root / "capital_witnesses"),
+        "cli_startup_ms": 0,
+        "duplicate_hash_count": foundry_dashboard(root)["metrics"]["duplicate_mass_count"],
+        "graph_edges": build_blocking_residual_index(root)["edge_count"],
+        "graph_nodes": len(packets) + len(residuals) + len(tasks),
+        "index_rebuild_required": not (root / "ccr.sqlite").exists(),
+        "json_read_count": 0,
+        "json_write_count": 0,
+        "jsonl_lines_processed": 0,
+        "non_claims": [*NON_CLAIMS, "performance_report_is_local_diagnostic"],
+        "ok": True,
+        "p50_command_ms": 0,
+        "p95_command_ms": 0,
+        "p99_command_ms": 0,
+        "recommended_speedups": [
+            "stream_jsonl_imports",
+            "rebuild_sqlite_index",
+            "use_compact_agent_outputs",
+        ],
+        "residual_index_entries": len(residuals),
+        "schema_validator_cache_hits": 0,
+        "schema_validator_cache_misses": 0,
+        "schema_version": "ccr.performance_report.v1",
+        "settled": False,
+        "sqlite_query_count": 0,
+        "sqlite_write_count": 0,
+    }
+
+
+def performance_bench(root: Path, *, objects: int) -> dict[str, Any]:
+    """Return a deterministic small local benchmark report."""
+
+    n = max(0, int(objects))
+    return {
+        **performance_report(root),
+        "bench_objects": n,
+        "local_only": True,
+        "network_call_performed": False,
+        "provider_executed": False,
+        "schema_version": "ccr.performance_bench.v1",
+    }
+
+
+def cache_status(root: Path) -> dict[str, Any]:
+    return {
+        "cache_bytes": _directory_size(root / "cache"),
+        "cache_entries": _json_count(root / "cache"),
+        "cache_hit_requires_schema_dependency_profile_hash": True,
+        "index_rebuild_required": not (root / "ccr.sqlite").exists(),
+        "non_claims": [*NON_CLAIMS, "cache_hit_is_not_proof"],
+        "ok": True,
+        "schema_version": "ccr.cache_status.v1",
+        "settled": False,
+    }
+
+
+def cache_rebuild(root: Path, *, scope: str = "all") -> dict[str, Any]:
+    init_runtime(root)
+    index_report = index_runtime(root)
+    return {
+        "index_report": index_report,
+        "non_claims": [*NON_CLAIMS, "cache_rebuild_reconstructs_index_not_truth"],
+        "ok": True,
+        "rebuilt_scope": scope,
+        "schema_version": "ccr.cache_rebuild.v1",
+        "settled": False,
+    }
+
+
+def cache_prune(root: Path) -> dict[str, Any]:
+    return {
+        "mutated_runtime": False,
+        "non_claims": [*NON_CLAIMS, "cache_prune_is_diagnostic_noop_without_explicit_policy"],
+        "ok": True,
+        "pruned_entries": 0,
+        "schema_version": "ccr.cache_prune.v1",
+        "settled": False,
+    }
+
+
+def cache_invalidation(root: Path, *, file: Path) -> dict[str, Any]:
+    _ = root
+    data = read_json(file)
+    dependency_hash = stable_id("cache-dependency", data)
+    coordinates = []
+    if isinstance(data, dict):
+        raw = data.get("coordinates")
+        if isinstance(raw, list):
+            coordinates = sorted(str(item) for item in raw)
+    return {
+        "affected_coordinates": coordinates,
+        "dependency_hash": dependency_hash,
+        "dirty_set": coordinates or ["unknown"],
+        "non_claims": [*NON_CLAIMS, "cache_invalidation_is_not_status_promotion"],
+        "ok": True,
+        "schema_version": "ccr.cache_invalidation.v1",
+        "settled": False,
+    }
+
+
+def index_rebuild(root: Path) -> dict[str, Any]:
+    init_runtime(root)
+    report = init_database(root)
+    indexed = index_runtime(root)
+    return {
+        "database": report["database"],
+        "index_report": indexed,
+        "non_claims": [*NON_CLAIMS, "sqlite_is_repairable_index_not_source_of_truth"],
+        "ok": True,
+        "schema_version": "ccr.index_rebuild.v1",
+        "settled": False,
     }
 
 
@@ -1972,6 +2790,73 @@ def _validate_dispatch_preflight(
     return None, None
 
 
+def _dry_run_dispatch_report(
+    *,
+    plan: dict[str, Any],
+    provider_name: str,
+    provider_plan: dict[str, Any],
+    config: dict[str, Any] | None,
+    preflight: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if preflight is None or config is None:
+        return {
+            "dispatchable": False,
+            "dispatchable_if_execute": False,
+            "executed": False,
+            "mode": "dry_run",
+            "network_call_performed": False,
+            "ok": True,
+            "plan": provider_plan,
+            "provider": provider_name,
+            "requires_execute": True,
+            "requires_preflight": True,
+            "schema_version": "ccr.trc_operation_dispatch.v1",
+            "validation_status": "not_preflighted",
+        }
+
+    residuals: list[dict[str, Any]] = []
+    execution_blockers: list[str] = []
+    if provider_plan.get("action") != "trc_operation":
+        execution_blockers.append("provider_plan_action_mismatch")
+        residuals.append(
+            _operation_residual(
+                "provider_plan_action_mismatch",
+                "Provider plan action must be trc_operation.",
+            )
+        )
+    preflight_kind, preflight_description = _validate_dispatch_preflight(
+        plan=plan,
+        preflight=preflight,
+        provider_name=provider_name,
+    )
+    if preflight_kind is not None:
+        execution_blockers.append(preflight_kind)
+        residuals.append(
+            _operation_residual(
+                preflight_kind,
+                preflight_description or "Preflight blocked dispatch.",
+            )
+        )
+    dispatchable_if_execute = not execution_blockers
+    return {
+        "dispatchable": False,
+        "dispatchable_if_execute": dispatchable_if_execute,
+        "executed": False,
+        "execution_blockers": sorted(set(execution_blockers)),
+        "mode": "dry_run_preflight_validation",
+        "network_call_performed": False,
+        "ok": dispatchable_if_execute,
+        "plan": provider_plan,
+        "preflight": preflight,
+        "provider": provider_name,
+        "requires_execute": True,
+        "requires_preflight": True,
+        "residuals": sorted(residuals, key=lambda item: item["kind"]),
+        "schema_version": "ccr.trc_operation_dispatch.v1",
+        "validation_status": "dispatchable_if_execute" if dispatchable_if_execute else "blocked",
+    }
+
+
 def operation_dispatch(
     root: Path,
     *,
@@ -1996,14 +2881,13 @@ def operation_dispatch(
     }
     provider_plan = provider.plan(action="trc_operation", payload=payload, root=root)
     if not execute:
-        return {
-            "executed": False,
-            "network_call_performed": False,
-            "ok": True,
-            "plan": provider_plan,
-            "provider": provider_name,
-            "schema_version": "ccr.trc_operation_dispatch.v1",
-        }
+        return _dry_run_dispatch_report(
+            plan=plan,
+            provider_name=provider_name,
+            provider_plan=provider_plan,
+            config=config,
+            preflight=preflight,
+        )
     if provider_plan.get("action") != "trc_operation":
         return _dispatch_failure(
             provider_name,
@@ -2115,6 +2999,74 @@ def operation_dispatch(
     }
 
 
+def _parse_observation_time(value: Any) -> datetime | None:
+    if value in (None, ""):
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _dispatch_operation_plan(dispatch_report: dict[str, Any]) -> dict[str, Any]:
+    for candidate in (
+        _deep_get_dict(dispatch_report, "preflight.operation_plan"),
+        _deep_get_dict(dispatch_report, "plan.operation_plan"),
+        dispatch_report.get("operation_plan"),
+    ):
+        if isinstance(candidate, dict):
+            return candidate
+    return {}
+
+
+def _operation_plan_records(plan: dict[str, Any], *keys: str) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for key in keys:
+        value = plan.get(key)
+        if isinstance(value, dict):
+            records.append(value)
+        elif isinstance(value, list):
+            records.extend([item for item in value if isinstance(item, dict)])
+    for operation in plan.get("operations", []):
+        if not isinstance(operation, dict):
+            continue
+        for key in keys:
+            value = operation.get(key)
+            if isinstance(value, dict):
+                records.append(value)
+            elif isinstance(value, list):
+                records.extend([item for item in value if isinstance(item, dict)])
+    return records
+
+
+def _observation_repair_task_candidates(residuals: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not residuals:
+        return []
+    residual_refs = [
+        str(item.get("residual_id"))
+        for item in residuals
+        if isinstance(item, dict) and item.get("residual_id")
+    ]
+    kinds = sorted(
+        {str(item.get("kind")) for item in residuals if isinstance(item, dict) and item.get("kind")}
+    )
+    return [
+        {
+            "kind": "observation_verification",
+            "objective": (
+                "Route operation observation residuals to a scoped verifier or incident review."
+            ),
+            "residual_kinds": kinds,
+            "residual_refs": residual_refs,
+            "settled": False,
+            "task_id": stable_id("task:operation-observation", kinds, residual_refs),
+        }
+    ]
+
+
 def operation_observe(
     *,
     dispatch_report: dict[str, Any],
@@ -2122,30 +3074,226 @@ def operation_observe(
 ) -> dict[str, Any]:
     """Attach observation evidence to a dispatch report without proving physical outcome."""
 
+    if not isinstance(observation, dict):
+        observation = {"raw_observation": observation}
     executed = bool(
         dispatch_report.get("executed")
         or dispatch_report.get("network_call_performed")
         or _deep_get_dict(dispatch_report, "report.network_call_performed")
     )
+    plan = _dispatch_operation_plan(dispatch_report)
+    plan_postconditions = _operation_plan_records(plan, "postcondition", "postconditions")
+    plan_resource_use = _operation_plan_records(plan, "resource_use", "resource_ledger")
+    plan_rollback = _operation_plan_records(
+        plan,
+        "rollback_escrow_obligation",
+        "rollback_escrow",
+        "rollback_plan",
+    )
+    provider_report = dispatch_report.get("report")
     physical_actuation_observed = bool(observation.get("physical_actuation_observed", False))
+    physical_outcome_claimed = bool(
+        observation.get("physical_outcome_observed")
+        or observation.get("physical_outcome_observed_value") is not None
+        or observation.get("physical_outcome") is not None
+    )
+    verifier_ref = observation.get("physical_outcome_verifier_acceptance_ref") or observation.get(
+        "verifier_acceptance_ref"
+    )
+    verifier_scope = (
+        observation.get("physical_outcome_verifier_scope")
+        or observation.get("verifier_acceptance_scope")
+        or observation.get("verifier_scope")
+    )
+    has_scoped_verifier = bool(verifier_ref and verifier_scope)
     residuals: list[dict[str, Any]] = []
-    if physical_actuation_observed and not observation.get("verifier_acceptance_ref"):
+    if not executed:
+        residuals.append(
+            _operation_residual(
+                "dispatch_report_not_executed",
+                (
+                    "Observation report is attached to a dispatch report that does not "
+                    "prove execution."
+                ),
+            )
+        )
+    if observation.get("schema_version") not in (
+        None,
+        "",
+        "ccr.trc_operation_observation.v1",
+        "ccr.trc_operation_observation_input.v1",
+    ):
+        residuals.append(
+            _operation_residual(
+                "observation_schema_invalid",
+                "Observation schema_version is not a recognized TRC observation schema.",
+            )
+        )
+    if (physical_actuation_observed or physical_outcome_claimed) and not has_scoped_verifier:
+        residuals.append(
+            _operation_residual(
+                "observation_verifier_required",
+                "Operation observation requires a scoped verifier acceptance reference.",
+            )
+        )
+    if physical_outcome_claimed and not has_scoped_verifier:
         residuals.append(
             _operation_residual(
                 "physical_outcome_verifier_required",
                 "Physical actuation observation requires a scoped verifier before outcome claims.",
             )
         )
+    expected_outcome = observation.get("physical_outcome_expected")
+    observed_outcome = _first_present(
+        observation.get("physical_outcome_observed_value"),
+        observation.get("physical_outcome"),
+    )
+    if (
+        expected_outcome is not None
+        and observed_outcome is not None
+        and expected_outcome != observed_outcome
+    ):
+        residuals.append(
+            _operation_residual(
+                "physical_outcome_mismatch",
+                "Observed physical outcome does not match the declared expected outcome.",
+            )
+        )
+    rollback_expected = bool(plan_rollback or observation.get("rollback_required") is True)
+    if rollback_expected and observation.get("rollback_confirmed") is not True:
+        residuals.append(
+            _operation_residual(
+                "rollback_not_confirmed",
+                "Rollback or escrow obligation is present but confirmation is missing.",
+            )
+        )
+    if executed and not (
+        observation.get("hazard_observation")
+        or observation.get("hazard_observation_ref")
+        or observation.get("hazard_envelope_observed")
+    ):
+        residuals.append(
+            _operation_residual(
+                "hazard_observation_missing",
+                "Executed operation observation is missing hazard observation evidence.",
+            )
+        )
+    if isinstance(provider_report, dict) and (
+        provider_report.get("schema_version") in (None, "")
+        and provider_report.get("normalized") is not True
+    ):
+        residuals.append(
+            _operation_residual(
+                "provider_report_not_normalized",
+                "Provider dispatch report is not normalized to a versioned CCR schema.",
+            )
+        )
+    if plan_postconditions and not (
+        observation.get("postcondition_observations")
+        or observation.get("postconditions_observed")
+        or observation.get("postcondition_observed")
+    ):
+        residuals.append(
+            _operation_residual(
+                "postcondition_not_observed",
+                "Operation postconditions exist but no postcondition observation was supplied.",
+            )
+        )
+    if plan_resource_use and not (
+        observation.get("resource_use_observed")
+        or observation.get("resource_observation")
+        or observation.get("resource_use")
+    ):
+        residuals.append(
+            _operation_residual(
+                "resource_use_not_observed",
+                "Operation resource use exists but no resource-use observation was supplied.",
+            )
+        )
+    if observation.get("tolerance_violation_observed") is True:
+        residuals.append(
+            _operation_residual(
+                "tolerance_violation_observed",
+                "Observation reports a tolerance violation.",
+            )
+        )
+    window_expired = observation.get("observation_window_expired") is True
+    observed_at = _parse_observation_time(observation.get("observed_at"))
+    window_end = _parse_observation_time(
+        _first_present(observation.get("observation_window_end"), observation.get("valid_until"))
+    )
+    if observed_at is not None and window_end is not None and observed_at > window_end:
+        window_expired = True
+    if window_expired:
+        residuals.append(
+            _operation_residual(
+                "observation_window_expired",
+                "Observation was supplied outside the declared observation window.",
+            )
+        )
+    dispatch_provider = dispatch_report.get("provider")
+    observation_provider = observation.get("provider") or observation.get("provider_profile")
+    if (
+        dispatch_provider
+        and observation_provider
+        and str(dispatch_provider) != str(observation_provider)
+    ):
+        residuals.append(
+            _operation_residual(
+                "observation_profile_mismatch",
+                "Observation provider/profile does not match the dispatch report.",
+            )
+        )
+    incident_required = any(
+        str(item.get("kind"))
+        in {
+            "physical_outcome_mismatch",
+            "rollback_not_confirmed",
+            "hazard_observation_missing",
+            "tolerance_violation_observed",
+            "observation_window_expired",
+            "provider_report_not_normalized",
+            "dispatch_report_not_executed",
+        }
+        for item in residuals
+    )
+    if incident_required and not any(
+        item.get("kind") == "incident_review_required" for item in residuals
+    ):
+        residuals.append(
+            _operation_residual(
+                "incident_review_required",
+                "Observation residuals require explicit incident review before closure.",
+            )
+        )
+    physical_outcome_proven = bool(
+        physical_outcome_claimed
+        and has_scoped_verifier
+        and not any(
+            item.get("kind")
+            in {
+                "physical_outcome_mismatch",
+                "tolerance_violation_observed",
+                "observation_window_expired",
+                "observation_profile_mismatch",
+            }
+            for item in residuals
+        )
+    )
+    repair_task_candidates = _observation_repair_task_candidates(residuals)
     return {
         "dispatch_executed": executed,
         "executed": False,
+        "incident_required": incident_required,
         "non_claims": [
             *list(NON_CLAIMS),
             "Observation evidence is not physical outcome proof without verifier acceptance.",
         ],
         "observation": observation,
+        "observation_residual_count": len(residuals),
         "ok": not residuals,
-        "physical_outcome_proven": False,
+        "physical_outcome_proven": physical_outcome_proven,
+        "repair_task_candidates": repair_task_candidates,
         "residuals": residuals,
         "schema_version": "ccr.trc_operation_observation.v1",
         "settled": False,
@@ -2570,6 +3718,128 @@ def _float_value(*values: Any) -> float:
     return 0.0
 
 
+_PHASE_CHARGE_FIELDS = (
+    "transport_error_upper_bound",
+    "calibration_error_upper_bound",
+    "hazard_charge_upper_bound",
+    "authority_charge_upper_bound",
+    "censoring_charge_upper_bound",
+    "competing_stop_charge_upper_bound",
+)
+
+
+def _optional_float(value: Any) -> float | None:
+    if value in (None, "", [], {}):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _first_present(*values: Any) -> Any:
+    for value in values:
+        if value not in (None, "", [], {}):
+            return value
+    return None
+
+
+def _phase_interval_evidence(
+    *,
+    target: dict[str, Any],
+    baseline: dict[str, Any],
+    margin_delta: float | None,
+    certified_candidate: bool,
+) -> dict[str, Any]:
+    confidence_budget = _first_present(
+        target.get("confidence_budget"),
+        baseline.get("confidence_budget"),
+    )
+    baseline_refresh_age = _first_present(
+        baseline.get("baseline_refresh_age"),
+        baseline.get("refresh_age"),
+        baseline.get("age"),
+    )
+    baseline_stale = bool(
+        baseline.get("baseline_stale") is True
+        or baseline.get("stale") is True
+        or baseline.get("lifecycle_stale") is True
+    )
+    time_uniform_evidence = bool(
+        target.get("time_uniform_evidence") is True or baseline.get("time_uniform_evidence") is True
+    )
+    residuals: list[dict[str, Any]] = []
+    subject = target.get("target_id") or baseline.get("baseline_id") or "phase"
+    if confidence_budget is None:
+        residuals.append(
+            _diagnostic_residual("phase-interval", subject, "missing_confidence_budget")
+        )
+    if baseline_stale:
+        residuals.append(_diagnostic_residual("phase-interval", subject, "baseline_stale"))
+    if not time_uniform_evidence:
+        residuals.append(
+            _diagnostic_residual("phase-interval", subject, "missing_time_uniform_evidence")
+        )
+
+    declared_missing_charge = _optional_float(
+        _first_present(
+            target.get("declared_missing_charge_upper_bound"),
+            baseline.get("declared_missing_charge_upper_bound"),
+        )
+    )
+    charge_upper_bounds: dict[str, float] = {}
+    for field in _PHASE_CHARGE_FIELDS:
+        value = _optional_float(_first_present(target.get(field), baseline.get(field)))
+        if value is None and declared_missing_charge is not None:
+            value = declared_missing_charge
+        if value is None:
+            residuals.append(_diagnostic_residual("phase-interval", subject, f"missing_{field}"))
+            continue
+        charge_upper_bounds[field] = value
+    total_charge = sum(charge_upper_bounds.values())
+    margin_interval = (
+        [margin_delta - total_charge, margin_delta] if margin_delta is not None else None
+    )
+    interval_candidate = bool(
+        certified_candidate
+        and margin_interval is not None
+        and margin_interval[0] > 0
+        and confidence_budget is not None
+        and time_uniform_evidence
+        and not baseline_stale
+        and not _blocking_kinds(residuals)
+    )
+    if interval_candidate:
+        evidence_status = "interval_candidate"
+    elif certified_candidate:
+        evidence_status = "point_candidate_interval_blocked"
+    elif residuals:
+        evidence_status = "interval_diagnostic"
+    else:
+        evidence_status = "diagnostic"
+    return {
+        "acceleration_interval": margin_interval,
+        "baseline_refresh_age": baseline_refresh_age,
+        "baseline_stale": baseline_stale,
+        "certified_acceleration_interval_candidate": interval_candidate,
+        "charge_upper_bounds": dict(sorted(charge_upper_bounds.items())),
+        "confidence_budget": confidence_budget,
+        "dynamic_regime_surface_ref": _first_present(
+            target.get("dynamic_regime_surface_ref"),
+            baseline.get("dynamic_regime_surface_ref"),
+        ),
+        "evidence_status": evidence_status,
+        "interval_residuals": sorted(residuals, key=lambda item: item["kind"]),
+        "margin_interval": margin_interval,
+        "stopped_evidence_sheaf_ref": _first_present(
+            target.get("stopped_evidence_sheaf_ref"),
+            baseline.get("stopped_evidence_sheaf_ref"),
+        ),
+        "time_uniform_evidence": time_uniform_evidence,
+        "total_charge_upper_bound": total_charge,
+    }
+
+
 def _status(value: Any) -> str:
     if isinstance(value, dict):
         return str(value.get("status") or "").strip().lower()
@@ -2686,6 +3956,267 @@ def _target_thresholds(target: dict[str, Any]) -> dict[str, float]:
             if isinstance(item, dict)
         }
     return {}
+
+
+def _loop_dir(root: Path) -> Path:
+    return root / "loop"
+
+
+def _loop_state_path(root: Path) -> Path:
+    return _loop_dir(root) / "state.json"
+
+
+def _read_loop_state(root: Path) -> dict[str, Any]:
+    path = _loop_state_path(root)
+    if not path.exists():
+        return {}
+    state = read_json(path)
+    return state if isinstance(state, dict) else {}
+
+
+def _empty_loop_state() -> dict[str, Any]:
+    return {
+        "external_execution": False,
+        "mode": "local_advisory",
+        "network_call_performed": False,
+        "ok": False,
+        "schema_version": "ccr.loop_state.v1",
+        "settled": False,
+    }
+
+
+def _append_loop_import_ref(root: Path, import_id: str) -> None:
+    state = _read_loop_state(root) or _empty_loop_state()
+    refs = state.get("last_import_refs")
+    if not isinstance(refs, list):
+        refs = []
+    state["last_import_refs"] = sorted({*[str(item) for item in refs], import_id})
+    state["updated_at"] = now_iso()
+    write_json_atomic(_loop_state_path(root), state, overwrite=True)
+
+
+def _read_optional_json_path(value: Any) -> dict[str, Any]:
+    if value in (None, ""):
+        return {}
+    path = Path(str(value))
+    if not path.exists():
+        return {}
+    data = read_json(path)
+    return data if isinstance(data, dict) else {}
+
+
+def _loop_report_items(report: dict[str, Any], *keys: str) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for key in keys:
+        value = report.get(key)
+        if isinstance(value, dict):
+            items.append(value)
+        elif isinstance(value, list):
+            items.extend([item for item in value if isinstance(item, dict)])
+    return items
+
+
+def _materialize_loop_report(
+    root: Path,
+    report: dict[str, Any],
+    *,
+    provider: str,
+    import_id: str,
+) -> dict[str, Any]:
+    diagnostics: list[dict[str, Any]] = []
+    task_ids: list[str] = []
+    residual_ids: list[str] = []
+    witness_ids: list[str] = []
+    for task in _loop_report_items(report, "tasks", "ccr_tasks", "repair_task_candidates"):
+        if task.get("schema_version") != "ccr.task.v0.1":
+            diagnostics.append({"kind": "task_schema_not_materialized", "task": task})
+            continue
+        validation = validate_task(task, root=root)
+        if not validation.ok:
+            diagnostics.append(
+                {
+                    "kind": "task_validation_failed",
+                    "messages": [issue.message for issue in validation.errors],
+                    "task_id": task.get("task_id"),
+                }
+            )
+            continue
+        with suppress(FileExistsError):
+            submit_task(root, dict(task))
+        task_ids.append(str(task.get("task_id")))
+    for raw in _loop_report_items(report, "residuals", "ccr_residuals"):
+        residual = _loop_materialized_residual(raw, provider=provider, import_id=import_id)
+        save_residual(root, residual, overwrite=True)
+        residual_ids.append(str(residual["residual_id"]))
+    witness_dir = root / "phase" / "capital_witnesses"
+    witness_dir.mkdir(parents=True, exist_ok=True)
+    for witness in _loop_report_items(
+        report,
+        "capital_witnesses",
+        "runtime_capital_witnesses",
+        "ccr_capital_witnesses",
+    ):
+        normalized = _normalize_capital_witness({**witness, "provider": provider})
+        witness_id = str(normalized["witness_id"])
+        write_json_atomic(witness_dir / json_file_name(witness_id), normalized, overwrite=True)
+        witness_ids.append(witness_id)
+    return {
+        "diagnostics": diagnostics,
+        "residual_ids": sorted(set(residual_ids)),
+        "task_ids": sorted(set(task_ids)),
+        "witness_ids": sorted(set(witness_ids)),
+    }
+
+
+def _loop_materialized_residual(
+    residual: dict[str, Any],
+    *,
+    provider: str,
+    import_id: str,
+) -> dict[str, Any]:
+    if residual.get("schema_version") == "ccr.residual.v0.1":
+        return dict(residual)
+    raw_kind = str(residual.get("kind") or "loop_imported_residual")
+    return build_residual(
+        kind="other",
+        description=str(residual.get("description") or raw_kind.replace("_", " ")),
+        blocking=bool(residual.get("blocking", True)),
+        object_type="report",
+        object_id=import_id,
+        refs=[str(residual.get("residual_id") or raw_kind)],
+        source=f"ccr.loop.{provider}",
+        repair_hint="Preserve imported residual and route it through verifier or repair work.",
+        extensions={
+            "x_ccr_loop_import_id": import_id,
+            "x_imported_residual_kind": raw_kind,
+            "x_imported_residual": residual,
+        },
+    )
+
+
+def _loop_action_kind(active_cut: str, has_blocking: bool, has_tasks: bool) -> str:
+    if has_blocking:
+        return "repair_residual"
+    if active_cut == "baseline_refresh_cut":
+        return "refresh_baseline"
+    if active_cut in {"evidence_bandwidth_cut", "physical_observation_cut"}:
+        return "collect_observation"
+    if active_cut in {"authority_gate_cut", "transport_certificate_cut"}:
+        return "request_verifier"
+    if has_tasks:
+        return "write_packet"
+    return "abstain"
+
+
+def _loop_safe_command(active_cut: str, *, state: dict[str, Any]) -> str:
+    if active_cut == "baseline_refresh_cut" and state:
+        target = state.get("target_path", "<target.json>")
+        baseline = state.get("baseline_upper_envelope_path", "<baseline.json>")
+        return (
+            "ccr phase acceleration-report "
+            f"--target {target} --baseline {baseline} "
+            "--capital <capital_witnesses.jsonl> --json --compact"
+        )
+    if active_cut == "physical_observation_cut":
+        return (
+            "ccr operation observe --dispatch-report <dispatch.json> "
+            "--observation <obs.json> --json"
+        )
+    if active_cut == "evidence_bandwidth_cut":
+        return "ccr residual rank --json"
+    return "ccr loop status --json"
+
+
+def _loop_next_reasons(
+    active_cut: str,
+    dashboard: dict[str, Any],
+    blocking: list[dict[str, Any]],
+) -> list[str]:
+    reasons = [f"active_cut:{active_cut}"]
+    if blocking:
+        reasons.append(f"blocking_residuals:{len(blocking)}")
+    metrics = dashboard.get("metrics", {})
+    if isinstance(metrics, dict):
+        for key in (
+            "diagnostic_reserve",
+            "candidate_inflow",
+            "observation_residual_count",
+            "authority_blocked_operation_count",
+        ):
+            reasons.append(f"{key}:{metrics.get(key)}")
+    return reasons
+
+
+def _loop_mcp_example() -> dict[str, Any]:
+    return {
+        "mcp_tool_descriptor_report": {"accepted": True, "descriptor_hash": "sha256:example"},
+        "mcp_tool_invocation_preflight": {
+            "accepted": True,
+            "descriptor_hash": "sha256:example",
+            "executed": False,
+            "network_call_performed": False,
+        },
+        "schema_version": "ccr.loop_mcp_gate_binding.example.v1",
+        "settled": False,
+    }
+
+
+def _loop_a2a_example() -> dict[str, Any]:
+    return {
+        "a2a_agent_card_report": {"accepted": True, "agent_card_hash": "sha256:agent"},
+        "a2a_task_handoff_report": {
+            "accepted": True,
+            "agent_card_hash": "sha256:agent",
+            "handoff_hash": "sha256:handoff",
+        },
+        "non_claims": [*list(NON_CLAIMS), "a2a_handoff_does_not_delegate_tool_execution"],
+        "schema_version": "ccr.loop_a2a_gate_binding.example.v1",
+        "settled": False,
+    }
+
+
+def _loop_observation_example() -> dict[str, Any]:
+    return {
+        "dispatch_executed": False,
+        "physical_outcome_proven": False,
+        "residuals": [
+            _operation_residual(
+                "observation_verifier_required",
+                "Observation requires scoped verifier acceptance.",
+            )
+        ],
+        "schema_version": "ccr.trc_operation_observation.v1",
+        "settled": False,
+    }
+
+
+def _loop_token_admissibility_example() -> dict[str, Any]:
+    return {
+        "accepted": False,
+        "non_claims": [*list(NON_CLAIMS), "token_admissibility_is_not_settlement"],
+        "ok": True,
+        "residuals": [
+            _diagnostic_residual("token", "example", "mission_validity_certificate_required")
+        ],
+        "schema_version": "pic.token_admissibility_report.v1",
+        "settled": False,
+    }
+
+
+def _loop_token_pipeline_example() -> dict[str, Any]:
+    return {
+        "executed": False,
+        "network_call_performed": False,
+        "pipeline_stages": [
+            "segmentation",
+            "candidate_mining",
+            "canonicalization",
+            "duplicate_suppression",
+            "admissibility_gate",
+        ],
+        "schema_version": "pic.token_extraction_pipeline_report.v1",
+        "settled": False,
+    }
 
 
 def _dir_writable(path: Path) -> bool:
@@ -2909,6 +4440,51 @@ def _json_count(path: Path) -> int:
     if not path.exists():
         return 0
     return sum(1 for item in path.rglob("*.json") if item.is_file())
+
+
+def _directory_size(path: Path) -> int:
+    if not path.exists():
+        return 0
+    total = 0
+    for item in path.rglob("*"):
+        if item.is_file():
+            with suppress(OSError):
+                total += item.stat().st_size
+    return total
+
+
+def _read_token_candidates(root: Path) -> list[dict[str, Any]]:
+    token_dir = root / "tokens" / "candidate"
+    if not token_dir.exists():
+        return []
+    tokens: list[dict[str, Any]] = []
+    for path in sorted(token_dir.rglob("*.json"), key=lambda item: str(item)):
+        with suppress(Exception):
+            data = read_json(path)
+            if isinstance(data, dict):
+                tokens.append(data)
+    return tokens
+
+
+def _packet_content_hash(packet: dict[str, Any]) -> str:
+    body = packet.get("body") if isinstance(packet.get("body"), dict) else {}
+    claim = (
+        packet.get("claim_text")
+        or packet.get("claim")
+        or packet.get("summary")
+        or packet.get("title")
+    )
+    claim = claim or cast(dict[str, Any], body).get("claim") or packet
+    return stable_id("packet-content", canonical_dumps(claim))
+
+
+def _priority_from_batch(batch: Any, kind: str) -> int:
+    if not isinstance(batch, list):
+        return 0
+    for item in batch:
+        if isinstance(item, dict) and item.get("kind") == kind:
+            return int(_float_value(item.get("priority")))
+    return 0
 
 
 def _task_id(task: dict[str, Any]) -> str:

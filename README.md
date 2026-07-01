@@ -17,6 +17,15 @@ packets form a collective system that improves downstream problem-solving
 relative to a resource-matched baseline while preserving hazards, residuals,
 authority bounds, and non-execution-by-default constraints.
 
+v1.4.0 adds the local advisory ASI-proxy loop layer on top of the v1.3.0
+PIC/PIC-TS v0.8.0 interop helpers. Agents can run `ccr loop init`, `ccr loop
+next`, token distill/import/dedup/next commands, foundry smoothing/frontier/VOI
+diagnostics, graph quotient checks, cache/index rebuilds, and performance
+reports without provider execution or network calls. The v1.4 loop is designed
+to reduce time-to-first-use and duplicate residual work while preserving the
+boundary between candidate token, accepted report, admitted capital, dispatch,
+execution, and observed physical outcome.
+
 v1.3.0 adds PIC/PIC-TS v0.8.0 interop helpers for target-valid ASI-proxy/CARA
 acceleration, runtime capital witnesses, MCP/A2A structured reports, SQOT/BIT
 diagnostics, provider circuit breakers, availability reports, and stricter TRC

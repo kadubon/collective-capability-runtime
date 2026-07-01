@@ -128,3 +128,15 @@ ccr provider import --provider http --report report.json --json
 HTTP provider execution is allowed only when the operator supplies an explicit
 config file and `--execute`. Failure produces residual-ready JSON and must be
 preserved.
+
+## v1.4 Agent Loop Addendum
+
+Use `ccr loop next --json` for the next advisory safe action. It does not mutate
+runtime state, execute providers, call the network, run shells, or grant
+authority. Use `ccr token import`, `ccr token dedup`, `ccr foundry smooth-next`,
+`ccr graph quotient`, `ccr cache rebuild`, and `ccr performance report` to
+lower local friction while preserving residuals.
+
+Token import is not settlement or capital admission. Safe commands are hints,
+not authority. SQLite is a repairable index; JSON artifacts remain source of
+truth.

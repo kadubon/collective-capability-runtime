@@ -8,6 +8,7 @@ from ccr.extensions import (
     foundry_allocate,
     foundry_simulate_allocation,
     operation_dispatch,
+    operation_observe,
     phase_acceleration_report,
     phase_capital_witness_import,
     phase_target_check,
@@ -57,6 +58,24 @@ def _ready_plan() -> dict[str, Any]:
         "residuals": [],
         "schema_version": "ccr.trc_operation_plan.v1",
         "settled": False,
+    }
+
+
+def _ready_preflight(plan: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "accepted": True,
+        "executed": False,
+        "execution_blockers": [],
+        "ok": True,
+        "operation_plan": plan,
+        "operation_ready": True,
+        "physical_dispatch_ready": False,
+        "provider": "fake",
+        "provider_dispatch_ready": True,
+        "residuals": [],
+        "schema_version": "ccr.trc_operation_preflight.v1",
+        "settled": False,
+        "side_effect_policy": "controlled_provider_allowed",
     }
 
 
@@ -227,3 +246,144 @@ def test_provider_circuit_blocks_operation_execute(
     assert report["network_call_performed"] is False
     assert report["residual_ready"]["kind"] == "provider_circuit_open"
     assert fake.executed is False
+
+
+def test_operation_dispatch_dry_run_is_not_preflighted(
+    runtime_root: Path,
+    monkeypatch: Any,
+) -> None:
+    fake = _FakeDispatchProvider()
+
+    import ccr.providers.registry as registry
+
+    monkeypatch.setattr(registry, "get_provider", lambda name: fake)
+
+    report = operation_dispatch(runtime_root, plan=_ready_plan(), provider_name="fake")
+
+    assert report["ok"] is True
+    assert report["mode"] == "dry_run"
+    assert report["dispatchable"] is False
+    assert report["validation_status"] == "not_preflighted"
+    assert report["requires_preflight"] is True
+    assert report["requires_execute"] is True
+    assert report["executed"] is False
+    assert report["network_call_performed"] is False
+    assert fake.executed is False
+
+
+def test_operation_dispatch_dry_run_preflight_validation(
+    runtime_root: Path,
+    monkeypatch: Any,
+) -> None:
+    fake = _FakeDispatchProvider()
+    plan = _ready_plan()
+
+    import ccr.providers.registry as registry
+
+    monkeypatch.setattr(registry, "get_provider", lambda name: fake)
+
+    valid = operation_dispatch(
+        runtime_root,
+        plan=plan,
+        provider_name="fake",
+        config={"allow_execute": True},
+        preflight=_ready_preflight(plan),
+    )
+    blocked_preflight = {**_ready_preflight(plan), "provider_dispatch_ready": False}
+    blocked = operation_dispatch(
+        runtime_root,
+        plan=plan,
+        provider_name="fake",
+        config={"allow_execute": True},
+        preflight=blocked_preflight,
+    )
+
+    assert valid["mode"] == "dry_run_preflight_validation"
+    assert valid["dispatchable"] is False
+    assert valid["dispatchable_if_execute"] is True
+    assert valid["validation_status"] == "dispatchable_if_execute"
+    assert valid["network_call_performed"] is False
+    assert blocked["ok"] is False
+    assert blocked["validation_status"] == "blocked"
+    assert "preflight_not_dispatch_ready" in blocked["execution_blockers"]
+    assert fake.executed is False
+
+
+def test_operation_observe_reports_required_residual_taxonomy() -> None:
+    report = operation_observe(
+        dispatch_report={"executed": False, "provider": "fake"},
+        observation={
+            "physical_actuation_observed": True,
+            "physical_outcome_observed": True,
+        },
+    )
+    kinds = {item["kind"] for item in report["residuals"]}
+
+    assert report["dispatch_executed"] is False
+    assert report["physical_outcome_proven"] is False
+    assert report["observation_residual_count"] == len(report["residuals"])
+    assert "dispatch_report_not_executed" in kinds
+    assert "observation_verifier_required" in kinds
+    assert "physical_outcome_verifier_required" in kinds
+    assert "incident_review_required" in kinds
+    assert report["repair_task_candidates"]
+
+
+def test_acceleration_report_exposes_interval_candidate(runtime_root: Path) -> None:
+    report = phase_acceleration_report(
+        runtime_root,
+        target={
+            "authority_envelope": {"status": "approved"},
+            "baseline_upper_envelope_ref": "baseline:demo",
+            "capability_basis": ["capability:x"],
+            "capability_envelope": {"status": "accepted"},
+            "confidence_budget": {"alpha": 0.05},
+            "externality_law": {"status": "accepted"},
+            "generated_law": {"status": "accepted"},
+            "hazard_envelope": {"status": "accepted"},
+            "horizon": "P7D",
+            "mission_law": {"status": "accepted"},
+            "raw_net_capital_floor": 0,
+            "target_id": "target:interval",
+            "target_set": {"thresholds": {"coord:x": 1}},
+            "target_validity_certificate_ref": "tvc:1",
+            "time_uniform_evidence": True,
+            "viability_set": {"status": "accepted"},
+        },
+        baseline={
+            "baseline_id": "baseline:demo",
+            "baseline_policy_class": "upper-envelope",
+            "confidence_budget": {"alpha": 0.05},
+            "control_observability": {"status": "accepted"},
+            "envelope_coordinates": {"coord:x": 0},
+            "model_toolchain_environment_versions": {"python": "3"},
+            "path_law_refs": ["law:1"],
+            "refresh_contract": {"max_age": "P1D"},
+            "resource_envelope": {"cpu": 1},
+            "upper_bound_method": "empirical",
+        },
+        capital_witnesses=[
+            {
+                "baseline_ref": "baseline:demo",
+                "coordinate": "coord:x",
+                "finality_ref": "finality:x",
+                "finality_valid": True,
+                "gauge_compatible": True,
+                "hazard_constrained": True,
+                "mission_valid": True,
+                "raw_net_solvent": True,
+                "signed_surplus_lower_bound": 2,
+                "transport_ref": "transport:x",
+                "transport_valid": True,
+                "value_estimand_type": "causal",
+            }
+        ],
+    )
+
+    assert report["certified_acceleration_candidate"] is True
+    assert report["certified_acceleration_interval_candidate"] is False
+    assert report["margin_interval"] is not None
+    assert report["interval_residuals"]
+    assert "missing_transport_error_upper_bound" in {
+        item["kind"] for item in report["interval_residuals"]
+    }

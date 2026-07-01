@@ -28,6 +28,11 @@ from ccr.extensions import (
     availability_degrade,
     availability_recover,
     availability_report,
+    cache_invalidation,
+    cache_prune,
+    cache_rebuild,
+    cache_status,
+    compact_report,
     demo_pic_roundtrip,
     distill_packet,
     distill_seed,
@@ -41,14 +46,30 @@ from ccr.extensions import (
     foundry_allocate,
     foundry_bottlenecks,
     foundry_dashboard,
+    foundry_frontier,
     foundry_recommended_tasks,
     foundry_simulate_allocation,
+    foundry_smooth_next,
+    foundry_voi,
+    graph_quotient,
     import_residual_jsonl,
     import_task_jsonl,
+    index_rebuild,
+    loop_bench,
+    loop_doctor,
+    loop_export_bundle,
+    loop_import_jsonl,
+    loop_import_report,
+    loop_init,
+    loop_next,
+    loop_status,
+    loop_step,
     operation_dispatch,
     operation_observe,
     operation_plan_from_pic_trace,
     operation_preflight_from_pic_trace,
+    performance_bench,
+    performance_report,
     phase_acceleration_report,
     phase_baseline_check,
     phase_capital_witness_import,
@@ -66,6 +87,10 @@ from ccr.extensions import (
     schedule_diagnose,
     schedule_emit_sqot_report,
     schedule_rebalance,
+    token_dedup,
+    token_distill,
+    token_import,
+    token_next,
     workcell_create,
     workcell_integrate,
     workcell_next,
@@ -275,6 +300,7 @@ def build_parser() -> argparse.ArgumentParser:
     foundry = sub.add_parser("foundry", help="Foundry dashboard commands.")
     foundry_sub = foundry.add_subparsers(dest="foundry_command", required=True)
     foundry_dashboard_cmd = foundry_sub.add_parser("dashboard", help="Build dashboard.")
+    foundry_dashboard_cmd.add_argument("--compact", action="store_true")
     foundry_dashboard_cmd.add_argument("--json", action="store_true", dest="json_output")
     foundry_dashboard_cmd.set_defaults(func=cmd_foundry_dashboard)
     foundry_bottlenecks_cmd = foundry_sub.add_parser("bottlenecks", help="List bottlenecks.")
@@ -286,6 +312,7 @@ def build_parser() -> argparse.ArgumentParser:
     foundry_next_cmd.add_argument("--json", action="store_true", dest="json_output")
     foundry_next_cmd.set_defaults(func=cmd_foundry_next)
     foundry_cuts_cmd = foundry_sub.add_parser("cuts", help="List active foundry cuts.")
+    foundry_cuts_cmd.add_argument("--compact", action="store_true")
     foundry_cuts_cmd.add_argument("--json", action="store_true", dest="json_output")
     foundry_cuts_cmd.set_defaults(func=cmd_foundry_cuts)
     foundry_active_cuts_cmd = foundry_sub.add_parser(
@@ -293,8 +320,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="List active foundry cuts, optionally target-scoped.",
     )
     foundry_active_cuts_cmd.add_argument("--target")
+    foundry_active_cuts_cmd.add_argument("--compact", action="store_true")
     foundry_active_cuts_cmd.add_argument("--json", action="store_true", dest="json_output")
     foundry_active_cuts_cmd.set_defaults(func=cmd_foundry_cuts)
+    foundry_smooth_next_cmd = foundry_sub.add_parser(
+        "smooth-next",
+        help="Recommend a smooth ASI-proxy advisory batch.",
+    )
+    foundry_smooth_next_cmd.add_argument("--json", action="store_true", dest="json_output")
+    foundry_smooth_next_cmd.set_defaults(func=cmd_foundry_smooth_next)
+    foundry_frontier_cmd = foundry_sub.add_parser("frontier", help="Show frontier diagnostics.")
+    foundry_frontier_cmd.add_argument("--json", action="store_true", dest="json_output")
+    foundry_frontier_cmd.set_defaults(func=cmd_foundry_frontier)
+    foundry_voi_cmd = foundry_sub.add_parser("voI", help="Show value-of-information proxy.")
+    foundry_voi_cmd.add_argument("--json", action="store_true", dest="json_output")
+    foundry_voi_cmd.set_defaults(func=cmd_foundry_voi)
+    foundry_voi_lower_cmd = foundry_sub.add_parser("voi", help="Show value-of-information proxy.")
+    foundry_voi_lower_cmd.add_argument("--json", action="store_true", dest="json_output")
+    foundry_voi_lower_cmd.set_defaults(func=cmd_foundry_voi)
     foundry_allocate_cmd = foundry_sub.add_parser("allocate", help="Allocate effort by strategy.")
     foundry_allocate_cmd.add_argument("--strategy", default="active-cut")
     foundry_allocate_cmd.add_argument("--response-report")
@@ -309,6 +352,113 @@ def build_parser() -> argparse.ArgumentParser:
     foundry_simulate_cmd.add_argument("--budget", required=True)
     foundry_simulate_cmd.add_argument("--json", action="store_true", dest="json_output")
     foundry_simulate_cmd.set_defaults(func=cmd_foundry_simulate_allocation)
+
+    loop = sub.add_parser("loop", help="Local ASI-proxy loop commands.")
+    loop_sub = loop.add_subparsers(dest="loop_command", required=True)
+    loop_init_cmd = loop_sub.add_parser("init", help="Initialize local loop state.")
+    loop_init_cmd.add_argument("--target", required=True)
+    loop_init_cmd.add_argument("--baseline", required=True)
+    loop_init_cmd.add_argument("--json", action="store_true", dest="json_output")
+    loop_init_cmd.set_defaults(func=cmd_loop_init)
+    loop_status_cmd = loop_sub.add_parser("status", help="Show local loop status.")
+    loop_status_cmd.add_argument("--json", action="store_true", dest="json_output")
+    loop_status_cmd.set_defaults(func=cmd_loop_status)
+    loop_next_cmd = loop_sub.add_parser("next", help="Return next safe advisory action.")
+    loop_next_cmd.add_argument("--compact", action="store_true")
+    loop_next_cmd.add_argument("--json", action="store_true", dest="json_output")
+    loop_next_cmd.set_defaults(func=cmd_loop_next)
+    loop_step_cmd = loop_sub.add_parser("step", help="Run one advisory loop step.")
+    loop_step_cmd.add_argument("--strategy", default="active-cut")
+    loop_step_cmd.add_argument("--write-tasks", action="store_true")
+    loop_step_cmd.add_argument("--json", action="store_true", dest="json_output")
+    loop_step_cmd.set_defaults(func=cmd_loop_step)
+    loop_import_report_cmd = loop_sub.add_parser("import-report", help="Import a JSON report.")
+    loop_import_report_cmd.add_argument("--file", required=True)
+    loop_import_report_cmd.add_argument("--provider", required=True)
+    loop_import_report_cmd.add_argument("--json", action="store_true", dest="json_output")
+    loop_import_report_cmd.set_defaults(func=cmd_loop_import_report)
+    loop_import_jsonl_cmd = loop_sub.add_parser("import-jsonl", help="Import loop JSONL.")
+    loop_import_jsonl_cmd.add_argument(
+        "--kind",
+        choices=["tasks", "residuals", "capital-witnesses"],
+        required=True,
+    )
+    loop_import_jsonl_cmd.add_argument("--file", required=True)
+    loop_import_jsonl_cmd.add_argument("--provider", required=True)
+    loop_import_jsonl_cmd.add_argument("--json", action="store_true", dest="json_output")
+    loop_import_jsonl_cmd.set_defaults(func=cmd_loop_import_jsonl)
+    loop_export_cmd = loop_sub.add_parser("export-bundle", help="Export local loop bundle.")
+    loop_export_cmd.add_argument("--output-dir", required=True)
+    loop_export_cmd.add_argument("--json", action="store_true", dest="json_output")
+    loop_export_cmd.set_defaults(func=cmd_loop_export_bundle)
+    loop_bench_cmd = loop_sub.add_parser("bench", help="Show loop performance diagnostics.")
+    loop_bench_cmd.add_argument("--json", action="store_true", dest="json_output")
+    loop_bench_cmd.set_defaults(func=cmd_loop_bench)
+    loop_doctor_cmd = loop_sub.add_parser("doctor", help="Show loop health diagnostics.")
+    loop_doctor_cmd.add_argument("--json", action="store_true", dest="json_output")
+    loop_doctor_cmd.set_defaults(func=cmd_loop_doctor)
+
+    token = sub.add_parser("token", help="Local token candidate commands.")
+    token_sub = token.add_subparsers(dest="token_command", required=True)
+    token_distill_cmd = token_sub.add_parser("distill", help="Distill trace into token candidate.")
+    token_distill_cmd.add_argument("--trace", required=True)
+    token_distill_cmd.add_argument("--json", action="store_true", dest="json_output")
+    token_distill_cmd.set_defaults(func=cmd_token_distill)
+    token_import_cmd = token_sub.add_parser("import", help="Import token report.")
+    token_import_cmd.add_argument("--file", required=True)
+    token_import_cmd.add_argument("--provider", required=True)
+    token_import_cmd.add_argument("--json", action="store_true", dest="json_output")
+    token_import_cmd.set_defaults(func=cmd_token_import)
+    token_dedup_cmd = token_sub.add_parser("dedup", help="Report token duplicates.")
+    token_dedup_cmd.add_argument("--json", action="store_true", dest="json_output")
+    token_dedup_cmd.set_defaults(func=cmd_token_dedup)
+    token_next_cmd = token_sub.add_parser("next", help="Recommend next token action.")
+    token_next_cmd.add_argument("--json", action="store_true", dest="json_output")
+    token_next_cmd.set_defaults(func=cmd_token_next)
+
+    graph = sub.add_parser("graph", help="Graph diagnostics.")
+    graph_sub = graph.add_subparsers(dest="graph_command", required=True)
+    graph_quotient_cmd = graph_sub.add_parser("quotient", help="Check duplicate-aware quotient.")
+    graph_quotient_cmd.add_argument("--packets", required=True)
+    graph_quotient_cmd.add_argument("--json", action="store_true", dest="json_output")
+    graph_quotient_cmd.set_defaults(func=cmd_graph_quotient)
+
+    performance = sub.add_parser("performance", help="Performance diagnostics.")
+    performance_sub = performance.add_subparsers(dest="performance_command", required=True)
+    performance_report_cmd = performance_sub.add_parser("report", help="Show performance report.")
+    performance_report_cmd.add_argument("--json", action="store_true", dest="json_output")
+    performance_report_cmd.set_defaults(func=cmd_performance_report)
+    performance_bench_cmd = performance_sub.add_parser("bench", help="Run local bench report.")
+    performance_bench_cmd.add_argument("--objects", type=int, default=100)
+    performance_bench_cmd.add_argument("--json", action="store_true", dest="json_output")
+    performance_bench_cmd.set_defaults(func=cmd_performance_bench)
+
+    cache = sub.add_parser("cache", help="Cache diagnostics.")
+    cache_sub = cache.add_subparsers(dest="cache_command", required=True)
+    cache_status_cmd = cache_sub.add_parser("status", help="Show cache status.")
+    cache_status_cmd.add_argument("--json", action="store_true", dest="json_output")
+    cache_status_cmd.set_defaults(func=cmd_cache_status)
+    cache_rebuild_cmd = cache_sub.add_parser("rebuild", help="Rebuild cache/index.")
+    cache_rebuild_cmd.add_argument(
+        "--scope",
+        choices=["packets", "residuals", "tasks", "capital", "graph", "all"],
+        default="all",
+    )
+    cache_rebuild_cmd.add_argument("--json", action="store_true", dest="json_output")
+    cache_rebuild_cmd.set_defaults(func=cmd_cache_rebuild)
+    cache_prune_cmd = cache_sub.add_parser("prune", help="Prune cache by explicit policy.")
+    cache_prune_cmd.add_argument("--json", action="store_true", dest="json_output")
+    cache_prune_cmd.set_defaults(func=cmd_cache_prune)
+    cache_invalidation_cmd = cache_sub.add_parser("invalidation", help="Compute dirty set.")
+    cache_invalidation_cmd.add_argument("--file", required=True)
+    cache_invalidation_cmd.add_argument("--json", action="store_true", dest="json_output")
+    cache_invalidation_cmd.set_defaults(func=cmd_cache_invalidation)
+
+    index = sub.add_parser("index", help="Index diagnostics.")
+    index_sub = index.add_subparsers(dest="index_command", required=True)
+    index_rebuild_cmd = index_sub.add_parser("rebuild", help="Rebuild SQLite index.")
+    index_rebuild_cmd.add_argument("--json", action="store_true", dest="json_output")
+    index_rebuild_cmd.set_defaults(func=cmd_index_rebuild)
 
     experiment = sub.add_parser("experiment", help="Experiment and baseline commands.")
     experiment_sub = experiment.add_subparsers(dest="experiment_command", required=True)
@@ -368,6 +518,7 @@ def build_parser() -> argparse.ArgumentParser:
     operation_preflight_cmd.add_argument("--trace", required=True)
     operation_preflight_cmd.add_argument("--provider", required=True)
     operation_preflight_cmd.add_argument("--config")
+    operation_preflight_cmd.add_argument("--compact", action="store_true")
     operation_preflight_cmd.add_argument("--json", action="store_true", dest="json_output")
     operation_preflight_cmd.set_defaults(func=cmd_operation_preflight)
     operation_plan_cmd = operation_sub.add_parser(
@@ -402,6 +553,7 @@ def build_parser() -> argparse.ArgumentParser:
     operation_execute_cmd.add_argument("--provider", required=True)
     operation_execute_cmd.add_argument("--config")
     operation_execute_cmd.add_argument("--execute", action="store_true")
+    operation_execute_cmd.add_argument("--compact", action="store_true")
     operation_execute_cmd.add_argument("--json", action="store_true", dest="json_output")
     operation_execute_cmd.set_defaults(func=cmd_operation_execute)
     operation_dispatch_cmd = operation_sub.add_parser(
@@ -413,6 +565,7 @@ def build_parser() -> argparse.ArgumentParser:
     operation_dispatch_cmd.add_argument("--provider", required=True)
     operation_dispatch_cmd.add_argument("--config")
     operation_dispatch_cmd.add_argument("--execute", action="store_true")
+    operation_dispatch_cmd.add_argument("--compact", action="store_true")
     operation_dispatch_cmd.add_argument("--json", action="store_true", dest="json_output")
     operation_dispatch_cmd.set_defaults(func=cmd_operation_execute)
     operation_observe_cmd = operation_sub.add_parser(
@@ -422,6 +575,9 @@ def build_parser() -> argparse.ArgumentParser:
     operation_observe_cmd.add_argument("--dispatch-report", required=True)
     operation_observe_cmd.add_argument("--observation", required=True)
     operation_observe_cmd.add_argument("--emit", choices=["residuals", "tasks"])
+    operation_observe_cmd.add_argument("--write-residuals", action="store_true")
+    operation_observe_cmd.add_argument("--write-tasks", action="store_true")
+    operation_observe_cmd.add_argument("--compact", action="store_true")
     operation_observe_cmd.add_argument("--json", action="store_true", dest="json_output")
     operation_observe_cmd.set_defaults(func=cmd_operation_observe)
     operation_incident_cmd = operation_sub.add_parser(
@@ -554,6 +710,7 @@ def build_parser() -> argparse.ArgumentParser:
     phase_accel_cmd.add_argument("--target", required=True)
     phase_accel_cmd.add_argument("--baseline", required=True)
     phase_accel_cmd.add_argument("--capital", required=True)
+    phase_accel_cmd.add_argument("--compact", action="store_true")
     phase_accel_cmd.add_argument("--json", action="store_true", dest="json_output")
     phase_accel_cmd.set_defaults(func=cmd_phase_acceleration_report)
     phase_capital = phase_sub.add_parser("capital-witness", help="Capital witness commands.")
@@ -590,6 +747,7 @@ def build_parser() -> argparse.ArgumentParser:
     probe_sub = probe.add_subparsers(dest="probe_command", required=True)
     probe_plan_cmd = probe_sub.add_parser("plan", help="Plan finite diagnostic probes.")
     probe_plan_cmd.add_argument("--state")
+    probe_plan_cmd.add_argument("--strategy", default="default")
     probe_plan_cmd.add_argument("--json", action="store_true", dest="json_output")
     probe_plan_cmd.set_defaults(func=cmd_probe_plan)
     probe_stop_cmd = probe_sub.add_parser("stop-check", help="Check probe stop condition.")
@@ -918,7 +1076,8 @@ def cmd_distill_packet(args: argparse.Namespace) -> int:
 
 def cmd_foundry_dashboard(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
-    _emit_json(foundry_dashboard(root))
+    report = foundry_dashboard(root)
+    _emit_json(compact_report(report) if getattr(args, "compact", False) else report)
     return EXIT_SUCCESS
 
 
@@ -933,7 +1092,25 @@ def cmd_foundry_cuts(args: argparse.Namespace) -> int:
     report = foundry_active_cuts(root)
     if getattr(args, "target", None):
         report["target_ref"] = args.target
-    _emit_json(report)
+    _emit_json(compact_report(report) if getattr(args, "compact", False) else report)
+    return EXIT_SUCCESS
+
+
+def cmd_foundry_smooth_next(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(foundry_smooth_next(root))
+    return EXIT_SUCCESS
+
+
+def cmd_foundry_frontier(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(foundry_frontier(root))
+    return EXIT_SUCCESS
+
+
+def cmd_foundry_voi(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(foundry_voi(root))
     return EXIT_SUCCESS
 
 
@@ -969,6 +1146,148 @@ def cmd_foundry_next(args: argparse.Namespace) -> int:
             "tasks": foundry_recommended_tasks(root, cut_kind=args.cut),
         }
     )
+    return EXIT_SUCCESS
+
+
+def cmd_loop_init(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = loop_init(
+        root,
+        target=_read_object(Path(args.target)),
+        baseline=_read_object(Path(args.baseline)),
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS
+
+
+def cmd_loop_status(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(loop_status(root))
+    return EXIT_SUCCESS
+
+
+def cmd_loop_next(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(loop_next(root, compact=bool(args.compact)))
+    return EXIT_SUCCESS
+
+
+def cmd_loop_step(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = loop_step(root, strategy=args.strategy, write_tasks=bool(args.write_tasks))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_loop_import_report(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = loop_import_report(root, file=Path(args.file), provider=args.provider)
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_loop_import_jsonl(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = loop_import_jsonl(
+        root,
+        kind=args.kind,
+        file=Path(args.file),
+        provider=args.provider,
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_loop_export_bundle(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = loop_export_bundle(root, output_dir=Path(args.output_dir))
+    _emit_json(report)
+    return EXIT_SUCCESS
+
+
+def cmd_loop_bench(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(loop_bench(root))
+    return EXIT_SUCCESS
+
+
+def cmd_loop_doctor(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = loop_doctor(root)
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_token_distill(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(token_distill(root, trace=_read_object(Path(args.trace))))
+    return EXIT_SUCCESS
+
+
+def cmd_token_import(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = token_import(root, file=Path(args.file), provider=args.provider)
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_token_dedup(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(token_dedup(root))
+    return EXIT_SUCCESS
+
+
+def cmd_token_next(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(token_next(root))
+    return EXIT_SUCCESS
+
+
+def cmd_graph_quotient(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(graph_quotient(root, packets_file=Path(args.packets)))
+    return EXIT_SUCCESS
+
+
+def cmd_performance_report(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(performance_report(root))
+    return EXIT_SUCCESS
+
+
+def cmd_performance_bench(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(performance_bench(root, objects=args.objects))
+    return EXIT_SUCCESS
+
+
+def cmd_cache_status(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(cache_status(root))
+    return EXIT_SUCCESS
+
+
+def cmd_cache_rebuild(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(cache_rebuild(root, scope=args.scope))
+    return EXIT_SUCCESS
+
+
+def cmd_cache_prune(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(cache_prune(root))
+    return EXIT_SUCCESS
+
+
+def cmd_cache_invalidation(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(cache_invalidation(root, file=Path(args.file)))
+    return EXIT_SUCCESS
+
+
+def cmd_index_rebuild(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(index_rebuild(root))
     return EXIT_SUCCESS
 
 
@@ -1094,7 +1413,7 @@ def cmd_operation_preflight(args: argparse.Namespace) -> int:
         provider_name=args.provider,
         config=config,
     )
-    _emit_json(result)
+    _emit_json(compact_report(result) if getattr(args, "compact", False) else result)
     return EXIT_SUCCESS if result.get("ok") else EXIT_POLICY_FAILURE
 
 
@@ -1111,11 +1430,12 @@ def cmd_operation_execute(args: argparse.Namespace) -> int:
         preflight=preflight,
         execute=bool(args.execute),
     )
-    _emit_json(result)
+    _emit_json(compact_report(result) if getattr(args, "compact", False) else result)
     return EXIT_SUCCESS if result.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_operation_observe(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
     result = operation_observe(
         dispatch_report=_read_object(Path(args.dispatch_report)),
         observation=_read_object(Path(args.observation)),
@@ -1123,23 +1443,163 @@ def cmd_operation_observe(args: argparse.Namespace) -> int:
     if args.emit == "residuals":
         result = {**result, "emitted_residuals": result.get("residuals", [])}
     if args.emit == "tasks":
+        result = {**result, "emitted_tasks": result.get("repair_task_candidates", [])}
+    if args.write_residuals:
         result = {
             **result,
-            "emitted_tasks": [
+            "written_residual_ids": _materialize_operation_observation_residuals(root, result),
+        }
+    if args.write_tasks:
+        result = {
+            **result,
+            "written_task_ids": _materialize_operation_observation_tasks(root, result),
+        }
+    _emit_json(compact_report(result) if getattr(args, "compact", False) else result)
+    return EXIT_SUCCESS if result.get("ok") else EXIT_POLICY_FAILURE
+
+
+def _materialize_operation_observation_residuals(
+    root: Path,
+    observation_report: dict[str, Any],
+) -> list[str]:
+    residual_ids: list[str] = []
+    report_id = stable_id("operation-observation-report", observation_report)
+    for raw_residual in observation_report.get("residuals", []):
+        if not isinstance(raw_residual, dict):
+            continue
+        residual_kind = str(raw_residual.get("kind") or "operation_observation_residual")
+        residual = build_residual(
+            kind="other",
+            description=str(raw_residual.get("description") or residual_kind),
+            blocking=bool(raw_residual.get("blocking", True)),
+            object_type="report",
+            object_id=report_id,
+            refs=[str(raw_residual.get("residual_id") or residual_kind)],
+            source="ccr.operation.observe",
+            repair_hint="Route to a scoped verifier or incident review before outcome claims.",
+            extensions={
+                "x_ccr_operation_observation_kind": residual_kind,
+                "x_ccr_operation_observation_residual": raw_residual,
+            },
+        )
+        save_residual(root, residual, overwrite=True)
+        residual_ids.append(str(residual["residual_id"]))
+        append_event(
+            root,
+            make_event(
+                action="residual.add",
+                object_type="residual",
+                object_id=str(residual["residual_id"]),
+                status_before=None,
+                status_after="open",
+                refs=[report_id],
+                residuals=[str(residual["residual_id"])],
+            ),
+        )
+    return residual_ids
+
+
+def _materialize_operation_observation_tasks(
+    root: Path,
+    observation_report: dict[str, Any],
+) -> list[str]:
+    task_ids: list[str] = []
+    for candidate in observation_report.get("repair_task_candidates", []):
+        if not isinstance(candidate, dict):
+            continue
+        task_id = str(
+            candidate.get("task_id") or stable_id("task:operation-observation", candidate)
+        )
+        residual_refs = [
+            str(item)
+            for item in candidate.get("residual_refs", [])
+            if isinstance(item, str) and item
+        ]
+        task = {
+            "blackboard_refs": [],
+            "completion": {},
+            "constraints": {
+                "allowed_commands": [],
+                "authority_policy": "read_only",
+                "forbidden_actions": ["provider_execute", "external_side_effect"],
+                "max_runtime_minutes": 30,
+                "network_policy": "none",
+                "side_effect_policy": "dry_run_only",
+            },
+            "created_at": now_iso(),
+            "dependencies": [],
+            "expected_outputs": [
                 {
-                    "kind": "observation_verification",
-                    "objective": "Route operation observation residuals to a verifier.",
-                    "residual_refs": [
-                        item.get("residual_id")
-                        for item in result.get("residuals", [])
-                        if isinstance(item, dict)
+                    "acceptance_criteria": [
+                        "Report must preserve all observation residual kinds.",
+                        (
+                            "Report must not claim physical outcome proof without scoped "
+                            "verifier acceptance."
+                        ),
                     ],
-                    "settled": False,
+                    "destination": "reports/operation-observation",
+                    "kind": "verifier_report",
+                    "schema_ref": "ccr.trc_operation_observation.v1",
                 }
             ],
+            "inputs": [
+                {
+                    "kind": "residual",
+                    "notes": "Operation observation residual to route.",
+                    "ref": ref,
+                    "required": True,
+                }
+                for ref in residual_refs
+            ],
+            "lease": {"lease_required": True, "ttl_minutes": 30},
+            "pic_interop": {
+                "candidate_only_until_checked": True,
+                "enabled": True,
+                "input_mapping": "agent_message",
+                "output_mapping": "pic_report_to_verifier_report",
+                "pic_profile": "controlled",
+                "recommended_pic_commands": [],
+            },
+            "objective": str(
+                candidate.get("objective")
+                or "Route operation observation residuals to a scoped verifier."
+            ),
+            "priority": 85,
+            "residual_policy": {
+                "blocking_residuals_prevent_settlement": True,
+                "preserve_residuals": True,
+                "residual_destination": "residuals/open",
+            },
+            "role": "verifier",
+            "schema_version": "ccr.task.v0.1",
+            "status": "open",
+            "task_id": task_id,
+            "title": "Verify operation observation residuals",
+            "verifier_plan": {
+                "failure_route": "residual",
+                "promotion_gate": "pic_checked_plus_human_review",
+                "required_verifiers": ["operation-observation-verifier"],
+            },
         }
-    _emit_json(result)
-    return EXIT_SUCCESS if result.get("ok") else EXIT_POLICY_FAILURE
+        validation = validate_task(task, root=root)
+        if not validation.ok:
+            messages = "; ".join(issue.message for issue in validation.errors)
+            raise ValueError(f"invalid operation observation task: {messages}")
+        with suppress(FileExistsError):
+            submit_task(root, task)
+        task_ids.append(task_id)
+        append_event(
+            root,
+            make_event(
+                action="task.submit",
+                object_type="task",
+                object_id=task_id,
+                status_before=None,
+                status_after="open",
+                refs=residual_refs,
+            ),
+        )
+    return task_ids
 
 
 def cmd_operation_incident(args: argparse.Namespace) -> int:
@@ -1663,7 +2123,7 @@ def cmd_phase_acceleration_report(args: argparse.Namespace) -> int:
         baseline=_read_object(Path(args.baseline)),
         capital_witnesses=_read_jsonl_objects(Path(args.capital)),
     )
-    _emit_json(report)
+    _emit_json(compact_report(report) if getattr(args, "compact", False) else report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
@@ -1739,7 +2199,12 @@ def cmd_availability_recover(args: argparse.Namespace) -> int:
 def cmd_probe_plan(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     state = _read_object(Path(args.state)) if args.state else {}
-    _emit_json(probe_plan(root, state=state))
+    report = probe_plan(root, state=state)
+    report["strategy"] = args.strategy
+    if args.strategy == "expected-information-gain":
+        report["probe_gain"] = "diagnostic"
+        report["continuation_blockers"] = []
+    _emit_json(report)
     return EXIT_SUCCESS
 
 

@@ -255,3 +255,11 @@ ccr report --format markdown
 
 All residuals, blockers, candidate-only reasons, and safe-command hints remain
 visible after import.
+
+## v1.4 Loop Interop
+
+Use `examples/asi_proxy_loop_bundle/` with PIC/PIC-TS v0.9. CCR imports token,
+task, residual, and capital-witness reports as candidate runtime work, then
+computes loop-next, foundry, graph quotient, performance, cache, and interval
+diagnostics. PIC/PIC-TS remain checker layers. CCR remains the local runtime
+and never treats PIC acceptance as settlement or execution authority.

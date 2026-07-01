@@ -17,3 +17,9 @@ non-claim that provider evidence is not settlement.
 
 Search terms: MCP descriptor report, MCP invocation preflight, A2A agent card,
 A2A task handoff, delegated authority, tool safety.
+
+## v0.9/v1.4 Agent Loop Addendum
+
+Structured MCP descriptor and invocation-preflight reports, and A2A agent-card and handoff reports, are finite gate evidence only. MCP invocation preflight is not tool dispatch. A2A handoff does not imply delegated tool execution.
+
+When structured and legacy booleans disagree, gates fail closed. Hash or ref mismatch stays a blocker and residual.

@@ -1,4 +1,4 @@
-"""Local fixture checklist for the CCR/PIC/PIC-TS v0.8 roundtrip."""
+"""Local fixture checklist for the CCR/PIC/PIC-TS v0.9 loop roundtrip."""
 
 from __future__ import annotations
 
@@ -7,26 +7,20 @@ from pathlib import Path
 from typing import Any, cast
 
 ROOT = Path(__file__).resolve().parents[1]
-BUNDLE = ROOT / "examples" / "asi_proxy_acceleration_bundle"
+BUNDLE = ROOT / "examples" / "asi_proxy_loop_bundle"
 REQUIRED_FILES = [
     "target.json",
     "baseline_upper_envelope.json",
     "capital_witnesses.jsonl",
-    "phase_acceleration_report.expected.json",
-    "phase_response_control_step.accepted.json",
-    "foundry_cuts.example.json",
-    "foundry_budget.example.json",
-    "trc_operation_gate.expired_authority.json",
-    "trc_operation_gate.physical_missing.json",
-    "trc_operation_gate.physical_ready_fixture.json",
-    "preflight.denied.json",
-    "preflight.ready_fixture.json",
-    "foundry_dashboard.blocked_dependency.json",
-    "mcp_descriptor.good.json",
-    "mcp_descriptor.rug_pull.json",
-    "a2a_handoff.good.json",
-    "bit_mec_certificates.jsonl",
-    "sqot_protocol_integrity.missing_root.json",
+    "ccr_loop_state.json",
+    "foundry_active_cuts.json",
+    "phase_acceleration_interval_report.expected.json",
+    "pic_token_admissibility.example.json",
+    "pic_extraction_pipeline.example.json",
+    "mcp_gate_binding.example.json",
+    "a2a_gate_binding.example.json",
+    "observation_residuals.example.json",
+    "performance_report.example.json",
 ]
 
 
@@ -36,7 +30,7 @@ def read_json(name: str) -> dict[str, Any]:
 
 def main() -> int:
     missing = [name for name in REQUIRED_FILES if not (BUNDLE / name).is_file()]
-    report = read_json("phase_acceleration_report.expected.json")
+    report = read_json("phase_acceleration_interval_report.expected.json")
     required_report_keys = {
         "schema_version",
         "target_id",
@@ -47,6 +41,7 @@ def main() -> int:
         "k_baseline_upper",
         "margin_delta",
         "certified_acceleration_candidate",
+        "certified_acceleration_interval_candidate",
         "residuals",
         "blockers",
         "non_claims",

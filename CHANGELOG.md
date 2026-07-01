@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.4.0 - 2026-07-02
+
+- Adds the advisory `ccr loop` layer, token distillation/import/dedup/next
+  commands, duplicate-aware foundry metrics, graph quotient diagnostics,
+  performance/cache/index reports, and SQLite WAL/index migrations.
+- Adds `examples/asi_proxy_loop_bundle/`, v1.4 public report schemas, and
+  first-time-agent docs for ASI-proxy loops, token extraction, operation
+  observation, phase intervals, SQOT resource tensors, BIT frontiers, and
+  cross-repo loop conformance.
+- Preserves non-execution boundaries: loop next is non-mutating, safe commands
+  are hints, token import is not settlement or capital admission, cache/index
+  rebuilds are repairable local indexes, and physical observations require
+  scoped verifier acceptance.
+
 ## 1.3.0 - 2026-07-01
 
 - Added v0.8 PIC/PIC-TS interop surfaces for target-valid ASI-proxy/CARA phase

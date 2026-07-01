@@ -243,8 +243,8 @@ def test_package_build_metadata_is_v1_distribution_ready(tmp_path):
         text=True,
     )
     assert audit.returncode == 0, audit.stdout + audit.stderr
-    wheel = next(dist_dir.glob("collective_capability_runtime-1.3.0-*.whl"))
-    sdist = next(dist_dir.glob("collective_capability_runtime-1.3.0.tar.gz"))
+    wheel = next(dist_dir.glob("collective_capability_runtime-1.4.0-*.whl"))
+    sdist = next(dist_dir.glob("collective_capability_runtime-1.4.0.tar.gz"))
     with zipfile.ZipFile(wheel) as archive:
         metadata_name = next(name for name in archive.namelist() if name.endswith("METADATA"))
         metadata = archive.read(metadata_name).decode("utf-8")
@@ -256,7 +256,7 @@ def test_package_build_metadata_is_v1_distribution_ready(tmp_path):
 
     for text in [metadata, pkg_info]:
         assert "Name: collective-capability-runtime" in text
-        assert "Version: 1.3.0" in text
+        assert "Version: 1.4.0" in text
         assert CCR_PIP_INSTALL in (REPO_ROOT / "README.md").read_text(encoding="utf-8")
 
 

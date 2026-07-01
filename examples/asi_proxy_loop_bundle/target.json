@@ -1,0 +1,45 @@
+{
+  "authority_envelope": {
+    "scope": [
+      "local-fixture"
+    ],
+    "status": "approved"
+  },
+  "confidence_budget": {
+    "alpha": 0.05
+  },
+  "externality_law": {
+    "ref": "externality:loop",
+    "status": "accepted"
+  },
+  "generated_law": {
+    "ref": "generated:loop",
+    "status": "accepted"
+  },
+  "hazard_envelope": {
+    "max_hazard": 0,
+    "status": "accepted"
+  },
+  "mission_law": {
+    "ref": "mission:loop",
+    "status": "accepted"
+  },
+  "non_claims": [
+    "accepted_report_is_not_settlement",
+    "token_extraction_is_not_settlement",
+    "token_admissibility_is_not_capital_admission",
+    "operation_ready_is_not_execution",
+    "provider_dispatch_ready_is_not_dispatch",
+    "physical_dispatch_ready_is_not_physical_outcome_proof",
+    "safe_commands_are_hints_not_authority",
+    "duplicate_mass_cannot_increase_support",
+    "cache_hit_is_not_proof"
+  ],
+  "schema_version": "ccr.asi_proxy_loop_target.example.v1",
+  "target_id": "target:asi-proxy-loop-v090",
+  "target_set": {
+    "thresholds": {
+      "coord:verification-throughput": 1.0
+    }
+  }
+}

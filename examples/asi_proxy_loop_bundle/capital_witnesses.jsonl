@@ -1,0 +1,1 @@
+{"capital_admitted":true,"confidence_budget":{"alpha":0.05},"coordinate":"coord:verification-throughput","proxy_only":false,"schema_version":"ccr.runtime_capital_witness.v1","settled":false,"signed_surplus_lower_bound":2.0,"witness_id":"witness:asi-proxy-loop-v090"}

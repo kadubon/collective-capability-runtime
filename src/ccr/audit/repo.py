@@ -142,7 +142,7 @@ def audit_repository(root: Path) -> dict[str, Any]:
         "pyproject.toml",
         must_contain=[
             'name = "collective-capability-runtime"',
-            'version = "1.3.0"',
+            'version = "1.4.0"',
             "Apache-2.0",
             "Development Status :: 5 - Production/Stable",
             "ccr =",
@@ -164,7 +164,7 @@ def audit_repository(root: Path) -> dict[str, Any]:
             "release:",
             "published",
             "id-token: write",
-            "pypa/gh-action-pypi-publish@release/v1",
+            "pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b",
             "uv build",
             "uvx twine check dist/*",
             "https://pypi.org/p/collective-capability-runtime",

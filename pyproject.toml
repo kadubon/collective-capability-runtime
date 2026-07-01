@@ -1,6 +1,6 @@
 [project]
 name = "collective-capability-runtime"
-version = "1.3.0"
+version = "1.4.0"
 description = "Agent-native runtime for protocol-relative ASI-proxy phase formation."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -69,6 +69,11 @@ packages = ["src/ccr"]
 "schemas" = "ccr/data/schemas"
 "agent-manifest.json" = "ccr/data/agent-manifest.json"
 "INTEROP_PIC.md" = "ccr/data/INTEROP_PIC.md"
+"examples/asi_proxy_loop_bundle" = "ccr/data/examples/asi_proxy_loop_bundle"
+"docs/asi-proxy-loop.md" = "ccr/data/docs/asi-proxy-loop.md"
+"docs/agent-loop-protocol.md" = "ccr/data/docs/agent-loop-protocol.md"
+"docs/performance.md" = "ccr/data/docs/performance.md"
+"docs/cross-repo-loop-conformance.md" = "ccr/data/docs/cross-repo-loop-conformance.md"
 
 [tool.hatch.build.targets.sdist]
 include = [

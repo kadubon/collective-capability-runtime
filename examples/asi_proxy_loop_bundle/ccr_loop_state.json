@@ -1,0 +1,19 @@
+{
+  "baseline_ref": "baseline:asi-proxy-loop-v090",
+  "mode": "advisory",
+  "non_claims": [
+    "accepted_report_is_not_settlement",
+    "token_extraction_is_not_settlement",
+    "token_admissibility_is_not_capital_admission",
+    "operation_ready_is_not_execution",
+    "provider_dispatch_ready_is_not_dispatch",
+    "physical_dispatch_ready_is_not_physical_outcome_proof",
+    "safe_commands_are_hints_not_authority",
+    "duplicate_mass_cannot_increase_support",
+    "cache_hit_is_not_proof"
+  ],
+  "ok": true,
+  "schema_version": "ccr.loop_state.v1",
+  "settled": false,
+  "target_ref": "target:asi-proxy-loop-v090"
+}

@@ -41,3 +41,11 @@ TRC operation plans are dry-run by default and require explicit provider config
 plus `--execute` before any real-world side effect can be attempted.
 
 `settled=false` is expected for this harness.
+
+## v1.4 Loop Challenge
+
+The runtime challenge is to help agents decide which residual, token, baseline,
+observation, or duplicate-mass cut to repair next while keeping all authority
+separate. `ccr loop next` must remain advisory and non-mutating. Cache/index
+rebuilds must not become proof. Provider preflight, dispatch, execution, and
+observation remain separate reports.

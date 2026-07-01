@@ -8,6 +8,7 @@ source artifacts for packets, tasks, residuals, reports, and phase outputs.
 from __future__ import annotations
 
 import sqlite3
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +18,7 @@ from ccr.paths import blackboard_events_path
 from ccr.time import now_iso
 
 DB_FILENAME = "ccr.sqlite"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def database_path(root: Path) -> Path:
@@ -34,7 +35,9 @@ def connect(root: Path) -> sqlite3.Connection:
     connection = sqlite3.connect(path)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
-    connection.execute("PRAGMA journal_mode = WAL")
+    connection.execute("PRAGMA busy_timeout = 5000")
+    with suppress(sqlite3.DatabaseError):
+        connection.execute("PRAGMA journal_mode = WAL")
     return connection
 
 
@@ -100,6 +103,82 @@ def init_database(root: Path) -> dict[str, Any]:
               threshold_distance REAL NOT NULL,
               created_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS packets (
+              packet_id TEXT PRIMARY KEY,
+              status TEXT,
+              content_hash TEXT,
+              normalized_claim_hash TEXT,
+              updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS residuals (
+              residual_id TEXT PRIMARY KEY,
+              status TEXT,
+              blocking INTEGER NOT NULL DEFAULT 0,
+              kind TEXT,
+              object_type TEXT,
+              object_id TEXT,
+              updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS tasks (
+              task_id TEXT PRIMARY KEY,
+              status TEXT,
+              role TEXT,
+              priority INTEGER,
+              source TEXT,
+              updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS capital_witnesses (
+              witness_id TEXT PRIMARY KEY,
+              coordinate TEXT,
+              capital_admitted INTEGER NOT NULL DEFAULT 0,
+              signed_surplus_lower_bound REAL,
+              updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS graph_edges (
+              src TEXT NOT NULL,
+              dst TEXT NOT NULL,
+              edge_kind TEXT,
+              blocker_kind TEXT,
+              PRIMARY KEY (src, dst, edge_kind, blocker_kind)
+            );
+
+            CREATE TABLE IF NOT EXISTS aliases (
+              alias_id TEXT PRIMARY KEY,
+              canonical_id TEXT NOT NULL,
+              alias_kind TEXT,
+              similarity REAL,
+              updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS reports (
+              report_id TEXT PRIMARY KEY,
+              schema_version TEXT,
+              provider TEXT,
+              content_hash TEXT,
+              updated_at TEXT NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_residuals_status_blocking_kind
+              ON residuals(status, blocking, kind);
+            CREATE INDEX IF NOT EXISTS idx_residuals_object_status
+              ON residuals(object_type, object_id, status);
+            CREATE INDEX IF NOT EXISTS idx_tasks_status_role_priority
+              ON tasks(status, role, priority);
+            CREATE INDEX IF NOT EXISTS idx_packets_status_packet
+              ON packets(status, packet_id);
+            CREATE INDEX IF NOT EXISTS idx_capital_witnesses_coordinate_admitted
+              ON capital_witnesses(coordinate, capital_admitted);
+            CREATE INDEX IF NOT EXISTS idx_graph_edges_src_kind
+              ON graph_edges(src, edge_kind);
+            CREATE INDEX IF NOT EXISTS idx_graph_edges_dst_kind
+              ON graph_edges(dst, edge_kind);
+            CREATE INDEX IF NOT EXISTS idx_reports_schema_provider
+              ON reports(schema_version, provider);
             """
         )
         applied = connection.execute(
@@ -262,6 +341,13 @@ def index_runtime(root: Path) -> dict[str, Any]:
                 path=path,
                 content=data,
             )
+            record_public_index(
+                root,
+                object_type=object_type,
+                object_id=object_id,
+                status=str(status) if status is not None else None,
+                content=data,
+            )
             indexed += 1
     events_path = blackboard_events_path(root)
     event_count = 0
@@ -282,6 +368,100 @@ def index_runtime(root: Path) -> dict[str, Any]:
         "events_indexed": event_count,
         "objects_indexed": indexed,
     }
+
+
+def record_public_index(
+    root: Path,
+    *,
+    object_type: str,
+    object_id: str,
+    status: str | None,
+    content: dict[str, Any],
+) -> None:
+    """Upsert additive v1.4 public index tables from one JSON artifact."""
+
+    with connect(root) as connection:
+        timestamp = now_iso()
+        if object_type == "packet":
+            claim = content.get("claim_text") or content.get("summary") or content
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO packets(
+                  packet_id, status, content_hash, normalized_claim_hash, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (object_id, status, sha256_json(content), sha256_json({"claim": claim}), timestamp),
+            )
+        elif object_type == "residual":
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO residuals(
+                  residual_id, status, blocking, kind, object_type, object_id, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    object_id,
+                    status,
+                    1 if content.get("blocking") else 0,
+                    content.get("kind"),
+                    content.get("object_type"),
+                    content.get("object_id"),
+                    timestamp,
+                ),
+            )
+        elif object_type == "task":
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO tasks(task_id, status, role, priority, source, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    object_id,
+                    status,
+                    content.get("role"),
+                    int(content.get("priority", 0) or 0),
+                    content.get("source"),
+                    timestamp,
+                ),
+            )
+        elif object_type == "report":
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO reports(
+                  report_id, schema_version, provider, content_hash, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    object_id,
+                    content.get("schema_version"),
+                    content.get("provider") or content.get("ccr_loop_provider"),
+                    sha256_json(content),
+                    timestamp,
+                ),
+            )
+        if (
+            content.get("schema_version") == "ccr.runtime_capital_witness.v1"
+            or "witness_id" in content
+        ):
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO capital_witnesses(
+                  witness_id, coordinate, capital_admitted, signed_surplus_lower_bound, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    str(content.get("witness_id") or object_id),
+                    content.get("coordinate"),
+                    1 if content.get("capital_admitted") else 0,
+                    float(content.get("signed_surplus_lower_bound", 0) or 0),
+                    timestamp,
+                ),
+            )
+        connection.commit()
 
 
 def _object_id(object_type: str, data: dict[str, Any], path: Path) -> str:

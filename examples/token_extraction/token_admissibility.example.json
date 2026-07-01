@@ -1,0 +1,21 @@
+{
+  "accepted": true,
+  "blockers": [],
+  "capital_admitted": false,
+  "non_claims": [
+    "accepted_report_is_not_settlement",
+    "token_extraction_is_not_settlement",
+    "token_admissibility_is_not_capital_admission",
+    "operation_ready_is_not_execution",
+    "provider_dispatch_ready_is_not_dispatch",
+    "physical_dispatch_ready_is_not_physical_outcome_proof",
+    "safe_commands_are_hints_not_authority",
+    "duplicate_mass_cannot_increase_support",
+    "cache_hit_is_not_proof"
+  ],
+  "ok": true,
+  "residuals": [],
+  "schema_version": "pic.token_admissibility_report.v1",
+  "settled": false,
+  "token_id": "token:trace-to-verifier-route"
+}
