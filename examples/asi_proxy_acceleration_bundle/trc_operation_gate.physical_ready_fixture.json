@@ -1,0 +1,20 @@
+{
+  "accepted": true,
+  "executed": false,
+  "execution_blockers": [],
+  "non_claims": [
+    "not_real_asi_proof",
+    "operation_ready_is_not_executed",
+    "physical_dispatch_ready_is_not_physical_outcome_proof"
+  ],
+  "ok": true,
+  "operation_ready": true,
+  "physical_dispatch_blockers": [],
+  "physical_dispatch_ready": true,
+  "provider_dispatch_ready": true,
+  "residuals": [],
+  "schema_version": "pic.trc_operation_gate_report.v1",
+  "settled": false,
+  "side_effect_policy": "physical_provider_allowed",
+  "trace_id": "trace:physical-ready-fixture"
+}

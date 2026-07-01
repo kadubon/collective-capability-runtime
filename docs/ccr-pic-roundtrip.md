@@ -1,5 +1,11 @@
 # CCR/PIC Roundtrip
 
+v1.3.0 adds a v0.8 roundtrip: PIC or PIC-TS can emit target checks, baseline
+checks, runtime capital witnesses, MCP/A2A reports, SQOT protocol diagnostics,
+BIT MEC frontier reports, and TRC operation-gate reports; CCR imports them as
+candidate evidence and residual work. No import implies settlement or provider
+execution.
+
 PIC and CCR remain separate:
 
 - PIC checks, compiles, and emits diagnostic task/residual JSONL.
@@ -29,3 +35,19 @@ ccr operation execute --plan operation_plan.json --provider http --config provid
 The final command is the only stage that can call a provider, and it requires an
 operation-ready PIC report, an explicit execute flag, and provider config. Safe
 command hints and operation plans are not authority by themselves.
+
+For dispatch, use `ccr operation preflight` or pass `--preflight` to
+`ccr operation dispatch`. Dispatch fails closed when the plan, preflight,
+provider config, provider circuit, side-effect policy, or physical gate does not
+match.
+
+CCR can also consume PIC/PIC-TS phase-response reports as foundry allocation
+evidence:
+
+```bash
+ccr foundry allocate --strategy phase-response --response-report phase_response.json --json
+ccr foundry simulate-allocation --cuts cuts.json --budget budget.json --json
+```
+
+The result is an advisory allocation report. It preserves SQOT diagnostic
+reserve, keeps `settled=false`, and does not call providers.

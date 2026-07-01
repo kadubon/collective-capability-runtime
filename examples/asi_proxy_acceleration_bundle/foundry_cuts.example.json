@@ -1,0 +1,13 @@
+{
+  "active_cuts": [
+    {
+      "cut_kind": "baseline_refresh_cut",
+      "priority": 40
+    },
+    {
+      "cut_kind": "capital_admission_cut",
+      "priority": 80
+    }
+  ],
+  "schema_version": "ccr.foundry_active_cuts.v1"
+}

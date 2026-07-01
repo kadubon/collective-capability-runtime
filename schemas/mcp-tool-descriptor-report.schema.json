@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/mcp-tool-descriptor-report.schema.json",
+  "title": "CCR MCP Tool Descriptor Report",
+  "type": "object",
+  "required": ["schema_version", "ok", "accepted", "canonical_tool_name", "descriptor_hash", "residuals", "blockers", "non_claims", "settled"],
+  "properties": {
+    "schema_version": { "const": "ccr.mcp_tool_descriptor_report.v1" },
+    "ok": { "type": "boolean" },
+    "accepted": { "type": "boolean" },
+    "settled": { "const": false }
+  },
+  "additionalProperties": true
+}

@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.3.0 - 2026-07-01
+
+- Added v0.8 PIC/PIC-TS interop surfaces for target-valid ASI-proxy/CARA phase
+  acceleration, runtime capital witness import/listing, MCP/A2A report
+  fixtures, SQOT probe/protocol diagnostics, and BIT MEC frontier examples.
+- Tightened TRC dispatch so explicit execution requires a dispatch-ready
+  preflight report or an internally regenerated equivalent preflight. Failing
+  preflight, provider-circuit, side-effect-policy, or plan-schema checks return
+  residuals and do not call `provider.execute`.
+- Added provider circuit-breaker, availability, shadow, incident, observation
+  repair, probe, and foundry active-cut commands. These are advisory and
+  non-executing unless a separate operator-approved dispatch path is taken.
+- Added phase-response foundry allocation and simulation inputs. Allocation is
+  advisory, preserves diagnostic reserve, and only writes tasks when
+  `--write-tasks` is explicitly supplied.
+- Tightened CARA checks so unapproved authority, non-accepted target laws,
+  missing admitted capital witnesses, proxy-only capital, and raw-net floor
+  failures set the phase acceleration report to `ok=false`.
+- Extended foundry dashboard residual propagation so direct, referenced,
+  dependency, lineage, imported capital, observation, authority, and physical
+  blockers prevent raw packet count from being treated as progress.
+
 ## 1.2.0 - 2026-07-01
 
 - Added `ccr.trc_operation_preflight.v1` and

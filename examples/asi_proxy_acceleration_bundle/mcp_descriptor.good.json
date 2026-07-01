@@ -1,0 +1,9 @@
+{
+  "auth_scope": ["read"],
+  "descriptor_version": "1",
+  "egress_policy": "none",
+  "server_id": "fixture-server",
+  "server_trust_status": "trusted",
+  "side_effect_class": "read_only",
+  "tool_name": "read"
+}

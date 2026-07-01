@@ -1,0 +1,2 @@
+{"certificate_id":"fast","cost":1,"finite_witness":true,"friction":1,"load":1,"unit_ledger":{"unit":"fixture"}}
+{"certificate_id":"slow","cost":2,"finite_witness":true,"friction":2,"load":2,"unit_ledger":{"unit":"fixture"}}

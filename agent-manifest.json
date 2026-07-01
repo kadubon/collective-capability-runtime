@@ -7,13 +7,25 @@
     "schemas": [
       "schemas/packet.schema.json",
       "schemas/task.schema.json",
-      "schemas/trc-operation-plan.schema.json"
+      "schemas/trc-operation-plan.schema.json",
+      "schemas/trc-operation-preflight.schema.json",
+      "schemas/trc-operation-observation.schema.json",
+      "schemas/asi-proxy-target.schema.json",
+      "schemas/baseline-upper-envelope.schema.json",
+      "schemas/runtime-capital-witness.schema.json",
+      "schemas/phase-acceleration-report.schema.json"
     ],
     "docs": [
       "INTEROP_PIC.md",
       "AGENTS.md",
       "SPEC.md",
-      "FORMAL_MODEL.md"
+      "FORMAL_MODEL.md",
+      "docs/asi-proxy-acceleration.md",
+      "docs/ccr-pic-roundtrip.md",
+      "docs/operation-gate.md",
+      "docs/real-world-impact.md",
+      "docs/mcp-a2a-safety.md",
+      "docs/cross-repo-conformance.md"
     ],
     "runtime_state": [
       "blackboard/events.jsonl",
@@ -38,7 +50,10 @@
     "model_weight_update": false,
     "self_rewrite_required": false,
     "real_asi_detection": false,
-    "real_asi_creation": false
+    "real_asi_creation": false,
+    "provider_dispatch_ready_is_not_dispatch": true,
+    "physical_dispatch_ready_is_not_physical_outcome_proof": true,
+    "capital_admitted_is_not_settlement": true
   },
   "primary_commands": [
     {
@@ -68,6 +83,18 @@
     {
       "command": "ccr phase plan --provider pic --json",
       "purpose": "Ask PIC for ranked bottlenecks, safe commands, phase gaps, and blockers."
+    },
+    {
+      "command": "ccr phase acceleration-report --target target.json --baseline baseline.json --capital witnesses.jsonl --json",
+      "purpose": "Emit a target-valid CARA acceleration diagnostic without settlement."
+    },
+    {
+      "command": "ccr availability report --json",
+      "purpose": "Inspect runtime availability, degradation mode, schema coverage, and recovery hints."
+    },
+    {
+      "command": "ccr foundry active-cuts --json",
+      "purpose": "Return active bottleneck cuts for verifier, evidence, baseline, authority, and physical-observation work."
     },
     {
       "command": "ccr report --format markdown",
@@ -244,6 +271,9 @@
       "pic phase plan --compact --profile development",
       "pic trc trace-normalize --input examples/asi_proxy_benchmark_bundle/trc_agent_trace.json",
       "pic trc trace-check --trace <trace-report.json>",
+      "pic phase acceleration-report --target examples/asi_proxy_acceleration_bundle/target.json --baseline examples/asi_proxy_acceleration_bundle/baseline_upper_envelope.json --capital examples/asi_proxy_acceleration_bundle/capital_witnesses.jsonl",
+      "pic mcp descriptor-check --descriptor examples/asi_proxy_acceleration_bundle/mcp_descriptor.good.json --profile development",
+      "pic a2a handoff-check --handoff examples/asi_proxy_acceleration_bundle/a2a_handoff.good.json --profile development",
       "pic phase dashboard --profile development --format json",
       "pic schema export"
     ],
@@ -293,7 +323,11 @@
   "schemas": {
     "packet": "schemas/packet.schema.json",
     "task": "schemas/task.schema.json",
-    "trc-operation-plan": "schemas/trc-operation-plan.schema.json"
+    "trc-operation-plan": "schemas/trc-operation-plan.schema.json",
+    "trc-operation-preflight": "schemas/trc-operation-preflight.schema.json",
+    "trc-operation-observation": "schemas/trc-operation-observation.schema.json",
+    "runtime-capital-witness": "schemas/runtime-capital-witness.schema.json",
+    "phase-acceleration-report": "schemas/phase-acceleration-report.schema.json"
   },
   "non_goals": [
     "real ASI detection",

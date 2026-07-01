@@ -1,0 +1,18 @@
+{
+  "authority_envelope": { "status": "approved" },
+  "baseline_upper_envelope_ref": "baseline:demo",
+  "capability_basis": ["capability:demo"],
+  "capability_envelope": { "status": "accepted" },
+  "externality_law": { "status": "accepted" },
+  "generated_law": { "status": "accepted" },
+  "hazard_envelope": { "status": "accepted" },
+  "horizon": "P7D",
+  "mission_law": { "status": "accepted" },
+  "non_claims": ["not_real_asi_proof"],
+  "raw_net_capital_floor": 0,
+  "schema_version": "ccr.asi_proxy_target.v1",
+  "target_id": "target:demo",
+  "target_set": { "thresholds": { "coord:demo": 1 } },
+  "target_validity_certificate_ref": "tvc:demo",
+  "viability_set": { "status": "accepted" }
+}

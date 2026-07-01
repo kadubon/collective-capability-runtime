@@ -142,7 +142,7 @@ def audit_repository(root: Path) -> dict[str, Any]:
         "pyproject.toml",
         must_contain=[
             'name = "collective-capability-runtime"',
-            'version = "1.2.0"',
+            'version = "1.3.0"',
             "Apache-2.0",
             "Development Status :: 5 - Production/Stable",
             "ccr =",

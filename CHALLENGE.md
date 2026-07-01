@@ -18,6 +18,10 @@ residual, and one verifier or phase report, then inspect what remains blocked.
 - Foundry dashboards report unknown baselines and diagnostic reserve as unknown.
 - Scheduler reports can recommend rebalance steps without mutation.
 - Experiments compare resource-matched dry-run results only.
+- CARA acceleration reports require a declared target set, baseline upper
+  envelope, and admitted runtime capital witnesses.
+- MCP descriptors and A2A handoffs are checked evidence, not delegated
+  authority.
 
 ## Minimal Run
 
@@ -28,6 +32,7 @@ ccr task import --file examples/asi_proxy_benchmark_bundle/tasks.jsonl --provide
 ccr foundry dashboard --json
 ccr schedule diagnose --json
 ccr operation plan --trace examples/asi_proxy_benchmark_bundle/trc_trace_report.json --json
+ccr phase acceleration-report --target examples/asi_proxy_acceleration_bundle/target.json --baseline examples/asi_proxy_acceleration_bundle/baseline_upper_envelope.json --capital examples/asi_proxy_acceleration_bundle/capital_witnesses.jsonl --json
 ```
 
 Do not execute safe command hints without explicit authority. Preserve

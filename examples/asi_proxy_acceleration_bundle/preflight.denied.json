@@ -1,0 +1,40 @@
+{
+  "accepted": true,
+  "executed": false,
+  "execution_blockers": ["side_effect_policy_not_dispatchable"],
+  "non_claims": [
+    "Preflight is not dispatch.",
+    "Provider dispatch readiness is not execution."
+  ],
+  "ok": false,
+  "operation_plan": {
+    "constraints": {
+      "allowed_commands": [],
+      "requires_execute_flag": true,
+      "requires_provider_config": true
+    },
+    "executed": false,
+    "execution_blockers": [],
+    "physical_dispatch_ready": false,
+    "plan_id": "plan:demo",
+    "real_world_operation_ready": true,
+    "residuals": [],
+    "schema_version": "ccr.trc_operation_plan.v1",
+    "settled": false
+  },
+  "operation_ready": false,
+  "physical_dispatch_ready": false,
+  "provider": "fixture",
+  "provider_dispatch_ready": false,
+  "residuals": [
+    {
+      "blocking": true,
+      "kind": "side_effect_policy_not_dispatchable",
+      "object_id": "operation-dispatch",
+      "object_type": "operation"
+    }
+  ],
+  "schema_version": "ccr.trc_operation_preflight.v1",
+  "settled": false,
+  "side_effect_policy": "dry_run_only"
+}

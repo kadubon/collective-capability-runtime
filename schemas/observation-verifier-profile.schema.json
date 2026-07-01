@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":true,"properties":{"requires_scoped_acceptance":{"type":"boolean"},"schema_version":{"const":"ccr.observation_verifier_profile.v1"}},"required":["schema_version"],"type":"object"}

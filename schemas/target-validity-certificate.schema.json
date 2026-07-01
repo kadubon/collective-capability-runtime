@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/target-validity-certificate.schema.json",
+  "title": "CCR Target Validity Certificate",
+  "type": "object",
+  "required": ["schema_version", "ok", "target_id", "target_validity_ok", "residuals", "blockers", "settled"],
+  "properties": {
+    "schema_version": { "const": "ccr.target_validity_certificate.v1" },
+    "ok": { "type": "boolean" },
+    "target_validity_ok": { "type": "boolean" },
+    "settled": { "const": false },
+    "residuals": { "type": "array", "items": { "type": "object" } },
+    "blockers": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

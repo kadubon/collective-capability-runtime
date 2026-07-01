@@ -1,0 +1,27 @@
+{
+  "accepted": true,
+  "executed": false,
+  "execution_blockers": ["authority_expired"],
+  "non_claims": [
+    "not_real_asi_proof",
+    "operation_ready_is_not_executed",
+    "physical_dispatch_ready_is_not_physical_outcome_proof"
+  ],
+  "ok": true,
+  "operation_ready": false,
+  "physical_dispatch_blockers": [],
+  "physical_dispatch_ready": false,
+  "provider_dispatch_ready": false,
+  "residuals": [
+    {
+      "blocking": true,
+      "kind": "authority_expired",
+      "object_id": "trace:expired-authority",
+      "object_type": "operation"
+    }
+  ],
+  "schema_version": "pic.trc_operation_gate_report.v1",
+  "settled": false,
+  "side_effect_policy": "controlled_provider_allowed",
+  "trace_id": "trace:expired-authority"
+}

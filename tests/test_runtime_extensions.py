@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from ccr.extensions import (
     demo_pic_roundtrip,
@@ -118,6 +119,35 @@ def test_foundry_dashboard_counts_candidate_inflow_without_progress(
     assert dashboard["metrics"]["positive_progress_packets"] == 0
     assert any(item["kind"] == "candidate_only_volume" for item in dashboard["bottlenecks"])
     assert dashboard["settled"] is False
+
+
+def test_foundry_dashboard_propagates_blocking_residual_refs(runtime_root: Path) -> None:
+    packet = make_packet(
+        packet_id="packet:foundry:checked",
+        summary="Checked packet for dashboard.",
+        claim_text="Checked packets still need propagated residual review.",
+        packet_type="workflow",
+    )
+    packet["status"] = "checked"
+    submit_packet(runtime_root, packet)
+    residual = build_residual(
+        kind="negative_liquidity",
+        description="Capital witness is negative.",
+        blocking=True,
+        object_type="packet",
+        object_id="residual:capital",
+        refs=["packet:foundry:checked"],
+        source="test",
+    )
+    save_residual(runtime_root, residual)
+
+    dashboard = foundry_dashboard(runtime_root)
+
+    assert dashboard["metrics"]["checked_packet_growth"] == 0
+    assert dashboard["metrics"]["positive_progress_packets"] == 0
+    assert dashboard["metrics"]["negative_liquidity_count"] == 1
+    assert dashboard["metrics"]["blocking_residual_edge_count"] >= 1
+    assert any(item["cut_kind"] == "capital_admission_cut" for item in dashboard["active_cuts"])
 
 
 def test_residual_rank_and_emit_tasks_keep_residuals_open(runtime_root: Path) -> None:
@@ -317,7 +347,149 @@ def test_trc_operation_plan_requires_pic_checked_operation_ready_trace(
     assert "authority_scope_mismatch" in scope_mismatch["execution_blockers"]
     assert execute_without_approval["ok"] is False
     assert execute_without_approval["executed"] is False
-    assert execute_without_approval["residual_ready"]["kind"] == "operator_approval_required"
+    assert execute_without_approval["residual_ready"]["kind"] == "preflight_required"
+
+
+def _ready_operation_plan() -> dict[str, Any]:
+    return operation_plan_from_pic_trace(
+        {
+            "execution_available": True,
+            "execution_blockers": [],
+            "residuals": [],
+            "schema_version": "pic.trc_trace_report.v1",
+            "settled": False,
+            "trace_id": "trace:dispatch-ready",
+            "real_world_operation_gate": {"operation_ready": True},
+            "trc_trace_nf": {
+                "evaluation_clock": "2026-07-01T00:00:00Z",
+                "steps": [
+                    {
+                        "authority_envelope": {
+                            "expires_at": "2099-01-01T00:00:00Z",
+                            "scopes": ["local-test", "environment:local-test"],
+                            "status": "approved",
+                        },
+                        "resource_use": {"budget": 1},
+                        "rollback_escrow_obligation": {"status": "available"},
+                        "step_id": "s1",
+                        "tolerance_ledger": {"observation_error": 0.0},
+                        "validity_domain": {"environment": "local-test"},
+                    }
+                ],
+            },
+        }
+    )
+
+
+class _FakeDispatchProvider:
+    provider_name = "fake"
+
+    def capabilities(self) -> dict[str, Any]:
+        return {"provider": self.provider_name}
+
+    def health(self) -> dict[str, Any]:
+        return {"available": True, "provider": self.provider_name}
+
+    def plan(self, *, action: str, payload: dict[str, Any], root: Path) -> dict[str, Any]:
+        return {
+            "action": action,
+            "dry_run": True,
+            "network_call_performed": False,
+            "provider": self.provider_name,
+        }
+
+    def execute(
+        self,
+        *,
+        action: str,
+        payload: dict[str, Any],
+        root: Path,
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "action": action,
+            "network_call_performed": True,
+            "ok": True,
+            "provider": self.provider_name,
+        }
+
+    def normalize(self, report: dict[str, Any]) -> dict[str, Any]:
+        return report
+
+
+def test_operation_dispatch_requires_matching_preflight_and_blocks_forgery(
+    runtime_root: Path,
+    monkeypatch: Any,
+) -> None:
+    import ccr.providers.registry as registry
+
+    monkeypatch.setattr(registry, "get_provider", lambda name: _FakeDispatchProvider())
+    plan = _ready_operation_plan()
+    config = {
+        "allow_execute": True,
+        "allowed_provider_classes": ["fake"],
+        "operator_approval_ref": "approval:test",
+        "provider_class": "fake",
+        "side_effect_policy": "controlled_provider_allowed",
+    }
+    dry_run = operation_dispatch(
+        runtime_root,
+        plan=plan,
+        provider_name="fake",
+        execute=False,
+    )
+    internal_preflight = operation_dispatch(
+        runtime_root,
+        plan=plan,
+        provider_name="fake",
+        config=config,
+        execute=True,
+    )
+    mismatched_preflight = operation_dispatch(
+        runtime_root,
+        plan=plan,
+        provider_name="fake",
+        config=config,
+        preflight={
+            "schema_version": "ccr.trc_operation_preflight.v1",
+            "provider": "other",
+            "operation_ready": True,
+            "provider_dispatch_ready": True,
+            "physical_dispatch_ready": False,
+            "execution_blockers": [],
+            "executed": False,
+            "settled": False,
+            "side_effect_policy": "controlled_provider_allowed",
+            "operation_plan": plan,
+            "residuals": [],
+            "non_claims": [],
+        },
+        execute=True,
+    )
+    forged = dict(plan)
+    forged["execution_blockers"] = ["negative_liquidity"]
+    forged["real_world_operation_ready"] = True
+    forged_dispatch = operation_dispatch(
+        runtime_root,
+        plan=forged,
+        provider_name="fake",
+        config=config,
+        execute=True,
+    )
+
+    assert dry_run["ok"] is True
+    assert dry_run["executed"] is False
+    assert dry_run["network_call_performed"] is False
+    assert "preflight" not in dry_run
+    assert internal_preflight["ok"] is True
+    assert internal_preflight["executed"] is True
+    assert internal_preflight["preflight"]["provider_dispatch_ready"] is True
+    assert mismatched_preflight["ok"] is False
+    assert mismatched_preflight["network_call_performed"] is False
+    assert mismatched_preflight["residual_ready"]["kind"] == "preflight_provider_mismatch"
+    assert forged_dispatch["ok"] is False
+    assert forged_dispatch["network_call_performed"] is False
+    assert forged_dispatch["residual_ready"]["kind"] == "operation_plan_has_blockers"
 
 
 def test_import_jsonl_validates_each_line_and_reports_duplicates(

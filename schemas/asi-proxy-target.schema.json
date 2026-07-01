@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/asi-proxy-target.schema.json",
+  "title": "CCR ASI Proxy Target",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "target_id",
+    "capability_basis",
+    "target_set",
+    "mission_law",
+    "generated_law",
+    "externality_law",
+    "hazard_envelope",
+    "authority_envelope",
+    "capability_envelope",
+    "viability_set",
+    "raw_net_capital_floor",
+    "horizon",
+    "target_validity_certificate_ref",
+    "baseline_upper_envelope_ref",
+    "non_claims"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.asi_proxy_target.v1" },
+    "target_id": { "type": "string" },
+    "non_claims": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

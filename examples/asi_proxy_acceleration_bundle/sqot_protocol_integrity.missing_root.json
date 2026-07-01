@@ -1,0 +1,10 @@
+{
+  "audit_fuel": 1,
+  "checker_thresholds": { "root": 1 },
+  "diagnostic_reserve": { "min": 1 },
+  "mandatory_obligations": ["root_checker"],
+  "mechanism_compatibility_status": "accepted",
+  "protocol_id": "sqot:missing-root",
+  "root_checker_integrity": false,
+  "semantic_egress_status": "accepted"
+}

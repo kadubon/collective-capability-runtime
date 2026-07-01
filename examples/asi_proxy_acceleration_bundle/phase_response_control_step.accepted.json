@@ -1,0 +1,16 @@
+{
+  "accepted": true,
+  "blockers": [],
+  "control_id": "control:demo",
+  "non_claims": [
+    "not_real_asi_proof",
+    "not_model_weight_update",
+    "not_execution_authority",
+    "phase_response_step_is_advisory"
+  ],
+  "ok": true,
+  "residuals": [],
+  "schema_version": "pic.phase_response_control_step.v1",
+  "settled": false,
+  "utility_interval": [0.5, 0.5]
+}

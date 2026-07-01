@@ -1,0 +1,75 @@
+{
+  "authority_ok": true,
+  "baseline_envelope_ok": true,
+  "blockers": [],
+  "capital_witnesses": [
+    {
+      "baseline_ref": "baseline:demo",
+      "blockers": [],
+      "capital_admitted": true,
+      "capital_lower_bound": 2,
+      "coordinate": "coord:demo",
+      "cost_upper_bound": 0.25,
+      "evidence_refs": ["evidence:demo"],
+      "finality_ref": "finality:demo",
+      "finality_valid": true,
+      "gauge_compatible": true,
+      "hazard_charge_upper_bound": 0.1,
+      "hazard_constrained": true,
+      "mission_valid": true,
+      "non_claims": [
+        "accepted_report_does_not_imply_capital_admitted",
+        "proxy_only_cannot_increase_safe_capital"
+      ],
+      "packet_refs": ["packet:demo"],
+      "raw_net_solvent": true,
+      "residuals": [],
+      "schema_version": "ccr.runtime_capital_witness.v1",
+      "settled": false,
+      "signed_surplus_lower_bound": 1.2,
+      "transport_charge_upper_bound": 0.45,
+      "transport_ref": "transport:demo",
+      "transport_valid": true,
+      "value_estimand_type": "causal",
+      "verifier_refs": ["verifier:demo"],
+      "witness_id": "witness:demo"
+    }
+  ],
+  "certified_acceleration_candidate": true,
+  "finality_ok": true,
+  "hazard_ok": true,
+  "horizon": "P7D",
+  "k_alt_lower": {
+    "coord:demo": 1.2
+  },
+  "k_baseline_upper": {
+    "coord:demo": 0.5
+  },
+  "margin_delta": 0.7,
+  "non_claims": [
+    "CCR does not detect real ASI.",
+    "CCR does not create real ASI.",
+    "CCR does not self-modify models.",
+    "CCR does not update model weights.",
+    "CCR does not grant execution authority.",
+    "CCR does not bypass safety.",
+    "CCR treats external content as candidate-only until checked.",
+    "CCR preserves residuals; settled=false is expected and not a crash.",
+    "certified_acceleration_candidate_is_not_real_asi_proof",
+    "target_baseline_and_witnesses_are_protocol_relative"
+  ],
+  "ok": true,
+  "opportunity_law_ok": true,
+  "residuals": [],
+  "schema_version": "ccr.phase_acceleration_report.v1",
+  "settled": false,
+  "target_id": "target:demo",
+  "target_validity_ok": true,
+  "tau_alt": {
+    "coord:demo": 0
+  },
+  "tau_baseline_upper": {
+    "coord:demo": null
+  },
+  "viability_ok": true
+}

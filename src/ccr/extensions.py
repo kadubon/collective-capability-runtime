@@ -12,7 +12,7 @@ import tempfile
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ccr.adapters.pic import PicVerifierProvider
 from ccr.blackboard.events import make_event
@@ -320,33 +320,212 @@ def distill_packet(packet_path: Path, *, emit_verifier_plan: bool) -> dict[str, 
     }
 
 
+_AUTHORITY_OPERATION_BLOCKERS = {
+    "authority_issuer_untrusted",
+    "authority_scope_mismatch",
+    "authority_status_not_active",
+    "authority_time_unknown",
+    "expired_authority_envelope",
+    "fixture_only_authority_non_executable",
+    "lifecycle_certificate_stale",
+}
+
+
+def _value_refs(value: Any) -> set[str]:
+    refs: set[str] = set()
+    if isinstance(value, str):
+        if value:
+            refs.add(value)
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            if key in {
+                "ref",
+                "refs",
+                "object_id",
+                "packet_id",
+                "residual_id",
+                "parent",
+            } or isinstance(item, dict | list):
+                refs.update(_value_refs(item))
+    elif isinstance(value, list):
+        for item in value:
+            refs.update(_value_refs(item))
+    return refs
+
+
+def build_blocking_residual_index(root: Path) -> dict[str, Any]:
+    """Index open blocking residuals and their graph references."""
+
+    residuals = [item for item in iter_residuals(root, status="open") if item.get("blocking")]
+    by_id: dict[str, dict[str, Any]] = {}
+    by_object: dict[str, list[dict[str, Any]]] = {}
+    edge_refs: set[tuple[str, str]] = set()
+    for residual in residuals:
+        residual_id = str(residual.get("residual_id", ""))
+        if residual_id:
+            by_id[residual_id] = residual
+        object_id = str(residual.get("object_id", ""))
+        if object_id:
+            by_object.setdefault(object_id, []).append(residual)
+            edge_refs.add((residual_id, object_id))
+        for ref in _value_refs(residual.get("refs", [])):
+            by_object.setdefault(ref, []).append(residual)
+            edge_refs.add((residual_id, ref))
+    return {
+        "blocking_residuals": residuals,
+        "by_id": by_id,
+        "by_object": by_object,
+        "edge_count": len(edge_refs),
+        "negative_liquidity_count": sum(
+            1 for item in residuals if item.get("kind") == "negative_liquidity"
+        ),
+    }
+
+
+def _packet_report_has_blockers(packet: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    for report in packet.get("verifier_reports", []):
+        if not isinstance(report, dict):
+            continue
+        blockers = report.get("blocking_residuals")
+        if blockers:
+            reasons.append("verifier_report_blocking_residuals")
+    raw_interop = packet.get("pic_interop")
+    interop = raw_interop if isinstance(raw_interop, dict) else {}
+    if interop.get("settlement_blockers"):
+        reasons.append("pic_interop_settlement_blockers")
+    alt_bridge = interop.get("alt_bridge_report")
+    if isinstance(alt_bridge, dict) and alt_bridge.get("capital_admitted") is False:
+        reasons.append("capital_admission_blocked")
+    return reasons
+
+
+def packet_blocking_reasons(packet: dict[str, Any], index: dict[str, Any]) -> list[str]:
+    """Return fail-closed reasons that prevent positive foundry contribution."""
+
+    packet_id = str(packet.get("packet_id", ""))
+    reasons = []
+    if packet.get("status") not in {"checked", "settled"}:
+        reasons.append("packet_not_checked_or_settled")
+    object_residuals = index["by_object"].get(packet_id, [])
+    reasons.extend(str(item.get("kind", "blocking_residual")) for item in object_residuals)
+    reasons.extend(_packet_report_has_blockers(packet))
+    for dependency in packet.get("dependencies", []):
+        for ref in _value_refs(dependency):
+            if ref in index["by_id"] or ref in index["by_object"]:
+                reasons.append("dependency_blocked")
+    raw_lineage = packet.get("lineage")
+    lineage = raw_lineage if isinstance(raw_lineage, dict) else {}
+    for parent in lineage.get("parents", []):
+        for ref in _value_refs(parent):
+            if ref in index["by_id"] or ref in index["by_object"]:
+                reasons.append("lineage_blocked")
+    for task in iter_tasks(Path(index["root"])):
+        task_refs = _value_refs(task.get("inputs", [])) | _value_refs(task.get("dependencies", []))
+        if packet_id in task_refs and any(ref in index["by_id"] for ref in task_refs):
+            reasons.append("task_input_blocked")
+    for residual in object_residuals:
+        if residual.get("kind") in _AUTHORITY_OPERATION_BLOCKERS:
+            reasons.append("authority_or_lifecycle_blocked")
+    return sorted(set(reasons))
+
+
+def positive_foundry_packets(root: Path) -> list[dict[str, Any]]:
+    """Return checked/settled packets with no propagated blocking edge."""
+
+    index = build_blocking_residual_index(root)
+    index["root"] = str(root)
+    return [packet for packet in iter_packets(root) if not packet_blocking_reasons(packet, index)]
+
+
+_ACTIVE_CUT_KINDS = (
+    "evidence_bandwidth_cut",
+    "verifier_capacity_cut",
+    "diagnostic_reserve_cut",
+    "baseline_refresh_cut",
+    "receiver_absorption_cut",
+    "transport_scope_cut",
+    "hazard_clearance_cut",
+    "authority_gate_cut",
+    "operation_gate_cut",
+    "lifecycle_freshness_cut",
+    "capital_admission_cut",
+    "physical_observation_cut",
+    "protocol_integrity_cut",
+    "resource_exchange_cut",
+)
+
+
+def _active_cuts_from_metrics(metrics: dict[str, Any]) -> list[dict[str, Any]]:
+    active: list[dict[str, Any]] = []
+    if metrics.get("blocking_residuals", 0):
+        active.append({"cut_kind": "evidence_bandwidth_cut", "priority": 80})
+    if metrics.get("diagnostic_reserve") == "unknown":
+        active.append({"cut_kind": "diagnostic_reserve_cut", "priority": 70})
+    if metrics.get("negative_liquidity_count", 0):
+        active.append({"cut_kind": "capital_admission_cut", "priority": 85})
+    if metrics.get("authority_blocked_operation_count", 0):
+        active.append({"cut_kind": "authority_gate_cut", "priority": 90})
+    if metrics.get("observation_residual_count", 0):
+        active.append({"cut_kind": "physical_observation_cut", "priority": 75})
+    if not active:
+        active.append({"cut_kind": "baseline_refresh_cut", "priority": 40})
+    known = {item["cut_kind"] for item in active}
+    for cut_kind in _ACTIVE_CUT_KINDS:
+        if cut_kind not in known and cut_kind.endswith("_cut"):
+            active.append({"cut_kind": cut_kind, "priority": 10})
+    return sorted(active, key=lambda item: (-int(item["priority"]), item["cut_kind"]))
+
+
 def foundry_dashboard(root: Path) -> dict[str, Any]:
     """Compute a foundry dashboard from current runtime state."""
 
     packets = iter_packets(root)
     residuals = list(iter_residuals(root))
-    blocking_ids = {
-        str(item.get("object_id"))
-        for item in residuals
-        if item.get("status") == "open" and item.get("blocking")
-    }
-    checked_positive = [
-        packet
+    blocking_index = build_blocking_residual_index(root)
+    blocking_index["root"] = str(root)
+    checked_positive = positive_foundry_packets(root)
+    packet_reasons = {
+        str(packet.get("packet_id")): packet_blocking_reasons(packet, blocking_index)
         for packet in packets
-        if packet.get("status") in {"checked", "settled"}
-        and str(packet.get("packet_id")) not in blocking_ids
-    ]
+    }
     metrics = {
         "baseline_refresh_age": "unknown",
         "blocking_residuals": sum(1 for item in residuals if item.get("blocking")),
+        "blocking_residual_edge_count": blocking_index["edge_count"],
         "candidate_inflow": sum(1 for packet in packets if packet.get("status") == "candidate"),
+        "capital_admitted_packet_count": sum(
+            1
+            for packet in checked_positive
+            if isinstance(packet.get("pic_interop"), dict)
+            and isinstance(packet["pic_interop"].get("alt_bridge_report"), dict)
+            and packet["pic_interop"]["alt_bridge_report"].get("capital_admitted") is True
+        ),
         "checked_packet_growth": len(checked_positive),
+        "dependency_blocked_packet_count": sum(
+            1 for reasons in packet_reasons.values() if "dependency_blocked" in reasons
+        ),
         "diagnostic_reserve": "unknown",
+        "lineage_blocked_packet_count": sum(
+            1 for reasons in packet_reasons.values() if "lineage_blocked" in reasons
+        ),
         "negative_liquidity_count": sum(
             1 for item in residuals if item.get("kind") == "negative_liquidity"
         ),
+        "observation_residual_count": sum(
+            1
+            for item in residuals
+            if "observation" in str(item.get("kind", ""))
+            or "physical_outcome" in str(item.get("kind", ""))
+        ),
         "open_residuals": sum(1 for item in residuals if item.get("status") == "open"),
         "packet_counts_by_status": packet_counts(root),
+        "proxy_only_candidate_count": sum(
+            1
+            for packet in packets
+            if packet.get("status") in {"candidate", "provisional"}
+            or packet.get("value_estimand_type") == "proxy_only"
+        ),
         "positive_progress_packets": len(checked_positive),
         "provider_run_count": _json_count(root / "reports" / "providers"),
         "queue_latency": "unknown",
@@ -356,8 +535,17 @@ def foundry_dashboard(root: Path) -> dict[str, Any]:
         "task_counts_by_status": task_counts(root),
         "verifier_report_count": _json_count(root / "reports" / "verifier"),
     }
+    metrics["authority_blocked_operation_count"] = sum(
+        1 for item in residuals if item.get("kind") in _AUTHORITY_OPERATION_BLOCKERS
+    )
+    metrics["provider_dispatch_ready_count"] = 0
+    metrics["physical_dispatch_ready_count"] = 0
+    metrics["executed_count"] = 0
+    metrics["unknown_diagnostic_reserve"] = metrics["diagnostic_reserve"] == "unknown"
+    active_cuts = _active_cuts_from_metrics(metrics)
     bottlenecks = foundry_bottlenecks(root, metrics=metrics)["bottlenecks"]
     return {
+        "active_cuts": active_cuts,
         "bottlenecks": bottlenecks,
         "metrics": metrics,
         "non_claims": list(NON_CLAIMS),
@@ -385,7 +573,589 @@ def foundry_bottlenecks(root: Path, *, metrics: dict[str, Any] | None = None) ->
     return {"bottlenecks": bottlenecks, "ok": True, "schema_version": "ccr.foundry_bottlenecks.v1"}
 
 
-def foundry_recommended_tasks(root: Path) -> list[dict[str, Any]]:
+def foundry_active_cuts(root: Path) -> dict[str, Any]:
+    dashboard = foundry_dashboard(root)
+    return {
+        "active_cuts": dashboard["active_cuts"],
+        "metrics": dashboard["metrics"],
+        "non_claims": list(NON_CLAIMS),
+        "ok": True,
+        "schema_version": "ccr.foundry_active_cuts.v1",
+        "settled": False,
+    }
+
+
+def foundry_allocate(
+    root: Path,
+    *,
+    strategy: str,
+    response_report: dict[str, Any] | None = None,
+    write_tasks: bool = False,
+) -> dict[str, Any]:
+    cuts = foundry_active_cuts(root)["active_cuts"]
+    primary = cuts[0] if cuts else {"cut_kind": "baseline_refresh_cut", "priority": 40}
+    residuals: list[dict[str, Any]] = []
+    accepted_strategies = {"active-cut", "phase-response"}
+    if strategy not in accepted_strategies:
+        residuals.append(_diagnostic_residual("foundry", strategy, "unsupported_strategy"))
+    utility_interval: list[float] | None = None
+    if strategy == "phase-response":
+        if response_report is None:
+            residuals.append(_diagnostic_residual("foundry", strategy, "response_report_required"))
+        else:
+            schema_version = str(response_report.get("schema_version") or "")
+            if schema_version not in {
+                "ccr.phase_response_control_step.v1",
+                "pic.phase_response_control_step.v1",
+            }:
+                residuals.append(
+                    _diagnostic_residual("foundry", strategy, "response_schema_invalid")
+                )
+            if response_report.get("accepted") is not True:
+                residuals.append(
+                    _diagnostic_residual("foundry", strategy, "phase_response_not_accepted")
+                )
+            utility_raw = response_report.get("utility_interval")
+            if isinstance(utility_raw, list) and len(utility_raw) >= 2:
+                utility_interval = [_float_value(utility_raw[0]), _float_value(utility_raw[1])]
+                if utility_interval[0] <= 0:
+                    residuals.append(
+                        _diagnostic_residual("foundry", strategy, "nonpositive_phase_response")
+                    )
+            else:
+                residuals.append(
+                    _diagnostic_residual("foundry", strategy, "utility_interval_required")
+                )
+            for blocker in response_report.get("blockers", []):
+                residuals.append(_diagnostic_residual("foundry", strategy, str(blocker)))
+    allocation: dict[str, Any] = {
+        "baseline_refresh_priority": primary["priority"]
+        if primary["cut_kind"] == "baseline_refresh_cut"
+        else 30,
+        "capital_witness_repair_priority": primary["priority"]
+        if primary["cut_kind"] == "capital_admission_cut"
+        else 30,
+        "evidence_acquisition_priority": primary["priority"]
+        if primary["cut_kind"] == "evidence_bandwidth_cut"
+        else 30,
+        "queue_service_allocation": "preserve_diagnostic_reserve",
+        "recommended_settlement_effort": primary["cut_kind"],
+        "verifier_capacity_allocation": "spread_across_active_cuts",
+    }
+    if utility_interval is not None and utility_interval[0] > 0:
+        allocation["phase_response_utility_interval"] = utility_interval
+        allocation["verifier_capacity_allocation"] = "prioritize_positive_phase_response_cut"
+        allocation["evidence_acquisition_priority"] = max(
+            int(allocation["evidence_acquisition_priority"]), 70
+        )
+        allocation["capital_witness_repair_priority"] = max(
+            int(allocation["capital_witness_repair_priority"]), 70
+        )
+    task_ids: list[str] = []
+    if write_tasks and not _blocking_kinds(residuals):
+        for task in foundry_recommended_tasks(root):
+            with suppress(FileExistsError):
+                submit_task(root, task)
+            task_ids.append(str(task["task_id"]))
+    blockers = _blocking_kinds(residuals)
+    return {
+        "allocation": allocation,
+        "blockers": blockers,
+        "mutated_runtime": bool(task_ids),
+        "ok": not blockers,
+        "residuals": sorted(residuals, key=lambda item: item["kind"]),
+        "response_report_consumed": response_report is not None,
+        "schema_version": "ccr.foundry_allocation.v1",
+        "settled": False,
+        "strategy": strategy,
+        "tasks_written": task_ids,
+    }
+
+
+def foundry_simulate_allocation(cuts: dict[str, Any], budget: dict[str, Any]) -> dict[str, Any]:
+    """Simulate advisory cut allocation without mutating runtime state."""
+
+    raw_cuts = cuts.get("active_cuts", cuts.get("cuts", cuts if isinstance(cuts, list) else []))
+    active_cuts = [dict(item) for item in raw_cuts if isinstance(item, dict)]
+    total_effort = _float_value(
+        budget.get("total_effort"),
+        budget.get("verifier_capacity"),
+        len(active_cuts),
+    )
+    reserve_floor = _float_value(budget.get("diagnostic_reserve_floor"), total_effort * 0.2)
+    available = max(0.0, total_effort - reserve_floor)
+    residuals: list[dict[str, Any]] = []
+    if total_effort <= 0:
+        residuals.append(_diagnostic_residual("foundry", "simulate-allocation", "budget_required"))
+    if reserve_floor < total_effort * 0.1:
+        residuals.append(
+            _diagnostic_residual("foundry", "simulate-allocation", "diagnostic_reserve_below_band")
+        )
+    sorted_cuts = sorted(
+        active_cuts,
+        key=lambda item: (-_float_value(item.get("priority")), str(item.get("cut_kind", ""))),
+    )
+    allocations: list[dict[str, Any]] = []
+    if sorted_cuts and available > 0:
+        priority_sum = sum(max(1.0, _float_value(item.get("priority"))) for item in sorted_cuts)
+        max_single = available * 0.6
+        remaining = available
+        for index, cut in enumerate(sorted_cuts):
+            if index == len(sorted_cuts) - 1:
+                effort = remaining
+            else:
+                effort = min(
+                    max_single,
+                    available * max(1.0, _float_value(cut.get("priority"))) / priority_sum,
+                )
+                remaining = max(0.0, remaining - effort)
+            allocations.append(
+                {
+                    "cut_kind": cut.get("cut_kind"),
+                    "effort": round(effort, 6),
+                    "priority": cut.get("priority"),
+                }
+            )
+    blockers = _blocking_kinds(residuals)
+    return {
+        "allocations": allocations,
+        "blockers": blockers,
+        "diagnostic_reserve_preserved": reserve_floor >= total_effort * 0.1,
+        "mutated_runtime": False,
+        "non_claims": [*NON_CLAIMS, "foundry_allocation_is_advisory_only"],
+        "ok": not blockers,
+        "residuals": sorted(residuals, key=lambda item: item["kind"]),
+        "schema_version": "ccr.foundry_allocation_simulation.v1",
+        "settled": False,
+        "total_effort": total_effort,
+    }
+
+
+def phase_target_check(target: dict[str, Any]) -> dict[str, Any]:
+    target_id = str(target.get("target_id") or "target")
+    residuals = _missing_residuals(
+        "target",
+        target_id,
+        target,
+        (
+            "capability_basis",
+            "target_set",
+            "mission_law",
+            "generated_law",
+            "externality_law",
+            "hazard_envelope",
+            "authority_envelope",
+            "capability_envelope",
+            "viability_set",
+            "raw_net_capital_floor",
+            "horizon",
+            "target_validity_certificate_ref",
+            "baseline_upper_envelope_ref",
+        ),
+    )
+    if target.get("observed_outcome_ref") and not target.get(
+        "target_set_locked_before_observation"
+    ):
+        residuals.append(
+            _diagnostic_residual("target", target_id, "target_changed_after_observation")
+        )
+    residuals.extend(_target_status_residuals(target_id, target))
+    blockers = _blocking_kinds(residuals)
+    authority_ok = _status_ok(target.get("authority_envelope"), {"accepted", "approved", "active"})
+    hazard_ok = _status_ok(target.get("hazard_envelope"), {"accepted", "approved", "active"})
+    opportunity_law_ok = all(
+        _status_ok(target.get(field), {"accepted", "approved", "fresh", "active"})
+        for field in ("mission_law", "generated_law", "externality_law")
+    )
+    viability_ok = _status_ok(target.get("viability_set"), {"accepted", "approved", "active"})
+    return {
+        "authority_ok": authority_ok,
+        "blockers": blockers,
+        "hazard_ok": hazard_ok,
+        "non_claims": [*NON_CLAIMS, "target_validity_is_protocol_relative"],
+        "ok": not blockers,
+        "opportunity_law_ok": opportunity_law_ok,
+        "residuals": sorted(residuals, key=lambda item: item["kind"]),
+        "schema_version": "ccr.target_validity_check.v1",
+        "settled": False,
+        "target_id": target_id,
+        "target_validity_ok": not blockers,
+        "viability_ok": viability_ok,
+    }
+
+
+def phase_baseline_check(baseline: dict[str, Any]) -> dict[str, Any]:
+    baseline_id = str(baseline.get("baseline_id") or "baseline")
+    residuals = _missing_residuals(
+        "baseline",
+        baseline_id,
+        baseline,
+        (
+            "baseline_policy_class",
+            "resource_envelope",
+            "model_toolchain_environment_versions",
+            "control_observability",
+            "upper_bound_method",
+            "confidence_budget",
+            "refresh_contract",
+            "path_law_refs",
+            "envelope_coordinates",
+        ),
+    )
+    if baseline.get("stale") is True:
+        residuals.append(_diagnostic_residual("baseline", baseline_id, "baseline_refresh_required"))
+    if baseline.get("resource_matched") is False:
+        residuals.append(
+            _diagnostic_residual("baseline", baseline_id, "baseline_not_resource_matched")
+        )
+    control_observability = baseline.get("control_observability")
+    if isinstance(control_observability, dict) and not _status_ok(
+        control_observability, {"accepted", "approved", "active"}
+    ):
+        residuals.append(
+            _diagnostic_residual("baseline", baseline_id, "control_observability_not_accepted")
+        )
+    blockers = _blocking_kinds(residuals)
+    return {
+        "baseline_envelope_ok": not blockers,
+        "baseline_id": baseline_id,
+        "blockers": blockers,
+        "non_claims": [*NON_CLAIMS, "baseline_upper_envelope_is_not_oracle_truth"],
+        "ok": not blockers,
+        "residuals": sorted(residuals, key=lambda item: item["kind"]),
+        "schema_version": "ccr.baseline_upper_envelope_check.v1",
+        "settled": False,
+    }
+
+
+def phase_acceleration_report(
+    root: Path,
+    *,
+    target: dict[str, Any],
+    baseline: dict[str, Any],
+    capital_witnesses: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Compute a fail-closed target-valid CARA acceleration diagnostic."""
+
+    target_report = phase_target_check(target)
+    baseline_report = phase_baseline_check(baseline)
+    residuals = [
+        *[dict(item) for item in target_report["residuals"]],
+        *[dict(item) for item in baseline_report["residuals"]],
+    ]
+    k_alt: dict[str, float] = {}
+    normalized_witnesses: list[dict[str, Any]] = []
+    for witness in capital_witnesses:
+        normalized = _normalize_capital_witness(witness)
+        normalized_witnesses.append(normalized)
+        if normalized.get("capital_admitted") is True:
+            coord = str(normalized.get("coordinate"))
+            k_alt[coord] = k_alt.get(coord, 0.0) + _float_value(
+                normalized.get("signed_surplus_lower_bound")
+            )
+        elif normalized.get("value_estimand_type") == "proxy_only":
+            residuals.append(
+                _diagnostic_residual(
+                    "phase",
+                    normalized.get("witness_id"),
+                    "proxy_only_non_contributing",
+                )
+            )
+    k_baseline = _baseline_coordinates(baseline)
+    thresholds = _target_thresholds(target)
+    if not k_alt:
+        residuals.append(
+            _diagnostic_residual(
+                "phase",
+                target.get("target_id") or "target",
+                "runtime_capital_witness_required",
+            )
+        )
+    raw_net_floor = _float_value(target.get("raw_net_capital_floor"))
+    if sum(k_alt.values()) < raw_net_floor:
+        residuals.append(
+            _diagnostic_residual(
+                "phase",
+                target.get("target_id") or "target",
+                "raw_net_capital_floor_not_met",
+            )
+        )
+    if not thresholds:
+        residuals.append(
+            _diagnostic_residual(
+                "phase",
+                target.get("target_id") or "target",
+                "target_set_evaluator_required",
+            )
+        )
+    coords = sorted(set(k_alt) | set(k_baseline) | set(thresholds))
+    margin_values = [k_alt.get(coord, 0.0) - k_baseline.get(coord, 0.0) for coord in coords]
+    margin_delta = min(margin_values) if margin_values else None
+    tau_alt = {
+        coord: 0 if k_alt.get(coord, 0.0) >= threshold else None
+        for coord, threshold in sorted(thresholds.items())
+    }
+    tau_baseline = {
+        coord: 0 if k_baseline.get(coord, 0.0) >= threshold else None
+        for coord, threshold in sorted(thresholds.items())
+    }
+    blockers = _blocking_kinds(residuals)
+    certified_candidate = (
+        bool(thresholds)
+        and target_report["ok"]
+        and baseline_report["ok"]
+        and not blockers
+        and margin_delta is not None
+        and margin_delta > 0
+        and any(value == 0 for value in tau_alt.values())
+        and not all(value == 0 for value in tau_baseline.values())
+    )
+    report_ok = bool(target_report["ok"] and baseline_report["ok"] and not blockers)
+    report = {
+        "authority_ok": target_report["authority_ok"],
+        "baseline_envelope_ok": baseline_report["ok"],
+        "blockers": blockers,
+        "capital_witnesses": normalized_witnesses,
+        "certified_acceleration_candidate": certified_candidate,
+        "finality_ok": all(item.get("finality_valid") is True for item in normalized_witnesses)
+        if normalized_witnesses
+        else False,
+        "hazard_ok": target_report["hazard_ok"],
+        "horizon": target.get("horizon"),
+        "k_alt_lower": dict(sorted(k_alt.items())),
+        "k_baseline_upper": dict(sorted(k_baseline.items())),
+        "margin_delta": margin_delta,
+        "non_claims": [
+            *NON_CLAIMS,
+            "certified_acceleration_candidate_is_not_real_asi_proof",
+            "target_baseline_and_witnesses_are_protocol_relative",
+        ],
+        "ok": report_ok,
+        "opportunity_law_ok": target_report["opportunity_law_ok"],
+        "residuals": sorted(residuals, key=lambda item: item["kind"]),
+        "schema_version": "ccr.phase_acceleration_report.v1",
+        "settled": False,
+        "target_id": target.get("target_id"),
+        "target_validity_ok": target_report["ok"],
+        "tau_alt": tau_alt,
+        "tau_baseline_upper": tau_baseline,
+        "viability_ok": target_report["viability_ok"],
+    }
+    reports_dir = root / "phase" / "acceleration"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    write_json_atomic(
+        reports_dir / f"{json_file_name(stable_id('phase-acceleration', report))}.json",
+        report,
+    )
+    return report
+
+
+def phase_capital_witness_import(root: Path, *, file: Path, provider: str) -> dict[str, Any]:
+    """Import capital witness JSONL idempotently."""
+
+    init_runtime(root)
+    witness_dir = root / "phase" / "capital_witnesses"
+    witness_dir.mkdir(parents=True, exist_ok=True)
+    imported: list[str] = []
+    duplicates: list[str] = []
+    malformed: list[dict[str, Any]] = []
+    for line_number, line in enumerate(file.read_text(encoding="utf-8").splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        try:
+            data = json.loads(stripped)
+        except json.JSONDecodeError as exc:
+            malformed.append({"error": str(exc), "line": line_number})
+            continue
+        if not isinstance(data, dict):
+            malformed.append({"error": "capital witness line must be object", "line": line_number})
+            continue
+        witness = _normalize_capital_witness({**data, "provider": provider})
+        witness_id = str(witness["witness_id"])
+        path = witness_dir / f"{json_file_name(witness_id)}.json"
+        if path.exists():
+            duplicates.append(witness_id)
+        else:
+            imported.append(witness_id)
+        write_json_atomic(path, witness)
+    return {
+        "duplicate_witness_ids": sorted(set(duplicates)),
+        "imported_witness_ids": sorted(set(imported)),
+        "malformed_lines": malformed,
+        "non_claims": [*NON_CLAIMS, "capital_witness_import_does_not_settle_phase"],
+        "ok": not malformed,
+        "provider": provider,
+        "schema_version": "ccr.capital_witness_import.v1",
+        "settled": False,
+    }
+
+
+def phase_capital_witness_list(root: Path) -> dict[str, Any]:
+    witness_dir = root / "phase" / "capital_witnesses"
+    witnesses = (
+        [read_json(path) for path in sorted(witness_dir.glob("*.json"))]
+        if witness_dir.exists()
+        else []
+    )
+    return {
+        "count": len(witnesses),
+        "ok": True,
+        "schema_version": "ccr.capital_witness_list.v1",
+        "settled": False,
+        "witnesses": witnesses,
+    }
+
+
+def availability_report(root: Path) -> dict[str, Any]:
+    init_runtime(root)
+    writable = {
+        name: _dir_writable(root / name)
+        for name in ("packets", "tasks", "residuals", "reports", "phase")
+    }
+    payload = {
+        "degradation_mode": _degradation_mode(root),
+        "diagnostic_reserve_status": "available",
+        "foundry_dashboard_health": "available",
+        "json_artifact_index_consistency": True,
+        "operation_dispatch_enabled": _degradation_mode(root) != "read-only",
+        "pic_provider_availability": _provider_available("pic"),
+        "pic_ts_availability": _provider_available("pic-ts"),
+        "preflight_schema_coverage": (
+            Path.cwd() / "schemas" / "trc-operation-preflight.schema.json"
+        ).exists(),
+        "provider_health": {
+            provider: _provider_available(provider) for provider in ("pic", "http")
+        },
+        "recovery_actions": ["ccr availability recover --json", "ccr audit repo --json"],
+        "residual_ledger_health": "available" if writable["residuals"] else "not_writable",
+        "schema_availability": (Path.cwd() / "schemas").exists(),
+        "schema_version": "ccr.availability_report.v1",
+        "settled": False,
+        "sqlite_index_integrity": True,
+        "stale_lease_count": 0,
+        "task_queue_health": "available" if writable["tasks"] else "not_writable",
+        "writable_runtime_dirs": writable,
+    }
+    payload["ok"] = all(writable.values()) and bool(payload["schema_availability"])
+    return payload
+
+
+def availability_degrade(root: Path, *, mode: str) -> dict[str, Any]:
+    init_runtime(root)
+    state = {
+        "mode": mode,
+        "non_claims": [*NON_CLAIMS, "degrade_mode_is_runtime_policy_not_data_loss"],
+        "schema_version": "ccr.availability_degradation.v1",
+        "settled": False,
+    }
+    write_json_atomic(root / "availability.json", state)
+    return {"ok": True, **state}
+
+
+def availability_recover(root: Path) -> dict[str, Any]:
+    init_runtime(root)
+    if (root / "availability.json").exists():
+        write_json_atomic(
+            root / "availability.json",
+            {
+                "mode": "normal",
+                "schema_version": "ccr.availability_degradation.v1",
+                "settled": False,
+            },
+        )
+    return {
+        "ok": True,
+        "recovered": True,
+        "report": availability_report(root),
+        "schema_version": "ccr.availability_recovery.v1",
+        "settled": False,
+    }
+
+
+def provider_state(root: Path, *, provider: str) -> dict[str, Any]:
+    return {"ok": True, **_provider_state(root, provider)}
+
+
+def provider_circuit_open(root: Path, *, provider: str, reason: str) -> dict[str, Any]:
+    init_runtime(root)
+    previous = _provider_state(root, provider)
+    state = {
+        **previous,
+        "circuit_state": "open",
+        "failure_count": int(previous.get("failure_count", 0)) + 1,
+        "health_status": "degraded",
+        "last_failure": FIXED_CREATED_AT,
+        "residuals": [
+            _diagnostic_residual("provider", provider, "provider_circuit_open", True, reason)
+        ],
+    }
+    _write_provider_state(root, provider, state)
+    return {"ok": True, **state}
+
+
+def provider_circuit_reset(root: Path, *, provider: str) -> dict[str, Any]:
+    init_runtime(root)
+    state = {
+        **_provider_state(root, provider),
+        "circuit_state": "closed",
+        "health_status": "unknown",
+        "residuals": [],
+    }
+    _write_provider_state(root, provider, state)
+    return {"ok": True, **state}
+
+
+def probe_plan(root: Path, *, state: dict[str, Any]) -> dict[str, Any]:
+    dashboard = foundry_dashboard(root)
+    reserve = dashboard["metrics"].get("unknown_diagnostic_reserve", 0)
+    return {
+        "diagnostic_reserve": reserve,
+        "non_claims": [*NON_CLAIMS, "probe_plan_is_not_provider_execution"],
+        "ok": True,
+        "probe_cost": 1,
+        "probe_tree": {"root": state or {"source": "runtime"}, "steps": []},
+        "schema_version": "ccr.probe_plan.v1",
+        "settled": False,
+    }
+
+
+def probe_stop_check(probe_tree: dict[str, Any]) -> dict[str, Any]:
+    reserve = _float_value(probe_tree.get("diagnostic_reserve"))
+    cost = _float_value(probe_tree.get("probe_cost"), probe_tree.get("cost"))
+    meta_band = _float_value(probe_tree.get("meta_occupation_band"), 1)
+    meta_charge = _float_value(probe_tree.get("meta_occupation_charge"))
+    residuals = []
+    if cost > reserve:
+        residuals.append(_diagnostic_residual("probe", "probe", "probe_cost_exceeds_reserve"))
+    if meta_charge > meta_band:
+        residuals.append(_diagnostic_residual("probe", "probe", "meta_occupation_band_exceeded"))
+    blockers = _blocking_kinds(residuals)
+    return {
+        "accepted": not blockers,
+        "blockers": blockers,
+        "no_action_certificate": bool(blockers),
+        "non_claims": [*NON_CLAIMS, "probe_stop_is_not_hidden_intention_claim"],
+        "ok": True,
+        "residuals": residuals,
+        "schema_version": "ccr.probe_stop_report.v1",
+        "settled": False,
+    }
+
+
+def probe_no_action_certificate(state: dict[str, Any]) -> dict[str, Any]:
+    report = probe_stop_check(state)
+    return {
+        "certificate": "no-action" if report["no_action_certificate"] else "continue-diagnostics",
+        "non_claims": [*NON_CLAIMS, "no_action_certificate_is_operational_witness_only"],
+        "ok": True,
+        "probe_stop_report": report,
+        "schema_version": "ccr.no_action_certificate.v1",
+        "settled": False,
+    }
+
+
+def foundry_recommended_tasks(root: Path, *, cut_kind: str | None = None) -> list[dict[str, Any]]:
     """Build recommended tasks without storing them."""
 
     residuals = [item for item in iter_residuals(root, status="open") if item.get("blocking")]
@@ -408,11 +1178,14 @@ def foundry_recommended_tasks(root: Path) -> list[dict[str, Any]]:
         for item in residuals[:5]
     ]
     if not tasks:
+        kind = (
+            "baseline_refresh" if cut_kind in {None, "baseline_refresh_cut"} else "residual_repair"
+        )
         tasks.append(
             make_task(
-                kind="baseline_refresh",
-                title="Refresh foundry baseline",
-                objective="Check whether resource-matched baseline data is current.",
+                kind=kind,
+                title="Repair active foundry cut",
+                objective=f"Repair active foundry cut {cut_kind or 'baseline_refresh_cut'}.",
                 role="benchmark_runner",
                 source="foundry:baseline-refresh",
                 priority=40,
@@ -993,12 +1766,219 @@ def operation_preflight_from_pic_trace(
     }
 
 
+_DISPATCHABLE_SIDE_EFFECT_POLICIES = {
+    "controlled_provider_allowed",
+    "external_provider_allowed",
+    "provider_webhook_allowed",
+    "physical_provider_allowed",
+}
+_DRY_RUN_SIDE_EFFECT_POLICIES = {"dry_run_only", "none", "none_without_execute_flag"}
+
+
+def _dispatch_failure(
+    provider_name: str,
+    provider_plan: dict[str, Any] | None,
+    kind: str,
+    description: str,
+    *,
+    preflight: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "executed": False,
+        "network_call_performed": False,
+        "ok": False,
+        "provider": provider_name,
+        "residual_ready": _operation_residual(kind, description),
+        "schema_version": "ccr.trc_operation_dispatch.v1",
+    }
+    if provider_plan is not None:
+        payload["plan"] = provider_plan
+    if preflight is not None:
+        payload["preflight"] = preflight
+    return payload
+
+
+def _operation_preflight_from_plan(
+    plan: dict[str, Any],
+    *,
+    provider_name: str,
+    config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    residuals = [dict(item) for item in plan.get("residuals", []) if isinstance(item, dict)]
+    execution_blockers = sorted({str(item) for item in plan.get("execution_blockers", []) if item})
+    if plan.get("schema_version") != "ccr.trc_operation_plan.v1":
+        execution_blockers.append("operation_plan_schema_invalid")
+        residuals.append(
+            _operation_residual(
+                "operation_plan_schema_invalid",
+                "Operation preflight requires ccr.trc_operation_plan.v1.",
+            )
+        )
+    if plan.get("executed") is not False or plan.get("settled") is not False:
+        execution_blockers.append("operation_plan_claims_executed")
+        residuals.append(
+            _operation_residual(
+                "operation_plan_claims_executed",
+                "Operation plan must be unexecuted and unsettled before dispatch.",
+            )
+        )
+    raw_constraints = plan.get("constraints")
+    constraints = raw_constraints if isinstance(raw_constraints, dict) else {}
+    if constraints.get("allowed_commands") != []:
+        execution_blockers.append("operation_plan_has_blockers")
+        residuals.append(
+            _operation_residual(
+                "operation_plan_has_blockers",
+                "Operation plan must not carry executable command allowances.",
+            )
+        )
+    if (
+        constraints.get("requires_execute_flag") is not True
+        or constraints.get("requires_provider_config") is not True
+    ):
+        execution_blockers.append("operation_plan_has_blockers")
+        residuals.append(
+            _operation_residual(
+                "operation_plan_has_blockers",
+                "Operation plan must require execute flag and explicit provider config.",
+            )
+        )
+    if plan.get("real_world_operation_ready") is not True:
+        execution_blockers.append("operation_plan_has_blockers")
+        residuals.append(
+            _operation_residual(
+                "operation_plan_has_blockers",
+                "Operation plan is not real_world_operation_ready.",
+            )
+        )
+    if not isinstance(config, dict):
+        execution_blockers.append("provider_config_required")
+        residuals.append(
+            _operation_residual(
+                "provider_config_required",
+                "Operation preflight requires explicit provider config.",
+            )
+        )
+    side_effect_policy = "none_without_execute_flag"
+    if isinstance(config, dict):
+        side_effect_policy = str(config.get("side_effect_policy", side_effect_policy))
+        allowed_classes = config.get("allowed_provider_classes")
+        provider_class = str(config.get("provider_class", provider_name))
+        if isinstance(allowed_classes, list) and provider_class not in {
+            str(item) for item in allowed_classes
+        }:
+            execution_blockers.append("provider_class_not_allowed")
+            residuals.append(
+                _operation_residual(
+                    "provider_class_not_allowed",
+                    f"Provider class {provider_class!r} is not allowed by config.",
+                )
+            )
+        if not config.get("allow_execute"):
+            execution_blockers.append("explicit_execution_config_required")
+            residuals.append(
+                _operation_residual(
+                    "explicit_execution_config_required",
+                    "Provider dispatch requires allow_execute=true.",
+                )
+            )
+        if not config.get("operator_approval_ref"):
+            execution_blockers.append("operator_approval_required")
+            residuals.append(
+                _operation_residual(
+                    "operator_approval_required",
+                    "Provider dispatch requires a user/operator approval reference.",
+                )
+            )
+        if side_effect_policy in _DRY_RUN_SIDE_EFFECT_POLICIES:
+            execution_blockers.append("side_effect_policy_not_dispatchable")
+            residuals.append(
+                _operation_residual(
+                    "side_effect_policy_not_dispatchable",
+                    "Provider dispatch requires an explicit non-dry-run side-effect policy.",
+                )
+            )
+        elif side_effect_policy not in _DISPATCHABLE_SIDE_EFFECT_POLICIES:
+            execution_blockers.append("side_effect_policy_not_dispatchable")
+            residuals.append(
+                _operation_residual(
+                    "side_effect_policy_not_dispatchable",
+                    f"Side-effect policy {side_effect_policy!r} is not dispatchable.",
+                )
+            )
+        if side_effect_policy == "physical_provider_allowed" and not plan.get(
+            "physical_dispatch_ready", False
+        ):
+            execution_blockers.append("preflight_not_dispatch_ready")
+            residuals.append(
+                _operation_residual(
+                    "preflight_not_dispatch_ready",
+                    "Physical provider dispatch requires a separate physical dispatch gate.",
+                )
+            )
+    provider_dispatch_ready = (
+        bool(plan.get("real_world_operation_ready"))
+        and isinstance(config, dict)
+        and bool(config.get("allow_execute"))
+        and bool(config.get("operator_approval_ref"))
+        and side_effect_policy in _DISPATCHABLE_SIDE_EFFECT_POLICIES
+        and not execution_blockers
+    )
+    return {
+        "accepted": True,
+        "executed": False,
+        "execution_blockers": sorted(set(execution_blockers)),
+        "non_claims": [
+            *list(NON_CLAIMS),
+            "Preflight is not dispatch.",
+            "Provider dispatch readiness is not execution.",
+        ],
+        "ok": provider_dispatch_ready,
+        "operation_plan": plan,
+        "operation_ready": bool(plan.get("real_world_operation_ready")) and not execution_blockers,
+        "physical_dispatch_ready": bool(plan.get("physical_dispatch_ready", False)),
+        "provider": provider_name,
+        "provider_dispatch_ready": provider_dispatch_ready,
+        "residuals": residuals,
+        "schema_version": "ccr.trc_operation_preflight.v1",
+        "settled": False,
+        "side_effect_policy": side_effect_policy,
+    }
+
+
+def _validate_dispatch_preflight(
+    *,
+    plan: dict[str, Any],
+    preflight: dict[str, Any] | None,
+    provider_name: str,
+) -> tuple[str | None, str | None]:
+    if preflight is None:
+        return "preflight_required", "Operation dispatch requires a preflight report."
+    if preflight.get("schema_version") != "ccr.trc_operation_preflight.v1":
+        return "preflight_schema_invalid", "Operation dispatch requires a valid preflight schema."
+    if preflight.get("provider") != provider_name:
+        return "preflight_provider_mismatch", "Preflight provider does not match dispatch provider."
+    if (
+        preflight.get("executed") is not False
+        or preflight.get("settled") is not False
+        or preflight.get("operation_ready") is not True
+        or preflight.get("provider_dispatch_ready") is not True
+        or preflight.get("execution_blockers")
+    ):
+        return "preflight_not_dispatch_ready", "Preflight is not dispatch-ready."
+    preflight_plan = preflight.get("operation_plan")
+    if isinstance(preflight_plan, dict) and preflight_plan.get("plan_id") != plan.get("plan_id"):
+        return "preflight_schema_invalid", "Preflight operation_plan does not match dispatch plan."
+    return None, None
+
+
 def operation_dispatch(
     root: Path,
     *,
     plan: dict[str, Any],
     provider_name: str,
     config: dict[str, Any] | None = None,
+    preflight: dict[str, Any] | None = None,
     execute: bool = False,
 ) -> dict[str, Any]:
     """Plan or explicitly dispatch a TRC-governed operation through a provider."""
@@ -1015,20 +1995,6 @@ def operation_dispatch(
         "schema_version": "ccr.trc_operation_provider_payload.v1",
     }
     provider_plan = provider.plan(action="trc_operation", payload=payload, root=root)
-    if not plan.get("real_world_operation_ready", False):
-        residual = _operation_residual(
-            "operation_plan_not_ready",
-            "TRC operation plan is not ready for real-world dispatch.",
-        )
-        return {
-            "executed": False,
-            "network_call_performed": False,
-            "ok": False,
-            "plan": provider_plan,
-            "provider": provider_name,
-            "residual_ready": residual,
-            "schema_version": "ccr.trc_operation_dispatch.v1",
-        }
     if not execute:
         return {
             "executed": False,
@@ -1038,49 +2004,90 @@ def operation_dispatch(
             "provider": provider_name,
             "schema_version": "ccr.trc_operation_dispatch.v1",
         }
-    if not isinstance(config, dict) or not config.get("allow_execute"):
-        residual = _operation_residual(
+    if provider_plan.get("action") != "trc_operation":
+        return _dispatch_failure(
+            provider_name,
+            provider_plan,
+            "provider_plan_action_mismatch",
+            "Provider plan action must be trc_operation.",
+        )
+    if plan.get("schema_version") != "ccr.trc_operation_plan.v1":
+        return _dispatch_failure(
+            provider_name,
+            provider_plan,
+            "operation_plan_schema_invalid",
+            "Operation dispatch requires ccr.trc_operation_plan.v1.",
+        )
+    if plan.get("executed") is not False or plan.get("settled") is not False:
+        return _dispatch_failure(
+            provider_name,
+            provider_plan,
+            "operation_plan_claims_executed",
+            "Operation plan must be unexecuted and unsettled.",
+        )
+    if plan.get("execution_blockers") or plan.get("real_world_operation_ready") is not True:
+        return _dispatch_failure(
+            provider_name,
+            provider_plan,
+            "operation_plan_has_blockers",
+            "Operation plan is not ready or still has blockers.",
+        )
+    raw_constraints = plan.get("constraints")
+    constraints = raw_constraints if isinstance(raw_constraints, dict) else {}
+    if (
+        constraints.get("allowed_commands") != []
+        or constraints.get("requires_execute_flag") is not True
+        or constraints.get("requires_provider_config") is not True
+    ):
+        return _dispatch_failure(
+            provider_name,
+            provider_plan,
+            "operation_plan_has_blockers",
+            "Operation plan constraints do not preserve dispatch safety requirements.",
+        )
+    effective_preflight = preflight or _operation_preflight_from_plan(
+        plan,
+        provider_name=provider_name,
+        config=config,
+    )
+    if preflight is None and effective_preflight.get("provider_dispatch_ready") is not True:
+        return _dispatch_failure(
+            provider_name,
+            provider_plan,
+            "preflight_required",
+            "No matching dispatch-ready preflight was supplied or internally produced.",
+            preflight=effective_preflight,
+        )
+    preflight_kind, preflight_description = _validate_dispatch_preflight(
+        plan=plan,
+        preflight=effective_preflight,
+        provider_name=provider_name,
+    )
+    if preflight_kind is not None:
+        return _dispatch_failure(
+            provider_name,
+            provider_plan,
+            preflight_kind,
+            preflight_description or "Preflight blocked dispatch.",
+            preflight=effective_preflight,
+        )
+    if not isinstance(config, dict):
+        return _dispatch_failure(
+            provider_name,
+            provider_plan,
             "explicit_execution_config_required",
-            "Operation execution requires config with allow_execute=true.",
+            "Operation execution requires explicit provider config.",
+            preflight=effective_preflight,
         )
-        return {
-            "executed": False,
-            "network_call_performed": False,
-            "ok": False,
-            "plan": provider_plan,
-            "provider": provider_name,
-            "residual_ready": residual,
-            "schema_version": "ccr.trc_operation_dispatch.v1",
-        }
-    side_effect_policy = str(config.get("side_effect_policy", "none_without_execute_flag"))
-    if not config.get("operator_approval_ref"):
-        residual = _operation_residual(
-            "operator_approval_required",
-            "Operation execution requires a user/operator approval reference.",
+    state = _provider_state(root, provider_name)
+    if state.get("circuit_state") == "open":
+        return _dispatch_failure(
+            provider_name,
+            provider_plan,
+            "provider_circuit_open",
+            "Provider execute is blocked while the circuit is open.",
+            preflight=effective_preflight,
         )
-        return {
-            "executed": False,
-            "network_call_performed": False,
-            "ok": False,
-            "plan": provider_plan,
-            "provider": provider_name,
-            "residual_ready": residual,
-            "schema_version": "ccr.trc_operation_dispatch.v1",
-        }
-    if side_effect_policy in {"dry_run_only", "none", "none_without_execute_flag"}:
-        residual = _operation_residual(
-            "side_effect_policy_execution_required",
-            "Operation execution requires an explicit non-dry-run side-effect policy.",
-        )
-        return {
-            "executed": False,
-            "network_call_performed": False,
-            "ok": False,
-            "plan": provider_plan,
-            "provider": provider_name,
-            "residual_ready": residual,
-            "schema_version": "ccr.trc_operation_dispatch.v1",
-        }
     report = provider.execute(
         action="trc_operation",
         payload=payload,
@@ -1101,6 +2108,7 @@ def operation_dispatch(
     return {
         "executed": bool(report.get("network_call_performed")),
         "ok": bool(report.get("ok", False)),
+        "preflight": effective_preflight,
         "provider": provider_name,
         "report": report,
         "schema_version": "ccr.trc_operation_dispatch.v1",
@@ -1517,6 +2525,224 @@ def _distillation_report(
         "settled": False,
         "verifier_plan": [],
     }
+
+
+def _diagnostic_residual(
+    prefix: str,
+    subject: Any,
+    kind: str,
+    blocking: bool = True,
+    description: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "blocking": blocking,
+        "description": description or kind.replace("_", " "),
+        "kind": kind,
+        "residual_id": stable_id(f"{prefix}-residual", subject, kind),
+    }
+
+
+def _missing_residuals(
+    prefix: str,
+    subject: Any,
+    data: dict[str, Any],
+    fields: tuple[str, ...],
+) -> list[dict[str, Any]]:
+    return [
+        _diagnostic_residual(prefix, subject, f"missing_{field}")
+        for field in fields
+        if data.get(field) in (None, "", [], {})
+    ]
+
+
+def _blocking_kinds(residuals: list[dict[str, Any]]) -> list[str]:
+    return sorted({str(item.get("kind")) for item in residuals if item.get("blocking")})
+
+
+def _float_value(*values: Any) -> float:
+    for value in values:
+        if value is None:
+            continue
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    return 0.0
+
+
+def _status(value: Any) -> str:
+    if isinstance(value, dict):
+        return str(value.get("status") or "").strip().lower()
+    return str(value or "").strip().lower()
+
+
+def _status_ok(value: Any, allowed: set[str]) -> bool:
+    return _status(value) in allowed
+
+
+def _target_status_residuals(target_id: str, target: dict[str, Any]) -> list[dict[str, Any]]:
+    residuals: list[dict[str, Any]] = []
+    for field in ("mission_law", "generated_law", "externality_law"):
+        if not _status_ok(target.get(field), {"accepted", "approved", "fresh", "active"}):
+            residuals.append(_diagnostic_residual("target", target_id, f"{field}_not_accepted"))
+    if not _status_ok(target.get("hazard_envelope"), {"accepted", "approved", "active"}):
+        residuals.append(_diagnostic_residual("target", target_id, "hazard_envelope_not_accepted"))
+    if not _status_ok(target.get("authority_envelope"), {"accepted", "approved", "active"}):
+        residuals.append(
+            _diagnostic_residual("target", target_id, "authority_envelope_not_approved")
+        )
+    if not _status_ok(target.get("capability_envelope"), {"accepted", "approved", "active"}):
+        residuals.append(
+            _diagnostic_residual("target", target_id, "capability_envelope_not_accepted")
+        )
+    if not _status_ok(target.get("viability_set"), {"accepted", "approved", "active"}):
+        residuals.append(_diagnostic_residual("target", target_id, "viability_set_not_accepted"))
+    if target.get("target_set_changed_after_observation") is True:
+        residuals.append(
+            _diagnostic_residual("target", target_id, "target_changed_after_observation")
+        )
+    return residuals
+
+
+def _normalize_capital_witness(witness: dict[str, Any]) -> dict[str, Any]:
+    witness_id = str(witness.get("witness_id") or stable_id("capital-witness", witness))
+    value_type = str(witness.get("value_estimand_type") or "proxy_only")
+    signed_surplus = _float_value(
+        witness.get("signed_surplus_lower_bound"),
+        _float_value(witness.get("capital_lower_bound"))
+        - _float_value(witness.get("cost_upper_bound"))
+        - _float_value(witness.get("hazard_charge_upper_bound"))
+        - _float_value(witness.get("transport_charge_upper_bound")),
+    )
+    residuals = [
+        _diagnostic_residual("capital", witness_id, f"missing_{field}")
+        for field in ("coordinate", "baseline_ref", "transport_ref", "finality_ref")
+        if witness.get(field) in (None, "", [], {})
+    ]
+    for field in (
+        "mission_valid",
+        "transport_valid",
+        "finality_valid",
+        "hazard_constrained",
+        "gauge_compatible",
+        "raw_net_solvent",
+    ):
+        if witness.get(field) is not True:
+            residuals.append(_diagnostic_residual("capital", witness_id, f"{field}_not_verified"))
+    if value_type == "proxy_only":
+        residuals.append(_diagnostic_residual("capital", witness_id, "proxy_only_not_admitted"))
+    if signed_surplus <= 0:
+        residuals.append(_diagnostic_residual("capital", witness_id, "nonpositive_signed_surplus"))
+    if witness.get("negative_liquidity") is True:
+        residuals.append(_diagnostic_residual("capital", witness_id, "negative_liquidity"))
+    if witness.get("lifecycle_stale") is True:
+        residuals.append(_diagnostic_residual("capital", witness_id, "stale_lifecycle"))
+    if witness.get("authority_fresh") is False:
+        residuals.append(_diagnostic_residual("capital", witness_id, "authority_not_fresh"))
+    blockers = _blocking_kinds(residuals)
+    return {
+        **witness,
+        "blockers": blockers,
+        "capital_admitted": not blockers,
+        "non_claims": [
+            *list(witness.get("non_claims", [])),
+            "accepted_report_does_not_imply_capital_admitted",
+            "proxy_only_cannot_increase_safe_capital",
+        ],
+        "residuals": sorted(
+            [*list(witness.get("residuals", [])), *residuals], key=lambda item: item["kind"]
+        ),
+        "schema_version": "ccr.runtime_capital_witness.v1",
+        "settled": False,
+        "signed_surplus_lower_bound": signed_surplus,
+        "value_estimand_type": value_type,
+        "witness_id": witness_id,
+    }
+
+
+def _baseline_coordinates(baseline: dict[str, Any]) -> dict[str, float]:
+    raw = baseline.get("envelope_coordinates")
+    if isinstance(raw, dict):
+        return {str(key): _float_value(value) for key, value in raw.items()}
+    if isinstance(raw, list):
+        return {
+            str(item.get("coordinate")): _float_value(item.get("upper_bound"), item.get("value"))
+            for item in raw
+            if isinstance(item, dict)
+        }
+    return {}
+
+
+def _target_thresholds(target: dict[str, Any]) -> dict[str, float]:
+    raw_target_set = target.get("target_set")
+    target_set = raw_target_set if isinstance(raw_target_set, dict) else {}
+    raw = target_set.get("thresholds") or target_set.get("coordinate_thresholds")
+    if isinstance(raw, dict):
+        return {str(key): _float_value(value) for key, value in raw.items()}
+    if isinstance(raw, list):
+        return {
+            str(item.get("coordinate")): _float_value(item.get("threshold"), item.get("value"))
+            for item in raw
+            if isinstance(item, dict)
+        }
+    return {}
+
+
+def _dir_writable(path: Path) -> bool:
+    path.mkdir(parents=True, exist_ok=True)
+    probe = path / ".ccr-write-probe"
+    try:
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink(missing_ok=True)
+        return True
+    except OSError:
+        return False
+
+
+def _degradation_mode(root: Path) -> str:
+    state = root / "availability.json"
+    if not state.exists():
+        return "normal"
+    data = read_json(state)
+    return str(data.get("mode") or "normal")
+
+
+def _provider_available(provider: str) -> dict[str, Any]:
+    if provider == "pic-ts":
+        return {"available": False, "provider": provider, "reason": "not_configured"}
+    try:
+        availability = (
+            PicVerifierProvider().availability() if provider == "pic" else {"available": True}
+        )
+    except Exception as exc:  # pragma: no cover - optional environment boundary.
+        availability = {"available": False, "reason": str(exc)}
+    return {"provider": provider, **availability}
+
+
+def _provider_state(root: Path, provider: str) -> dict[str, Any]:
+    path = root / "providers" / f"{json_file_name(provider)}.state.json"
+    if path.exists():
+        return cast(dict[str, Any], read_json(path))
+    return {
+        "allowed_actions": ["plan"],
+        "circuit_state": "closed",
+        "cooldown_until": None,
+        "failure_count": 0,
+        "health_status": "unknown",
+        "last_failure": None,
+        "last_success": None,
+        "provider_id": provider,
+        "residuals": [],
+        "schema_version": "ccr.provider_state.v1",
+        "settled": False,
+        "side_effect_policy": "dry_run_only",
+    }
+
+
+def _write_provider_state(root: Path, provider: str, state: dict[str, Any]) -> None:
+    path = root / "providers" / f"{json_file_name(provider)}.state.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_json_atomic(path, state)
 
 
 def _report_residual(kind: str, description: str) -> dict[str, Any]:

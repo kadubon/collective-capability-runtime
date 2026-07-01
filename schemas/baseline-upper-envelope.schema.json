@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/baseline-upper-envelope.schema.json",
+  "title": "CCR Baseline Upper Envelope",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "baseline_id",
+    "baseline_policy_class",
+    "resource_envelope",
+    "model_toolchain_environment_versions",
+    "control_observability",
+    "upper_bound_method",
+    "confidence_budget",
+    "refresh_contract",
+    "path_law_refs",
+    "envelope_coordinates",
+    "stale",
+    "residuals",
+    "blockers"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.baseline_upper_envelope.v1" },
+    "baseline_id": { "type": "string" },
+    "stale": { "type": "boolean" },
+    "residuals": { "type": "array", "items": { "type": "object" } },
+    "blockers": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

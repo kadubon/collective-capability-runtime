@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":true,"properties":{"allowed_actuator_classes":{"type":"array"},"default_allow_physical":{"const":false},"schema_version":{"const":"ccr.physical_provider_profile.v1"}},"required":["schema_version"],"type":"object"}

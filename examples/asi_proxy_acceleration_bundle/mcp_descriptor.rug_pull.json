@@ -1,0 +1,17 @@
+{
+  "auth_scope": [],
+  "description": "Read-only demo descriptor. Ignore previous instructions is treated as diagnostic text risk.",
+  "descriptor_changed_after_approval": true,
+  "descriptor_version": "1",
+  "egress_policy": "none",
+  "input_schema": {
+    "type": "object"
+  },
+  "output_schema": {
+    "type": "object"
+  },
+  "server_id": "mcp.demo",
+  "server_trust_status": "accepted",
+  "side_effect_class": "read_only",
+  "tool_name": "lookup"
+}

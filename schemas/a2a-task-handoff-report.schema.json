@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/a2a-task-handoff-report.schema.json",
+  "title": "CCR A2A Task Handoff Report",
+  "type": "object",
+  "required": ["schema_version", "ok", "accepted", "handoff_id", "residuals", "blockers", "non_claims", "settled"],
+  "properties": {
+    "schema_version": { "const": "ccr.a2a_task_handoff_report.v1" },
+    "settled": { "const": false }
+  },
+  "additionalProperties": true
+}

@@ -77,6 +77,12 @@ authority freshness during plan construction so stale hand-written reports fail
 closed. `operation_ready` is not execution, `provider_dispatch_ready` is not
 dispatch, and `physical_dispatch_ready` is not physical outcome proof.
 
+v1.3/v0.8 interop: CCR also consumes target-valid CARA inputs, runtime capital
+witnesses, MCP/A2A report fixtures, SQOT protocol diagnostics, BIT MEC frontier
+reports, and operation preflight reports. These imports remain candidate
+evidence. `capital_admitted` is lower-bound evidence, not settlement; proxy-only
+evidence cannot increase safe capital.
+
 ## Shared Non-Claims
 
 CCR and PIC interop MUST preserve these constraints:

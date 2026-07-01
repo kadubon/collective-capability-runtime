@@ -40,6 +40,19 @@ ccr phase certify --json
 certificate candidate, and deterministic repair tasks for failed components.
 The certificate candidate is not real ASI proof and remains `settled=false`.
 
+## v1.3 ASI-Proxy/CARA Loop
+
+Use `ccr phase target-check`, `ccr phase baseline-check`,
+`ccr phase capital-witness import`, and `ccr phase acceleration-report` to build
+target-valid acceleration diagnostics. A positive candidate requires a declared
+target, a resource-matched baseline upper envelope, admitted lower-bound capital
+witnesses, positive margin, and preserved residuals. Proxy-only evidence, raw
+packet count, and duplicate mass do not increase safe capital.
+
+For real-world operations, keep plan, preflight, dispatch, and observation
+separate. `provider_dispatch_ready` is not dispatch; `physical_dispatch_ready`
+is not physical outcome proof.
+
 ## First-time agent guide
 
 Purpose: operate CCR as a local coordination protocol for packet work, verifier

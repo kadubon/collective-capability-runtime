@@ -17,8 +17,10 @@ packets form a collective system that improves downstream problem-solving
 relative to a resource-matched baseline while preserving hazards, residuals,
 authority bounds, and non-execution-by-default constraints.
 
-v1.2.0 adds PIC v0.6.0/v0.7.0 interop helpers and TRC operation planning. CCR can
-consume a PIC trace-check or operation-gate report, build a
+v1.3.0 adds PIC/PIC-TS v0.8.0 interop helpers for target-valid ASI-proxy/CARA
+acceleration, runtime capital witnesses, MCP/A2A structured reports, SQOT/BIT
+diagnostics, provider circuit breakers, availability reports, and stricter TRC
+operation preflight. CCR can consume a PIC trace-check or operation-gate report, build a
 `ccr.trc_operation_plan.v1` dry-run plan, run
 `ccr.trc_operation_preflight.v1`, and dispatch only when an operator supplies
 provider configuration plus explicit `--execute`. Expired, fixture-only,

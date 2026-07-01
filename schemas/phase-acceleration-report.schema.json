@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/phase-acceleration-report.schema.json",
+  "title": "CCR Phase Acceleration Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ok",
+    "target_id",
+    "target_validity_ok",
+    "baseline_envelope_ok",
+    "capital_witnesses",
+    "k_alt_lower",
+    "k_baseline_upper",
+    "margin_delta",
+    "certified_acceleration_candidate",
+    "residuals",
+    "blockers",
+    "non_claims",
+    "settled"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.phase_acceleration_report.v1" },
+    "ok": { "type": "boolean" },
+    "certified_acceleration_candidate": { "type": "boolean" },
+    "settled": { "const": false },
+    "residuals": { "type": "array", "items": { "type": "object" } },
+    "blockers": { "type": "array", "items": { "type": "string" } },
+    "non_claims": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

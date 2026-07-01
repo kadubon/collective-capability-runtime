@@ -1,0 +1,16 @@
+{
+  "baseline_id": "baseline:demo",
+  "baseline_policy_class": "resource_matched_upper_envelope",
+  "blockers": [],
+  "confidence_budget": { "alpha": 0.05 },
+  "control_observability": { "status": "accepted" },
+  "envelope_coordinates": { "coord:demo": 0.5 },
+  "model_toolchain_environment_versions": { "fixture": "v1" },
+  "path_law_refs": ["path-law:demo"],
+  "refresh_contract": { "max_age": "P7D" },
+  "residuals": [],
+  "resource_envelope": { "units": "fixture" },
+  "schema_version": "ccr.baseline_upper_envelope.v1",
+  "stale": false,
+  "upper_bound_method": "finite_fixture"
+}

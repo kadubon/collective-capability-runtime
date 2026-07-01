@@ -25,6 +25,9 @@ from ccr.errors import (
     CCRMissingError,
 )
 from ccr.extensions import (
+    availability_degrade,
+    availability_recover,
+    availability_report,
     demo_pic_roundtrip,
     distill_packet,
     distill_seed,
@@ -34,15 +37,29 @@ from ccr.extensions import (
     experiment_init,
     experiment_run_baseline,
     experiment_run_collective,
+    foundry_active_cuts,
+    foundry_allocate,
     foundry_bottlenecks,
     foundry_dashboard,
     foundry_recommended_tasks,
+    foundry_simulate_allocation,
     import_residual_jsonl,
     import_task_jsonl,
     operation_dispatch,
     operation_observe,
     operation_plan_from_pic_trace,
     operation_preflight_from_pic_trace,
+    phase_acceleration_report,
+    phase_baseline_check,
+    phase_capital_witness_import,
+    phase_capital_witness_list,
+    phase_target_check,
+    probe_no_action_certificate,
+    probe_plan,
+    probe_stop_check,
+    provider_circuit_open,
+    provider_circuit_reset,
+    provider_state,
     residual_emit_tasks,
     residual_rank,
     residual_repair_plan,
@@ -265,8 +282,33 @@ def build_parser() -> argparse.ArgumentParser:
     foundry_bottlenecks_cmd.set_defaults(func=cmd_foundry_bottlenecks)
     foundry_next_cmd = foundry_sub.add_parser("next", help="Recommend next work.")
     foundry_next_cmd.add_argument("--emit", choices=["tasks"])
+    foundry_next_cmd.add_argument("--cut")
     foundry_next_cmd.add_argument("--json", action="store_true", dest="json_output")
     foundry_next_cmd.set_defaults(func=cmd_foundry_next)
+    foundry_cuts_cmd = foundry_sub.add_parser("cuts", help="List active foundry cuts.")
+    foundry_cuts_cmd.add_argument("--json", action="store_true", dest="json_output")
+    foundry_cuts_cmd.set_defaults(func=cmd_foundry_cuts)
+    foundry_active_cuts_cmd = foundry_sub.add_parser(
+        "active-cuts",
+        help="List active foundry cuts, optionally target-scoped.",
+    )
+    foundry_active_cuts_cmd.add_argument("--target")
+    foundry_active_cuts_cmd.add_argument("--json", action="store_true", dest="json_output")
+    foundry_active_cuts_cmd.set_defaults(func=cmd_foundry_cuts)
+    foundry_allocate_cmd = foundry_sub.add_parser("allocate", help="Allocate effort by strategy.")
+    foundry_allocate_cmd.add_argument("--strategy", default="active-cut")
+    foundry_allocate_cmd.add_argument("--response-report")
+    foundry_allocate_cmd.add_argument("--write-tasks", action="store_true")
+    foundry_allocate_cmd.add_argument("--json", action="store_true", dest="json_output")
+    foundry_allocate_cmd.set_defaults(func=cmd_foundry_allocate)
+    foundry_simulate_cmd = foundry_sub.add_parser(
+        "simulate-allocation",
+        help="Simulate advisory foundry allocation from cuts and budget JSON.",
+    )
+    foundry_simulate_cmd.add_argument("--cuts", required=True)
+    foundry_simulate_cmd.add_argument("--budget", required=True)
+    foundry_simulate_cmd.add_argument("--json", action="store_true", dest="json_output")
+    foundry_simulate_cmd.set_defaults(func=cmd_foundry_simulate_allocation)
 
     experiment = sub.add_parser("experiment", help="Experiment and baseline commands.")
     experiment_sub = experiment.add_subparsers(dest="experiment_command", required=True)
@@ -335,11 +377,28 @@ def build_parser() -> argparse.ArgumentParser:
     operation_plan_cmd.add_argument("--trace", required=True)
     operation_plan_cmd.add_argument("--json", action="store_true", dest="json_output")
     operation_plan_cmd.set_defaults(func=cmd_operation_plan)
+    operation_profile_cmd = operation_sub.add_parser(
+        "profile-check",
+        help="Check an operation profile ladder.",
+    )
+    operation_profile_cmd.add_argument("--profile", required=True)
+    operation_profile_cmd.add_argument("--json", action="store_true", dest="json_output")
+    operation_profile_cmd.set_defaults(func=cmd_operation_profile_check)
+    operation_shadow_cmd = operation_sub.add_parser(
+        "shadow",
+        help="Build a non-executing shadow dispatch plan.",
+    )
+    operation_shadow_cmd.add_argument("--trace", required=True)
+    operation_shadow_cmd.add_argument("--provider", required=True)
+    operation_shadow_cmd.add_argument("--config", required=True)
+    operation_shadow_cmd.add_argument("--json", action="store_true", dest="json_output")
+    operation_shadow_cmd.set_defaults(func=cmd_operation_shadow)
     operation_execute_cmd = operation_sub.add_parser(
         "execute",
         help="Plan or explicitly dispatch a TRC operation through a provider.",
     )
     operation_execute_cmd.add_argument("--plan", required=True)
+    operation_execute_cmd.add_argument("--preflight")
     operation_execute_cmd.add_argument("--provider", required=True)
     operation_execute_cmd.add_argument("--config")
     operation_execute_cmd.add_argument("--execute", action="store_true")
@@ -350,6 +409,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Explicitly dispatch a TRC operation through a provider.",
     )
     operation_dispatch_cmd.add_argument("--plan", required=True)
+    operation_dispatch_cmd.add_argument("--preflight")
     operation_dispatch_cmd.add_argument("--provider", required=True)
     operation_dispatch_cmd.add_argument("--config")
     operation_dispatch_cmd.add_argument("--execute", action="store_true")
@@ -361,8 +421,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     operation_observe_cmd.add_argument("--dispatch-report", required=True)
     operation_observe_cmd.add_argument("--observation", required=True)
+    operation_observe_cmd.add_argument("--emit", choices=["residuals", "tasks"])
     operation_observe_cmd.add_argument("--json", action="store_true", dest="json_output")
     operation_observe_cmd.set_defaults(func=cmd_operation_observe)
+    operation_incident_cmd = operation_sub.add_parser(
+        "incident",
+        help="Create an incident report from dispatch and observation evidence.",
+    )
+    operation_incident_cmd.add_argument("--dispatch-report", required=True)
+    operation_incident_cmd.add_argument("--observation", required=True)
+    operation_incident_cmd.add_argument("--json", action="store_true", dest="json_output")
+    operation_incident_cmd.set_defaults(func=cmd_operation_incident)
 
     verify = sub.add_parser("verify", help="Run or plan a verifier provider.")
     verify.add_argument("--provider", required=True)
@@ -413,6 +482,25 @@ def build_parser() -> argparse.ArgumentParser:
     provider_import.add_argument("--report", required=True)
     provider_import.add_argument("--json", action="store_true", dest="json_output")
     provider_import.set_defaults(func=cmd_provider_import)
+    provider_state_cmd = provider_sub.add_parser("state", help="Show provider circuit state.")
+    provider_state_cmd.add_argument("--provider", required=True)
+    provider_state_cmd.add_argument("--json", action="store_true", dest="json_output")
+    provider_state_cmd.set_defaults(func=cmd_provider_state)
+    provider_circuit_open_cmd = provider_sub.add_parser(
+        "circuit-open",
+        help="Open a provider circuit breaker.",
+    )
+    provider_circuit_open_cmd.add_argument("--provider", required=True)
+    provider_circuit_open_cmd.add_argument("--reason", required=True)
+    provider_circuit_open_cmd.add_argument("--json", action="store_true", dest="json_output")
+    provider_circuit_open_cmd.set_defaults(func=cmd_provider_circuit_open)
+    provider_circuit_reset_cmd = provider_sub.add_parser(
+        "circuit-reset",
+        help="Reset a provider circuit breaker.",
+    )
+    provider_circuit_reset_cmd.add_argument("--provider", required=True)
+    provider_circuit_reset_cmd.add_argument("--json", action="store_true", dest="json_output")
+    provider_circuit_reset_cmd.set_defaults(func=cmd_provider_circuit_reset)
 
     phase = sub.add_parser("phase", help="Phase commands.")
     phase_sub = phase.add_subparsers(dest="phase_command", required=True)
@@ -448,6 +536,73 @@ def build_parser() -> argparse.ArgumentParser:
     phase_report_cmd = phase_sub.add_parser("report", help="Summarize runtime state.")
     phase_report_cmd.add_argument("--json", action="store_true", dest="json_output")
     phase_report_cmd.set_defaults(func=cmd_phase_report)
+    phase_target_check_cmd = phase_sub.add_parser("target-check", help="Check CARA target JSON.")
+    phase_target_check_cmd.add_argument("--target", required=True)
+    phase_target_check_cmd.add_argument("--json", action="store_true", dest="json_output")
+    phase_target_check_cmd.set_defaults(func=cmd_phase_target_check)
+    phase_baseline_check_cmd = phase_sub.add_parser(
+        "baseline-check",
+        help="Check baseline upper envelope JSON.",
+    )
+    phase_baseline_check_cmd.add_argument("--baseline", required=True)
+    phase_baseline_check_cmd.add_argument("--json", action="store_true", dest="json_output")
+    phase_baseline_check_cmd.set_defaults(func=cmd_phase_baseline_check)
+    phase_accel_cmd = phase_sub.add_parser(
+        "acceleration-report",
+        help="Emit target-valid CARA acceleration report.",
+    )
+    phase_accel_cmd.add_argument("--target", required=True)
+    phase_accel_cmd.add_argument("--baseline", required=True)
+    phase_accel_cmd.add_argument("--capital", required=True)
+    phase_accel_cmd.add_argument("--json", action="store_true", dest="json_output")
+    phase_accel_cmd.set_defaults(func=cmd_phase_acceleration_report)
+    phase_capital = phase_sub.add_parser("capital-witness", help="Capital witness commands.")
+    phase_capital_sub = phase_capital.add_subparsers(
+        dest="phase_capital_command",
+        required=True,
+    )
+    phase_capital_import_cmd = phase_capital_sub.add_parser("import", help="Import JSONL.")
+    phase_capital_import_cmd.add_argument("--file", required=True)
+    phase_capital_import_cmd.add_argument("--provider", required=True)
+    phase_capital_import_cmd.add_argument("--json", action="store_true", dest="json_output")
+    phase_capital_import_cmd.set_defaults(func=cmd_phase_capital_witness_import)
+    phase_capital_list_cmd = phase_capital_sub.add_parser("list", help="List witnesses.")
+    phase_capital_list_cmd.add_argument("--json", action="store_true", dest="json_output")
+    phase_capital_list_cmd.set_defaults(func=cmd_phase_capital_witness_list)
+
+    availability = sub.add_parser("availability", help="Runtime availability commands.")
+    availability_sub = availability.add_subparsers(dest="availability_command", required=True)
+    availability_report_cmd = availability_sub.add_parser("report", help="Show availability.")
+    availability_report_cmd.add_argument("--json", action="store_true", dest="json_output")
+    availability_report_cmd.set_defaults(func=cmd_availability_report)
+    availability_doctor_cmd = availability_sub.add_parser("doctor", help="Show availability.")
+    availability_doctor_cmd.add_argument("--json", action="store_true", dest="json_output")
+    availability_doctor_cmd.set_defaults(func=cmd_availability_report)
+    availability_degrade_cmd = availability_sub.add_parser("degrade", help="Set degrade mode.")
+    availability_degrade_cmd.add_argument("--mode", choices=["read-only"], required=True)
+    availability_degrade_cmd.add_argument("--json", action="store_true", dest="json_output")
+    availability_degrade_cmd.set_defaults(func=cmd_availability_degrade)
+    availability_recover_cmd = availability_sub.add_parser("recover", help="Recover availability.")
+    availability_recover_cmd.add_argument("--json", action="store_true", dest="json_output")
+    availability_recover_cmd.set_defaults(func=cmd_availability_recover)
+
+    probe = sub.add_parser("probe", help="Non-executing probe economy commands.")
+    probe_sub = probe.add_subparsers(dest="probe_command", required=True)
+    probe_plan_cmd = probe_sub.add_parser("plan", help="Plan finite diagnostic probes.")
+    probe_plan_cmd.add_argument("--state")
+    probe_plan_cmd.add_argument("--json", action="store_true", dest="json_output")
+    probe_plan_cmd.set_defaults(func=cmd_probe_plan)
+    probe_stop_cmd = probe_sub.add_parser("stop-check", help="Check probe stop condition.")
+    probe_stop_cmd.add_argument("--probe-tree", required=True)
+    probe_stop_cmd.add_argument("--json", action="store_true", dest="json_output")
+    probe_stop_cmd.set_defaults(func=cmd_probe_stop_check)
+    probe_no_action_cmd = probe_sub.add_parser(
+        "no-action-certificate",
+        help="Emit no-action certificate.",
+    )
+    probe_no_action_cmd.add_argument("--state", required=True)
+    probe_no_action_cmd.add_argument("--json", action="store_true", dest="json_output")
+    probe_no_action_cmd.set_defaults(func=cmd_probe_no_action_certificate)
 
     report = sub.add_parser("report", help="Human-readable report.")
     report.add_argument("--format", choices=["markdown", "json"], default="markdown")
@@ -773,14 +928,45 @@ def cmd_foundry_bottlenecks(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def cmd_foundry_cuts(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = foundry_active_cuts(root)
+    if getattr(args, "target", None):
+        report["target_ref"] = args.target
+    _emit_json(report)
+    return EXIT_SUCCESS
+
+
+def cmd_foundry_allocate(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    result = foundry_allocate(
+        root,
+        strategy=args.strategy,
+        response_report=_read_object(Path(args.response_report)) if args.response_report else None,
+        write_tasks=args.write_tasks,
+    )
+    _emit_json(result)
+    return EXIT_SUCCESS if result.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_foundry_simulate_allocation(args: argparse.Namespace) -> int:
+    result = foundry_simulate_allocation(
+        cuts=_read_object(Path(args.cuts)),
+        budget=_read_object(Path(args.budget)),
+    )
+    _emit_json(result)
+    return EXIT_SUCCESS if result.get("ok") else EXIT_POLICY_FAILURE
+
+
 def cmd_foundry_next(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     _emit_json(
         {
+            "cut": args.cut,
             "emit": args.emit,
             "ok": True,
             "schema_version": "ccr.foundry_next.v1",
-            "tasks": foundry_recommended_tasks(root),
+            "tasks": foundry_recommended_tasks(root, cut_kind=args.cut),
         }
     )
     return EXIT_SUCCESS
@@ -853,6 +1039,53 @@ def cmd_operation_plan(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def cmd_operation_profile_check(args: argparse.Namespace) -> int:
+    profile = _read_object(Path(args.profile))
+    mode = str(profile.get("mode") or profile.get("profile") or "development")
+    blockers = []
+    if mode in {"development", "research"} and profile.get("allow_execute"):
+        blockers.append("dry_run_profile_allows_execute")
+    if mode == "production" and not profile.get("operator_approval_required", True):
+        blockers.append("operator_approval_required")
+    result = {
+        "accepted": not blockers,
+        "blockers": blockers,
+        "non_claims": [*NON_CLAIMS, "operation_profile_is_not_dispatch_authority"],
+        "ok": True,
+        "physical_provider_denied_by_default": profile.get("physical_provider_default") != "allow",
+        "schema_version": "ccr.operation_profile_check.v1",
+        "settled": False,
+    }
+    _emit_json(result)
+    return EXIT_SUCCESS if not blockers else EXIT_POLICY_FAILURE
+
+
+def cmd_operation_shadow(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    trace_report = _read_object(Path(args.trace))
+    config = _read_object(Path(args.config))
+    plan = operation_plan_from_pic_trace(trace_report)
+    dispatch = operation_dispatch(
+        root,
+        plan=plan,
+        provider_name=args.provider,
+        config={**config, "allow_execute": False},
+        execute=False,
+    )
+    _emit_json(
+        {
+            "dispatch": dispatch,
+            "executed": False,
+            "network_call_performed": False,
+            "non_claims": [*NON_CLAIMS, "shadow_mode_never_executes_provider_side_effects"],
+            "ok": True,
+            "schema_version": "ccr.operation_shadow.v1",
+            "settled": False,
+        }
+    )
+    return EXIT_SUCCESS
+
+
 def cmd_operation_preflight(args: argparse.Namespace) -> int:
     trace_report = _read_object(Path(args.trace))
     config = _read_object(Path(args.config)) if args.config else None
@@ -868,12 +1101,14 @@ def cmd_operation_preflight(args: argparse.Namespace) -> int:
 def cmd_operation_execute(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     plan = _read_object(Path(args.plan))
+    preflight = _read_object(Path(args.preflight)) if args.preflight else None
     config = _read_object(Path(args.config)) if args.config else None
     result = operation_dispatch(
         root,
         plan=plan,
         provider_name=args.provider,
         config=config,
+        preflight=preflight,
         execute=bool(args.execute),
     )
     _emit_json(result)
@@ -885,8 +1120,46 @@ def cmd_operation_observe(args: argparse.Namespace) -> int:
         dispatch_report=_read_object(Path(args.dispatch_report)),
         observation=_read_object(Path(args.observation)),
     )
+    if args.emit == "residuals":
+        result = {**result, "emitted_residuals": result.get("residuals", [])}
+    if args.emit == "tasks":
+        result = {
+            **result,
+            "emitted_tasks": [
+                {
+                    "kind": "observation_verification",
+                    "objective": "Route operation observation residuals to a verifier.",
+                    "residual_refs": [
+                        item.get("residual_id")
+                        for item in result.get("residuals", [])
+                        if isinstance(item, dict)
+                    ],
+                    "settled": False,
+                }
+            ],
+        }
     _emit_json(result)
     return EXIT_SUCCESS if result.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_operation_incident(args: argparse.Namespace) -> int:
+    observed = operation_observe(
+        dispatch_report=_read_object(Path(args.dispatch_report)),
+        observation=_read_object(Path(args.observation)),
+    )
+    residuals = observed.get("residuals", [])
+    _emit_json(
+        {
+            "incident_required": bool(residuals),
+            "non_claims": [*NON_CLAIMS, "incident_report_is_not_physical_outcome_proof"],
+            "observation_report": observed,
+            "ok": True,
+            "residuals": residuals,
+            "schema_version": "ccr.operation_incident.v1",
+            "settled": False,
+        }
+    )
+    return EXIT_SUCCESS
 
 
 def cmd_verify(args: argparse.Namespace) -> int:
@@ -1166,6 +1439,24 @@ def cmd_provider_import(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def cmd_provider_state(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(provider_state(root, provider=args.provider))
+    return EXIT_SUCCESS
+
+
+def cmd_provider_circuit_open(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(provider_circuit_open(root, provider=args.provider, reason=args.reason))
+    return EXIT_SUCCESS
+
+
+def cmd_provider_circuit_reset(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(provider_circuit_reset(root, provider=args.provider))
+    return EXIT_SUCCESS
+
+
 def cmd_phase_graph(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     graph = build_effective_graph(root)
@@ -1354,6 +1645,45 @@ def cmd_phase_report(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def cmd_phase_target_check(args: argparse.Namespace) -> int:
+    _emit_json(phase_target_check(_read_object(Path(args.target))))
+    return EXIT_SUCCESS
+
+
+def cmd_phase_baseline_check(args: argparse.Namespace) -> int:
+    _emit_json(phase_baseline_check(_read_object(Path(args.baseline))))
+    return EXIT_SUCCESS
+
+
+def cmd_phase_acceleration_report(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = phase_acceleration_report(
+        root,
+        target=_read_object(Path(args.target)),
+        baseline=_read_object(Path(args.baseline)),
+        capital_witnesses=_read_jsonl_objects(Path(args.capital)),
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_phase_capital_witness_import(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = phase_capital_witness_import(
+        root,
+        file=Path(args.file),
+        provider=args.provider,
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_phase_capital_witness_list(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(phase_capital_witness_list(root))
+    return EXIT_SUCCESS
+
+
 def cmd_phase_plan(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     if args.provider != "pic":
@@ -1386,6 +1716,41 @@ def cmd_phase_plan(args: argparse.Namespace) -> int:
         }
     )
     return EXIT_SUCCESS if availability.get("available") else EXIT_MISSING
+
+
+def cmd_availability_report(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(availability_report(root))
+    return EXIT_SUCCESS
+
+
+def cmd_availability_degrade(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(availability_degrade(root, mode=args.mode))
+    return EXIT_SUCCESS
+
+
+def cmd_availability_recover(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(availability_recover(root))
+    return EXIT_SUCCESS
+
+
+def cmd_probe_plan(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    state = _read_object(Path(args.state)) if args.state else {}
+    _emit_json(probe_plan(root, state=state))
+    return EXIT_SUCCESS
+
+
+def cmd_probe_stop_check(args: argparse.Namespace) -> int:
+    _emit_json(probe_stop_check(_read_object(Path(args.probe_tree))))
+    return EXIT_SUCCESS
+
+
+def cmd_probe_no_action_certificate(args: argparse.Namespace) -> int:
+    _emit_json(probe_no_action_certificate(_read_object(Path(args.state))))
+    return EXIT_SUCCESS
 
 
 def cmd_report(args: argparse.Namespace) -> int:
@@ -1934,6 +2299,36 @@ def _read_object(path: Path) -> dict[str, Any]:
             {"error": "file is not a JSON object", "file": str(path), "ok": False},
         )
     return data
+
+
+def _read_jsonl_objects(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        raise FileNotFoundError(path)
+    rows: list[dict[str, Any]] = []
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        data = read_json_from_text(stripped, path, line_number)
+        if not isinstance(data, dict):
+            raise CCRMissingError(
+                f"{path}:{line_number} must contain a JSON object",
+                {"error": "JSONL line is not an object", "line": line_number, "ok": False},
+            )
+        rows.append(data)
+    return rows
+
+
+def read_json_from_text(text: str, path: Path, line_number: int) -> Any:
+    import json
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise CCRMissingError(
+            f"{path}:{line_number} is not valid JSON",
+            {"error": str(exc), "line": line_number, "ok": False},
+        ) from exc
 
 
 def _validation_failure_payload(

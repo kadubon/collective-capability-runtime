@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":true,"properties":{"incidents":{"type":"array"},"non_claims":{"type":"array"},"schema_version":{"const":"ccr.incident_ledger.v1"},"settled":{"const":false}},"required":["schema_version"],"type":"object"}

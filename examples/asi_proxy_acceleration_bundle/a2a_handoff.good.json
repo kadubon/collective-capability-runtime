@@ -1,0 +1,9 @@
+{
+  "agent_card_ref": "agent:fixture",
+  "declared_authority": { "scope": "read-only" },
+  "handoff_id": "handoff:fixture",
+  "handoff_scope": "read-only",
+  "idempotency_key": "idem-fixture",
+  "replay_nonce": "nonce-fixture",
+  "task_schema": { "type": "object" }
+}

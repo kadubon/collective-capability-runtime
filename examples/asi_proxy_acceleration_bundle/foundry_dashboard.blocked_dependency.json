@@ -1,0 +1,25 @@
+{
+  "active_cuts": ["evidence_bandwidth_cut"],
+  "bottlenecks": [
+    {
+      "blocking_packet_id": "packet:blocked-parent",
+      "cut_kind": "evidence_bandwidth_cut",
+      "packet_id": "packet:child"
+    }
+  ],
+  "metrics": {
+    "blocking_residual_edge_count": 1,
+    "checked_packet_growth": 0,
+    "dependency_blocked_packet_count": 1,
+    "positive_packet_count": 0,
+    "settled_packet_growth": 0,
+    "unknown_diagnostic_reserve": 1
+  },
+  "non_claims": [
+    "raw_packet_count_is_not_progress",
+    "dependency_blocked_checked_packets_do_not_count_as_positive_progress"
+  ],
+  "ok": true,
+  "schema_version": "ccr.foundry_dashboard.v1",
+  "settled": false
+}
