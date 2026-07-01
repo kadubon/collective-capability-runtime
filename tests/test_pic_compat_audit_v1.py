@@ -32,6 +32,20 @@ def test_audit_pic_with_source_root_preserves_missing_provider_as_residual(tmp_p
     )
 
 
+def test_audit_pic_accepts_v050_source_root_during_cross_repo_rollout(tmp_path, monkeypatch):
+    pic_root = _fake_pic_root(tmp_path, version="0.5.0")
+    monkeypatch.setattr("ccr.audit.pic.shutil.which", lambda name: None)
+    monkeypatch.setattr(
+        "ccr.audit.pic._installed_distribution_version",
+        lambda name: None,
+    )
+
+    report = audit_pic_compatibility(REPO_ROOT, pic_root=pic_root)
+
+    assert report["ok"] is True
+    assert report["pic_repo_version"] == "0.5.0"
+
+
 def test_audit_pic_missing_root_returns_exit_code_2(tmp_path, capsys):
     missing = tmp_path / "missing-pic"
 
@@ -75,7 +89,7 @@ def test_pic_provider_capabilities_expose_v060_commands_and_report_fields():
         assert field in capabilities["supported_import_fields"]
 
 
-def _fake_pic_root(tmp_path: Path) -> Path:
+def _fake_pic_root(tmp_path: Path, *, version: str = "0.6.0") -> Path:
     root = tmp_path / "percolation-inversion-compiler"
     (root / "docs").mkdir(parents=True)
     (root / "examples" / "portability_conformance").mkdir(parents=True)
@@ -83,11 +97,11 @@ def _fake_pic_root(tmp_path: Path) -> Path:
         """
 [project]
 name = "percolation-inversion-compiler"
-version = "0.6.0"
+version = "{version}"
 
 [project.scripts]
 pic = "percolation_inversion_compiler.cli:app"
-""".strip(),
+""".strip().format(version=version),
         encoding="utf-8",
     )
     (root / "README.md").write_text(
@@ -109,30 +123,35 @@ safe_commands workflow_usable accepted=true settled=false
 """.strip(),
         encoding="utf-8",
     )
-    (root / "docs" / "v060-audit.md").write_text(
-        "Package version: `0.6.0`; operation-readiness; "
-        "safe_commands; accepted=true; settled=false",
+    (root / "docs" / "v050-audit.md").write_text(
+        "Package version: `0.5.0`; safe_commands; accepted=true; settled=false",
         encoding="utf-8",
     )
-    (root / "docs" / "ccr-pic-roundtrip.md").write_text(
-        "CCR JSONL residual task interop",
-        encoding="utf-8",
-    )
-    (root / "docs" / "asi-proxy-acceleration.md").write_text(
-        "ASI-proxy TRC CCR acceleration guide",
-        encoding="utf-8",
-    )
-    (root / "examples" / "asi_proxy_benchmark_bundle").mkdir(parents=True)
-    (root / "examples" / "asi_proxy_benchmark_bundle" / "trc_agent_trace.json").write_text(
-        """
+    if version.startswith("0.6."):
+        (root / "docs" / "v060-audit.md").write_text(
+            "Package version: `0.6.0`; operation-readiness; "
+            "safe_commands; accepted=true; settled=false",
+            encoding="utf-8",
+        )
+        (root / "docs" / "ccr-pic-roundtrip.md").write_text(
+            "CCR JSONL residual task interop",
+            encoding="utf-8",
+        )
+        (root / "docs" / "asi-proxy-acceleration.md").write_text(
+            "ASI-proxy TRC CCR acceleration guide",
+            encoding="utf-8",
+        )
+        (root / "examples" / "asi_proxy_benchmark_bundle").mkdir(parents=True)
+        (root / "examples" / "asi_proxy_benchmark_bundle" / "trc_agent_trace.json").write_text(
+            """
 {
   "authority_envelope": {},
   "resource_ledger": {},
   "tolerance_ledger": {}
 }
 """.strip(),
-        encoding="utf-8",
-    )
+            encoding="utf-8",
+        )
     (root / "examples" / "portability_conformance" / "phase_acceleration_plan.json").write_text(
         """
 {

@@ -124,7 +124,7 @@ def audit_pic_compatibility(ccr_root: Path, *, pic_root: Path | None = None) -> 
             )
         )
 
-    _check_pic_source_tree(resolved_pic_root, findings)
+    _check_pic_source_tree(resolved_pic_root, findings, pic_repo_version=pic_repo_version)
     _check_pic_repo_version(pic_repo_version, findings)
     _check_provider_mapping(findings)
     _check_non_claim_boundary(ccr_root, resolved_pic_root, findings)
@@ -155,7 +155,12 @@ def audit_pic_compatibility(ccr_root: Path, *, pic_root: Path | None = None) -> 
     }
 
 
-def _check_pic_source_tree(pic_root: Path, findings: list[dict[str, Any]]) -> None:
+def _check_pic_source_tree(
+    pic_root: Path,
+    findings: list[dict[str, Any]],
+    *,
+    pic_repo_version: str | None,
+) -> None:
     required_files = {
         "README.md": [
             "percolation-inversion-compiler",
@@ -175,14 +180,7 @@ def _check_pic_source_tree(pic_root: Path, findings: list[dict[str, Any]]) -> No
             "cannot_promote_because",
             "settled_blockers",
         ],
-        "docs/v060-audit.md": ["Package version: `0.6.0`", "operation-readiness"],
-        "docs/ccr-pic-roundtrip.md": ["CCR", "JSONL", "residual"],
-        "docs/asi-proxy-acceleration.md": ["ASI-proxy", "TRC", "CCR"],
-        "examples/asi_proxy_benchmark_bundle/trc_agent_trace.json": [
-            "authority_envelope",
-            "resource_ledger",
-            "tolerance_ledger",
-        ],
+        "docs/v050-audit.md": ["Package version: `0.5.0`", "safe_commands"],
         "examples/portability_conformance/phase_acceleration_plan.json": [
             "PhaseAccelerationPlan",
             "candidate_only_reasons",
@@ -190,6 +188,19 @@ def _check_pic_source_tree(pic_root: Path, findings: list[dict[str, Any]]) -> No
             "settled_blockers",
         ],
     }
+    if pic_repo_version is not None and pic_repo_version.startswith("0.6."):
+        required_files.update(
+            {
+                "docs/v060-audit.md": ["Package version: `0.6.0`", "operation-readiness"],
+                "docs/ccr-pic-roundtrip.md": ["CCR", "JSONL", "residual"],
+                "docs/asi-proxy-acceleration.md": ["ASI-proxy", "TRC", "CCR"],
+                "examples/asi_proxy_benchmark_bundle/trc_agent_trace.json": [
+                    "authority_envelope",
+                    "resource_ledger",
+                    "tolerance_ledger",
+                ],
+            }
+        )
     for relative, needles in required_files.items():
         path = pic_root / relative
         if not path.exists():
@@ -232,14 +243,14 @@ def _check_pic_repo_version(version: str | None, findings: list[dict[str, Any]])
             )
         )
         return
-    if not version.startswith("0.6."):
+    if not (version.startswith("0.5.") or version.startswith("0.6.")):
         findings.append(
             _finding(
                 "unsupported-pic-version",
                 "pyproject.toml",
                 "medium",
                 False,
-                f"PIC source version is {version}; CCR v1.1 matrix targets PIC v0.6.x.",
+                f"PIC source version is {version}; CCR v1.1 matrix targets PIC v0.5.x/v0.6.x.",
                 repair_hint="Review INTEROP_PIC.md before relying on this PIC version.",
             )
         )
