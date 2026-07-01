@@ -1,0 +1,27 @@
+{
+  "blocking_residual_count": 1,
+  "candidate_only_reasons_count": 1,
+  "generated_at": "1970-01-01T00:00:00Z",
+  "non_claims": [
+    "CCR does not detect real ASI.",
+    "CCR does not create real ASI.",
+    "CCR does not update model weights.",
+    "CCR preserves residuals; settled=false is expected and not a crash."
+  ],
+  "open_residual_count": 1,
+  "packet_counts": {
+    "candidate": 1,
+    "checked": 1,
+    "settled": 0
+  },
+  "pic_report_count": 1,
+  "residual_counts": {
+    "open": 1,
+    "quarantined": 0,
+    "resolved": 0
+  },
+  "schema_version": "ccr.phase_report.v0.1",
+  "task_counts": {
+    "open": 1
+  }
+}

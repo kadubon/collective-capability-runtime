@@ -27,6 +27,7 @@ SCHEMA_FILENAMES = {
     "baseline": "baseline.schema.json",
     "provider": "provider.schema.json",
     "audit-report": "audit-report.schema.json",
+    "trc-operation-plan": "trc-operation-plan.schema.json",
 }
 
 

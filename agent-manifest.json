@@ -6,7 +6,8 @@
   "repository_layout": {
     "schemas": [
       "schemas/packet.schema.json",
-      "schemas/task.schema.json"
+      "schemas/task.schema.json",
+      "schemas/trc-operation-plan.schema.json"
     ],
     "docs": [
       "INTEROP_PIC.md",
@@ -241,6 +242,8 @@
       "pic agent explain",
       "pic agent check --compact --text \"Candidate packet: route evidence and preserve residuals.\" --profile development",
       "pic phase plan --compact --profile development",
+      "pic trc trace-normalize --input examples/asi_proxy_benchmark_bundle/trc_agent_trace.json",
+      "pic trc trace-check --trace <trace-report.json>",
       "pic phase dashboard --profile development --format json",
       "pic schema export"
     ],
@@ -289,7 +292,8 @@
   },
   "schemas": {
     "packet": "schemas/packet.schema.json",
-    "task": "schemas/task.schema.json"
+    "task": "schemas/task.schema.json",
+    "trc-operation-plan": "schemas/trc-operation-plan.schema.json"
   },
   "non_goals": [
     "real ASI detection",

@@ -1,0 +1,14 @@
+{
+  "metrics": {
+    "baseline_refresh_age": "unknown",
+    "blocking_residuals": 1,
+    "candidate_inflow": 1,
+    "checked_packet_growth": 1,
+    "diagnostic_reserve": "unknown",
+    "open_residuals": 1,
+    "positive_progress_packets": 1,
+    "settled_packet_growth": 0
+  },
+  "schema_version": "ccr.foundry_dashboard.expected.example.v1",
+  "settled": false
+}

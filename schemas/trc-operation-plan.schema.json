@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ccr/trc-operation-plan.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ok",
+    "settled",
+    "executed",
+    "real_world_operation_ready",
+    "constraints",
+    "operations",
+    "residuals",
+    "execution_blockers",
+    "non_claims"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ccr.trc_operation_plan.v1"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "settled": {
+      "const": false
+    },
+    "executed": {
+      "const": false
+    },
+    "real_world_operation_ready": {
+      "type": "boolean"
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "source_trace_id": {
+      "type": "string"
+    },
+    "pic_trace_report_schema_version": {
+      "type": "string"
+    },
+    "constraints": {
+      "type": "object",
+      "required": [
+        "allowed_commands",
+        "default_mode",
+        "requires_execute_flag",
+        "requires_provider_config"
+      ],
+      "properties": {
+        "allowed_commands": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "default_mode": {
+          "const": "dry_run"
+        },
+        "requires_execute_flag": {
+          "const": true
+        },
+        "requires_provider_config": {
+          "const": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "operation_index",
+          "step_id",
+          "action_type",
+          "tool_call",
+          "authority_envelope",
+          "resource_use",
+          "rollback_escrow_obligation",
+          "tolerance_ledger"
+        ],
+        "properties": {
+          "operation_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "step_id": {
+            "type": "string"
+          },
+          "action_type": {
+            "type": "string"
+          },
+          "tool_call": {
+            "type": "string"
+          },
+          "authority_envelope": {
+            "type": "object"
+          },
+          "resource_use": {
+            "type": "object"
+          },
+          "rollback_escrow_obligation": {
+            "type": "object"
+          },
+          "tolerance_ledger": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "residuals": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "execution_blockers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "non_claims": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

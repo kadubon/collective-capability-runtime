@@ -24,6 +24,7 @@ DEFAULT_SCHEMA_VERSIONS = {
     "baseline": "ccr.baseline.v1",
     "provider": "ccr.provider_plan.v1",
     "audit-report": "ccr.audit_report.v1",
+    "trc-operation-plan": "ccr.trc_operation_plan.v1",
 }
 
 PACKET_STATUSES = (

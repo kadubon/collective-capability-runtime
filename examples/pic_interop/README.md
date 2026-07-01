@@ -7,7 +7,7 @@ Related optional PIC verifier:
 python -m pip install percolation-inversion-compiler
 ```
 
-These examples model representative PIC v0.5.0 reports for CCR import tests.
+These examples model representative PIC v0.5.0-compatible reports for CCR import tests.
 They are not execution logs. CCR imports `safe_commands` as task hints only,
 keeps `settled=false` or `settled=true` as provider evidence, and still requires
 CCR phase, baseline, residual, and promotion gates before any CCR settlement.
@@ -41,7 +41,7 @@ use the same CCR settlement boundary.
 Phase formation cycle: imported PIC evidence can support packet checking, but
 CCR still runs graph, observe, threshold, compare, and certify locally.
 
-What not to claim: PIC v0.5.0 representative reports do not grant CCR
+What not to claim: PIC representative reports do not grant CCR
 settlement, real ASI proof, or execution authority.
 
 Useful local checks:

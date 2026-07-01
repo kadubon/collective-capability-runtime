@@ -1,0 +1,27 @@
+{
+  "accepted": false,
+  "candidate_only_reasons": [
+    "CCR export is a runtime report candidate until PIC checks it"
+  ],
+  "metrics": {
+    "checked_packet_growth": 1,
+    "open_residuals": 1,
+    "positive_progress_packets": 1
+  },
+  "profile": "development",
+  "report_id": "ccr-benchmark-runtime-export",
+  "residuals": [
+    {
+      "blocking": true,
+      "description": "Benchmark baseline is stale or synthetic.",
+      "kind": "settlement_blocker",
+      "residual_id": "residual:benchmark:baseline"
+    }
+  ],
+  "schema_version": "ccr.pic_runtime_export.v1",
+  "settled": false,
+  "settled_blockers": [
+    "experiment export does not settle phase claims"
+  ],
+  "suite": "asi-proxy-benchmark"
+}

@@ -30,7 +30,7 @@ non-claim preservation. It also checks PyPI Trusted Publishing readiness for
 from being shipped as source examples.
 
 PIC compatibility audit checks the optional PIC source root, installed package
-and CLI availability, expected v0.5.0 commands, report fields, provider mapping,
+and CLI availability, expected v0.6.0 commands, report fields, provider mapping,
 safe-command handling, and the rule that PIC output never settles CCR by itself.
 
 Public release audit checks source files and built wheel/sdist archives for

@@ -27,6 +27,7 @@ REQUIRED_SCHEMA_FILES = [
     "baseline.schema.json",
     "provider.schema.json",
     "audit-report.schema.json",
+    "trc-operation-plan.schema.json",
 ]
 
 DOC_ROUTE_FILES = [
@@ -62,6 +63,8 @@ REQUIRED_RELEASE_GATE_MARKERS = [
     "uv run ccr schema validate --kind baseline --file examples/phase_formation/baseline.json",
     "uv run ccr schema validate --kind asi-proxy-threshold --file "
     "examples/phase_formation/threshold.json",
+    "uv run ccr schema validate --kind trc-operation-plan --file "
+    "examples/asi_proxy_benchmark_bundle/trc_operation_plan.json",
     "uv run ccr --root /tmp/ccr-phase-formation phase form --profile development --json",
     "uv run ccr audit repo --json",
     "uv build",
@@ -139,7 +142,7 @@ def audit_repository(root: Path) -> dict[str, Any]:
         "pyproject.toml",
         must_contain=[
             'name = "collective-capability-runtime"',
-            'version = "1.0.0"',
+            'version = "1.1.0"',
             "Apache-2.0",
             "Development Status :: 5 - Production/Stable",
             "ccr =",
@@ -268,7 +271,7 @@ def _check_pic_compatibility_surface(root: Path, findings: list[dict[str, Any]])
         root,
         findings,
         "INTEROP_PIC.md",
-        must_contain=["PIC v0.5.0 compatibility matrix"],
+        must_contain=["PIC v0.5.0/v0.6.0 compatibility matrix"],
         missing_content_blocks=True,
     )
     for relative in PIC_COMPAT_EXAMPLES:

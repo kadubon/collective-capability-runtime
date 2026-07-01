@@ -27,6 +27,7 @@ jobs:
       - run: uv run ccr schema validate --kind packet --file examples/phase_formation/packets/candidate/packet.phase.duplicate.json
       - run: uv run ccr schema validate --kind baseline --file examples/phase_formation/baseline.json
       - run: uv run ccr schema validate --kind asi-proxy-threshold --file examples/phase_formation/threshold.json
+      - run: uv run ccr schema validate --kind trc-operation-plan --file examples/asi_proxy_benchmark_bundle/trc_operation_plan.json
       - run: cp -R examples/phase_formation /tmp/ccr-phase-formation && uv run ccr --root /tmp/ccr-phase-formation phase form --profile development --json
       - run: uv run ccr audit repo --json
       - run: uv build
