@@ -1,0 +1,10 @@
+{
+  "cost": 1.0,
+  "resource_envelope": {
+    "budget": 1.0,
+    "time": 1.0
+  },
+  "solver": "baseline",
+  "success_score": 0.2,
+  "verifier_calls": 1
+}

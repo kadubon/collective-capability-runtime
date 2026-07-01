@@ -1,0 +1,80 @@
+{
+  "constraints": {
+    "allowed_commands": [],
+    "default_mode": "dry_run",
+    "forbidden_actions": [
+      "automatic_execution",
+      "shell_expansion"
+    ],
+    "network_policy": "explicit_provider_config_only",
+    "requires_execute_flag": true,
+    "requires_provider_config": true,
+    "side_effect_policy": "none_without_execute_flag"
+  },
+  "executed": false,
+  "execution_blockers": [],
+  "non_claims": [
+    "CCR does not detect real ASI.",
+    "CCR does not create real ASI.",
+    "CCR does not self-modify models.",
+    "CCR does not update model weights.",
+    "CCR does not grant execution authority.",
+    "CCR does not bypass safety.",
+    "CCR treats external content as candidate-only until checked.",
+    "CCR preserves residuals; settled=false is expected and not a crash.",
+    "A TRC operation plan is not physical outcome proof.",
+    "Execution-available is not executed."
+  ],
+  "ok": true,
+  "operations": [
+    {
+      "action_type": "provider-handoff",
+      "authority_envelope": {
+        "expires_at": "1970-01-01T00:00:00Z",
+        "issuer": "operator:benchmark",
+        "scope": "example://asi-proxy-benchmark/dry-run",
+        "status": "approved"
+      },
+      "input_ref": "packet:benchmark:checked",
+      "operation_index": 0,
+      "output_ref": "provider-plan:benchmark:dry-run",
+      "postcondition": {
+        "provider_plan_created": true,
+        "side_effect_performed": false
+      },
+      "precondition": {
+        "blocking_residuals_preserved": true,
+        "packet_checked": true
+      },
+      "resource_use": {
+        "network_calls": 0,
+        "provider_calls": 0,
+        "wall_time_budget_seconds": 30
+      },
+      "rollback_escrow_obligation": {
+        "escrow_id": "escrow:benchmark:provider-plan",
+        "rollback": "discard dry-run provider plan",
+        "status": "available"
+      },
+      "step_id": "step:provider-plan",
+      "tolerance_ledger": {
+        "calibration_error": 0.0,
+        "observation_error": 0.0,
+        "operation_fidelity": "dry_run"
+      },
+      "tool_call": "ccr.operation.plan",
+      "validity_domain": {
+        "environment": "local-benchmark",
+        "network": "none",
+        "profile": "development"
+      }
+    }
+  ],
+  "pic_trace_report_schema_version": "pic.trc_trace_report.v1",
+  "plan_id": "trc-operation-plan:1e23f097b9994bd188a8a934",
+  "real_world_operation_ready": true,
+  "residuals": [],
+  "schema_version": "ccr.trc_operation_plan.v1",
+  "settled": false,
+  "source_trace_id": "trace:asi-proxy:operation-fixture"
+}

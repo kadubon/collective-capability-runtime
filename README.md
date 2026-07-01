@@ -17,6 +17,12 @@ packets form a collective system that improves downstream problem-solving
 relative to a resource-matched baseline while preserving hazards, residuals,
 authority bounds, and non-execution-by-default constraints.
 
+v1.1.0 adds PIC v0.6.0 interop helpers and TRC operation planning. CCR can
+consume a PIC trace-check report, build a `ccr.trc_operation_plan.v1` dry-run
+plan, and dispatch only when an operator supplies provider configuration plus
+explicit `--execute`. The plan remains residual-preserving evidence, not
+settlement or real-world execution proof.
+
 ## Non-Claims
 
 CCR does not:

@@ -1,0 +1,10 @@
+{
+  "cost": 1.0,
+  "resource_envelope": {
+    "budget": 1.0,
+    "time": 1.0
+  },
+  "solver": "collective",
+  "success_score": 0.4,
+  "verifier_calls": 1
+}

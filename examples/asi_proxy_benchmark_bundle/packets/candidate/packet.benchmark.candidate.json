@@ -1,0 +1,109 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "artifact.benchmark.seed",
+      "content_sha256": "unknown",
+      "kind": "markdown",
+      "uri_or_path": "examples/asi_proxy_benchmark_bundle/README.md"
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "claim.benchmark.routing",
+      "claim_text": "CCR can route benchmark candidate work while preserving residuals.",
+      "claim_type": "interop",
+      "settlement_target": "diagnostic_only",
+      "status": "candidate"
+    }
+  ],
+  "created_at": "1970-01-01T00:00:00Z",
+  "evidence": [],
+  "extensions": {
+    "x_candidate_only_reasons": [
+      "benchmark candidate has not been checked by PIC"
+    ]
+  },
+  "issuer": {
+    "actor_id": "agent.ccr.example",
+    "actor_type": "agent"
+  },
+  "lineage": {
+    "children": [],
+    "parents": [],
+    "revision": 0
+  },
+  "packet_id": "packet.benchmark.candidate",
+  "packet_type": "benchmark",
+  "pic_interop": {
+    "candidate_kind": "packet_json",
+    "enabled": true,
+    "pic_report_refs": [],
+    "profile": "development",
+    "recommended_commands": [
+      "pic phase plan --compact --profile development"
+    ],
+    "settlement_blockers": [
+      "baseline is synthetic",
+      "candidate-only reason remains open"
+    ],
+    "status_mapping": {
+      "pic_accepted_maps_to": "checked",
+      "pic_settled_false_maps_to": "provisional",
+      "pic_settled_true_maps_to": "checked"
+    }
+  },
+  "provenance": {
+    "content_sha256": "unknown",
+    "origin_kind": "human_seed",
+    "sanitized": true,
+    "source_refs": [
+      "examples/asi_proxy_benchmark_bundle/README.md"
+    ]
+  },
+  "residuals": [
+    {
+      "blocking": true,
+      "description": "Baseline is synthetic.",
+      "kind": "settlement_blocker",
+      "residual_id": "residual:benchmark:baseline",
+      "severity": "high"
+    }
+  ],
+  "reuse": {
+    "intended_downstream_uses": [
+      "dry-run benchmark"
+    ],
+    "reuse_mode": "local",
+    "transport_limits": [
+      "candidate-only"
+    ]
+  },
+  "risk": {
+    "authority_level": "none",
+    "hazard_level": "none",
+    "misuse_risk": "low",
+    "overclaim_risk": "medium"
+  },
+  "schema_version": "ccr.packet.v0.1",
+  "scope": {
+    "out_of_scope": [
+      "real ASI proof",
+      "execution authority"
+    ],
+    "profiles": [
+      "development"
+    ],
+    "validity_domain": "dry-run benchmark"
+  },
+  "status": "candidate",
+  "summary": "Candidate benchmark packet for CCR/PIC dry-run interop.",
+  "verifier_reports": [],
+  "verifiers": [
+    {
+      "provider": "pic",
+      "purpose": "benchmark",
+      "required": true,
+      "verifier_id": "verifier.pic.benchmark"
+    }
+  ]
+}

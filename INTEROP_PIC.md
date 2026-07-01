@@ -113,18 +113,20 @@ ccr verify --provider pic --packet <packet_id> --profile development --execute -
 ccr integrate --report reports/pic/<report>.json --json
 ```
 
-## PIC v0.5.0 compatibility matrix
+## PIC v0.5.0/v0.6.0 compatibility matrix
 
-| PIC v0.5.0 surface | CCR v1 mapping | Compatibility rule |
+| PIC surface | CCR v1.1 mapping | Compatibility rule |
 |---|---|---|
 | `pic agent check --compact` | `verify --provider pic` plan/execute and `provider import --provider pic` | Optional provider; missing CLI becomes provider-missing residual-ready JSON. |
 | `pic packet inspect` | dry-run command hint | Inspection is never executed automatically. |
 | `pic phase plan --compact` | phase-plan report import and bottleneck diagnostics | `phase_gap_vector`, `bottlenecks`, and `safe_commands` stay diagnostic/task-hint inputs. |
 | `pic runtime collective-certify` | external certificate-candidate evidence | PIC output never settles CCR by itself. |
+| `pic trc trace-normalize` / `trace-check` / `trace-to-packet` | TRC operation plan input and packet candidate import | Trace checks expose blockers and readiness gates; they do not grant execution authority. |
 | `accepted` / `workflow_usable` | checked or provisional evidence | Usable workflow evidence is not settlement authority. |
 | `settled` | `settled_candidate` provider evidence | CCR settlement still requires CCR promotion, phase, baseline, and residual gates. |
 | `candidate_only_reasons` | nonblocking residuals | Candidate-only mass never adds positive phase contribution. |
 | `settled_blockers`, `missing_obligations`, `cannot_promote_because` | blocking residuals | Block CCR settlement until resolved. |
+| `execution_blockers`, `real_world_operation_gate` | TRC operation residuals and dispatch preconditions | CCR still requires provider configuration and explicit execution opt-in. |
 | `safe_commands` / `sdk_calls` | task hints or preserved metadata | Safe commands are not executed by import. |
 
 ## Status Mapping

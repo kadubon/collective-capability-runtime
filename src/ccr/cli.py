@@ -24,6 +24,34 @@ from ccr.errors import (
     CCRException,
     CCRMissingError,
 )
+from ccr.extensions import (
+    demo_pic_roundtrip,
+    distill_packet,
+    distill_seed,
+    distill_trace,
+    experiment_compare,
+    experiment_export_pic,
+    experiment_init,
+    experiment_run_baseline,
+    experiment_run_collective,
+    foundry_bottlenecks,
+    foundry_dashboard,
+    foundry_recommended_tasks,
+    import_residual_jsonl,
+    import_task_jsonl,
+    operation_dispatch,
+    operation_plan_from_pic_trace,
+    residual_emit_tasks,
+    residual_rank,
+    residual_repair_plan,
+    schedule_diagnose,
+    schedule_emit_sqot_report,
+    schedule_rebalance,
+    workcell_create,
+    workcell_integrate,
+    workcell_next,
+    workcell_submit,
+)
 from ccr.ids import stable_id
 from ccr.io import json_file_name, pretty_dumps, read_json, write_json_atomic
 from ccr.packets.promotion import promote_packet
@@ -92,6 +120,13 @@ def build_parser() -> argparse.ArgumentParser:
     agent_explain.add_argument("--json", action="store_true", dest="json_output")
     agent_explain.set_defaults(func=cmd_agent_explain)
 
+    demo = sub.add_parser("demo", help="Deterministic local demos.")
+    demo_sub = demo.add_subparsers(dest="demo_command", required=True)
+    demo_roundtrip = demo_sub.add_parser("pic-roundtrip", help="Run a PIC roundtrip demo.")
+    demo_roundtrip.add_argument("--execute-pic", action="store_true")
+    demo_roundtrip.add_argument("--json", action="store_true", dest="json_output")
+    demo_roundtrip.set_defaults(func=cmd_demo_pic_roundtrip)
+
     schema = sub.add_parser("schema", help="Schema commands.")
     schema_sub = schema.add_subparsers(dest="schema_command", required=True)
     schema_validate = schema_sub.add_parser("validate", help="Validate JSON.")
@@ -133,6 +168,11 @@ def build_parser() -> argparse.ArgumentParser:
     task_release.add_argument("--reason", required=True)
     task_release.add_argument("--json", action="store_true", dest="json_output")
     task_release.set_defaults(func=cmd_task_release)
+    task_import_cmd = task_sub.add_parser("import", help="Import task JSONL.")
+    task_import_cmd.add_argument("--file", required=True)
+    task_import_cmd.add_argument("--provider", required=True)
+    task_import_cmd.add_argument("--json", action="store_true", dest="json_output")
+    task_import_cmd.set_defaults(func=cmd_task_import)
 
     packet = sub.add_parser("packet", help="Packet commands.")
     packet_sub = packet.add_subparsers(dest="packet_command", required=True)
@@ -156,6 +196,144 @@ def build_parser() -> argparse.ArgumentParser:
     residual_add.add_argument("--file", required=True)
     residual_add.add_argument("--json", action="store_true", dest="json_output")
     residual_add.set_defaults(func=cmd_residual_add)
+    residual_import_cmd = residual_sub.add_parser("import", help="Import residual JSONL.")
+    residual_import_cmd.add_argument("--file", required=True)
+    residual_import_cmd.add_argument("--provider", required=True)
+    residual_import_cmd.add_argument("--json", action="store_true", dest="json_output")
+    residual_import_cmd.set_defaults(func=cmd_residual_import)
+    residual_rank_cmd = residual_sub.add_parser("rank", help="Rank open residuals.")
+    residual_rank_cmd.add_argument("--json", action="store_true", dest="json_output")
+    residual_rank_cmd.set_defaults(func=cmd_residual_rank)
+    residual_emit_cmd = residual_sub.add_parser("emit-tasks", help="Emit residual repair tasks.")
+    residual_emit_cmd.add_argument("--top", type=int, default=20)
+    residual_emit_cmd.add_argument("--json", action="store_true", dest="json_output")
+    residual_emit_cmd.set_defaults(func=cmd_residual_emit_tasks)
+    residual_plan_cmd = residual_sub.add_parser("repair-plan", help="Plan one residual repair.")
+    residual_plan_cmd.add_argument("--residual", required=True, dest="residual_id")
+    residual_plan_cmd.add_argument("--json", action="store_true", dest="json_output")
+    residual_plan_cmd.set_defaults(func=cmd_residual_repair_plan)
+
+    workcell = sub.add_parser("workcell", help="Thin multi-role workcell commands.")
+    workcell_sub = workcell.add_subparsers(dest="workcell_command", required=True)
+    workcell_create_cmd = workcell_sub.add_parser("create", help="Create a workcell.")
+    workcell_create_cmd.add_argument("--template", required=True)
+    workcell_create_cmd.add_argument("--name", required=True)
+    workcell_create_cmd.add_argument("--json", action="store_true", dest="json_output")
+    workcell_create_cmd.set_defaults(func=cmd_workcell_create)
+    workcell_next_cmd = workcell_sub.add_parser("next", help="Return next role task.")
+    workcell_next_cmd.add_argument("--role", required=True)
+    workcell_next_cmd.add_argument("--json", action="store_true", dest="json_output")
+    workcell_next_cmd.set_defaults(func=cmd_workcell_next)
+    workcell_submit_cmd = workcell_sub.add_parser("submit", help="Submit workcell output.")
+    workcell_submit_cmd.add_argument("--workcell", required=True)
+    workcell_submit_cmd.add_argument("--file", required=True)
+    workcell_submit_cmd.add_argument("--json", action="store_true", dest="json_output")
+    workcell_submit_cmd.set_defaults(func=cmd_workcell_submit)
+    workcell_integrate_cmd = workcell_sub.add_parser("integrate", help="Integrate workcell output.")
+    workcell_integrate_cmd.add_argument("--workcell", required=True)
+    workcell_integrate_cmd.add_argument("--strategy", required=True)
+    workcell_integrate_cmd.add_argument("--json", action="store_true", dest="json_output")
+    workcell_integrate_cmd.set_defaults(func=cmd_workcell_integrate)
+
+    distill = sub.add_parser("distill", help="Candidate packet distillation commands.")
+    distill_sub = distill.add_subparsers(dest="distill_command", required=True)
+    distill_seed_cmd = distill_sub.add_parser("seed", help="Distill a seed document.")
+    distill_seed_cmd.add_argument("--input", required=True)
+    distill_seed_cmd.add_argument("--output-dir", required=True)
+    distill_seed_cmd.add_argument("--json", action="store_true", dest="json_output")
+    distill_seed_cmd.set_defaults(func=cmd_distill_seed)
+    distill_trace_cmd = distill_sub.add_parser("trace", help="Distill an agent trace.")
+    distill_trace_cmd.add_argument("--input", required=True)
+    distill_trace_cmd.add_argument("--output-dir", required=True)
+    distill_trace_cmd.add_argument("--json", action="store_true", dest="json_output")
+    distill_trace_cmd.set_defaults(func=cmd_distill_trace)
+    distill_packet_cmd = distill_sub.add_parser("packet", help="Distill an existing packet.")
+    distill_packet_cmd.add_argument("--packet", required=True)
+    distill_packet_cmd.add_argument("--emit", choices=["verifier-plan"])
+    distill_packet_cmd.add_argument("--json", action="store_true", dest="json_output")
+    distill_packet_cmd.set_defaults(func=cmd_distill_packet)
+
+    foundry = sub.add_parser("foundry", help="Foundry dashboard commands.")
+    foundry_sub = foundry.add_subparsers(dest="foundry_command", required=True)
+    foundry_dashboard_cmd = foundry_sub.add_parser("dashboard", help="Build dashboard.")
+    foundry_dashboard_cmd.add_argument("--json", action="store_true", dest="json_output")
+    foundry_dashboard_cmd.set_defaults(func=cmd_foundry_dashboard)
+    foundry_bottlenecks_cmd = foundry_sub.add_parser("bottlenecks", help="List bottlenecks.")
+    foundry_bottlenecks_cmd.add_argument("--json", action="store_true", dest="json_output")
+    foundry_bottlenecks_cmd.set_defaults(func=cmd_foundry_bottlenecks)
+    foundry_next_cmd = foundry_sub.add_parser("next", help="Recommend next work.")
+    foundry_next_cmd.add_argument("--emit", choices=["tasks"])
+    foundry_next_cmd.add_argument("--json", action="store_true", dest="json_output")
+    foundry_next_cmd.set_defaults(func=cmd_foundry_next)
+
+    experiment = sub.add_parser("experiment", help="Experiment and baseline commands.")
+    experiment_sub = experiment.add_subparsers(dest="experiment_command", required=True)
+    experiment_init_cmd = experiment_sub.add_parser("init", help="Initialize experiment suite.")
+    experiment_init_cmd.add_argument("--suite", required=True)
+    experiment_init_cmd.add_argument("--json", action="store_true", dest="json_output")
+    experiment_init_cmd.set_defaults(func=cmd_experiment_init)
+    experiment_baseline_cmd = experiment_sub.add_parser("run-baseline", help="Import baseline.")
+    experiment_baseline_cmd.add_argument("--suite", required=True)
+    experiment_baseline_cmd.add_argument("--solver", required=True)
+    experiment_baseline_cmd.add_argument("--json", action="store_true", dest="json_output")
+    experiment_baseline_cmd.set_defaults(func=cmd_experiment_run_baseline)
+    experiment_collective_cmd = experiment_sub.add_parser(
+        "run-collective",
+        help="Import collective.",
+    )
+    experiment_collective_cmd.add_argument("--suite", required=True)
+    experiment_collective_cmd.add_argument("--workcell", required=True)
+    experiment_collective_cmd.add_argument("--json", action="store_true", dest="json_output")
+    experiment_collective_cmd.set_defaults(func=cmd_experiment_run_collective)
+    experiment_compare_cmd = experiment_sub.add_parser("compare", help="Compare results.")
+    experiment_compare_cmd.add_argument("--baseline", required=True)
+    experiment_compare_cmd.add_argument("--candidate", required=True)
+    experiment_compare_cmd.add_argument("--json", action="store_true", dest="json_output")
+    experiment_compare_cmd.set_defaults(func=cmd_experiment_compare)
+    experiment_export_cmd = experiment_sub.add_parser(
+        "export-pic",
+        help="Export PIC runtime report.",
+    )
+    experiment_export_cmd.add_argument("--suite", required=True)
+    experiment_export_cmd.add_argument("--output", required=True)
+    experiment_export_cmd.add_argument("--json", action="store_true", dest="json_output")
+    experiment_export_cmd.set_defaults(func=cmd_experiment_export_pic)
+
+    schedule = sub.add_parser("schedule", help="SQOT-aware scheduler diagnostics.")
+    schedule_sub = schedule.add_subparsers(dest="schedule_command", required=True)
+    schedule_diagnose_cmd = schedule_sub.add_parser("diagnose", help="Diagnose scheduler.")
+    schedule_diagnose_cmd.add_argument("--json", action="store_true", dest="json_output")
+    schedule_diagnose_cmd.set_defaults(func=cmd_schedule_diagnose)
+    schedule_reserve_cmd = schedule_sub.add_parser("reserve", help="Report diagnostic reserve.")
+    schedule_reserve_cmd.add_argument("--json", action="store_true", dest="json_output")
+    schedule_reserve_cmd.set_defaults(func=cmd_schedule_reserve)
+    schedule_rebalance_cmd = schedule_sub.add_parser("rebalance", help="Dry-run rebalance.")
+    schedule_rebalance_cmd.add_argument("--dry-run", action="store_true", default=True)
+    schedule_rebalance_cmd.add_argument("--json", action="store_true", dest="json_output")
+    schedule_rebalance_cmd.set_defaults(func=cmd_schedule_rebalance)
+    schedule_sqot_cmd = schedule_sub.add_parser("emit-sqot-report", help="Emit PIC SQOT report.")
+    schedule_sqot_cmd.add_argument("--json", action="store_true", dest="json_output")
+    schedule_sqot_cmd.set_defaults(func=cmd_schedule_emit_sqot_report)
+
+    operation = sub.add_parser("operation", help="TRC-governed real-world operation plans.")
+    operation_sub = operation.add_subparsers(dest="operation_command", required=True)
+    operation_plan_cmd = operation_sub.add_parser(
+        "plan",
+        help="Create a dry-run operation plan from a PIC TRC trace report.",
+    )
+    operation_plan_cmd.add_argument("--trace", required=True)
+    operation_plan_cmd.add_argument("--json", action="store_true", dest="json_output")
+    operation_plan_cmd.set_defaults(func=cmd_operation_plan)
+    operation_execute_cmd = operation_sub.add_parser(
+        "execute",
+        help="Plan or explicitly dispatch a TRC operation through a provider.",
+    )
+    operation_execute_cmd.add_argument("--plan", required=True)
+    operation_execute_cmd.add_argument("--provider", required=True)
+    operation_execute_cmd.add_argument("--config")
+    operation_execute_cmd.add_argument("--execute", action="store_true")
+    operation_execute_cmd.add_argument("--json", action="store_true", dest="json_output")
+    operation_execute_cmd.set_defaults(func=cmd_operation_execute)
 
     verify = sub.add_parser("verify", help="Run or plan a verifier provider.")
     verify.add_argument("--provider", required=True)
@@ -288,6 +466,11 @@ def cmd_agent_explain(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def cmd_demo_pic_roundtrip(args: argparse.Namespace) -> int:
+    _emit_json(demo_pic_roundtrip(execute_pic=bool(args.execute_pic)))
+    return EXIT_SUCCESS
+
+
 def cmd_schema_validate(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     path = Path(args.file)
@@ -415,6 +598,12 @@ def cmd_task_release(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def cmd_task_import(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(import_task_jsonl(root, file=Path(args.file), provider=args.provider))
+    return EXIT_SUCCESS
+
+
 def cmd_packet_submit(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     path = Path(args.file)
@@ -478,6 +667,176 @@ def cmd_residual_add(args: argparse.Namespace) -> int:
     )
     _emit_json({"ok": True, "path": str(destination), "residual_id": residual["residual_id"]})
     return EXIT_SUCCESS
+
+
+def cmd_residual_import(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(import_residual_jsonl(root, file=Path(args.file), provider=args.provider))
+    return EXIT_SUCCESS
+
+
+def cmd_residual_rank(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(residual_rank(root))
+    return EXIT_SUCCESS
+
+
+def cmd_residual_emit_tasks(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(residual_emit_tasks(root, top=int(args.top)))
+    return EXIT_SUCCESS
+
+
+def cmd_residual_repair_plan(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(residual_repair_plan(root, residual_id=args.residual_id))
+    return EXIT_SUCCESS
+
+
+def cmd_workcell_create(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(workcell_create(root, template=args.template, name=args.name))
+    return EXIT_SUCCESS
+
+
+def cmd_workcell_next(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(workcell_next(root, role=args.role))
+    return EXIT_SUCCESS
+
+
+def cmd_workcell_submit(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(workcell_submit(root, workcell=args.workcell, file=Path(args.file)))
+    return EXIT_SUCCESS
+
+
+def cmd_workcell_integrate(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(workcell_integrate(root, workcell=args.workcell, strategy=args.strategy))
+    return EXIT_SUCCESS
+
+
+def cmd_distill_seed(args: argparse.Namespace) -> int:
+    _emit_json(distill_seed(Path(args.input), Path(args.output_dir)))
+    return EXIT_SUCCESS
+
+
+def cmd_distill_trace(args: argparse.Namespace) -> int:
+    _emit_json(distill_trace(Path(args.input), Path(args.output_dir)))
+    return EXIT_SUCCESS
+
+
+def cmd_distill_packet(args: argparse.Namespace) -> int:
+    _emit_json(distill_packet(Path(args.packet), emit_verifier_plan=args.emit == "verifier-plan"))
+    return EXIT_SUCCESS
+
+
+def cmd_foundry_dashboard(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(foundry_dashboard(root))
+    return EXIT_SUCCESS
+
+
+def cmd_foundry_bottlenecks(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(foundry_bottlenecks(root))
+    return EXIT_SUCCESS
+
+
+def cmd_foundry_next(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(
+        {
+            "emit": args.emit,
+            "ok": True,
+            "schema_version": "ccr.foundry_next.v1",
+            "tasks": foundry_recommended_tasks(root),
+        }
+    )
+    return EXIT_SUCCESS
+
+
+def cmd_experiment_init(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(experiment_init(root, suite=args.suite))
+    return EXIT_SUCCESS
+
+
+def cmd_experiment_run_baseline(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(experiment_run_baseline(root, suite=args.suite, solver=Path(args.solver)))
+    return EXIT_SUCCESS
+
+
+def cmd_experiment_run_collective(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(experiment_run_collective(root, suite=args.suite, workcell=Path(args.workcell)))
+    return EXIT_SUCCESS
+
+
+def cmd_experiment_compare(args: argparse.Namespace) -> int:
+    _emit_json(experiment_compare(Path(args.baseline), Path(args.candidate)))
+    return EXIT_SUCCESS
+
+
+def cmd_experiment_export_pic(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(experiment_export_pic(root, suite=args.suite, output=Path(args.output)))
+    return EXIT_SUCCESS
+
+
+def cmd_schedule_diagnose(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(schedule_diagnose(root))
+    return EXIT_SUCCESS
+
+
+def cmd_schedule_reserve(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = schedule_diagnose(root)
+    _emit_json(
+        {
+            "diagnostic_reserve": report["diagnostic_reserve"],
+            "ok": True,
+            "residual_ready": report["residual_ready"],
+            "schema_version": "ccr.schedule_reserve.v1",
+        }
+    )
+    return EXIT_SUCCESS
+
+
+def cmd_schedule_rebalance(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(schedule_rebalance(root, dry_run=bool(args.dry_run)))
+    return EXIT_SUCCESS
+
+
+def cmd_schedule_emit_sqot_report(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    _emit_json(schedule_emit_sqot_report(root))
+    return EXIT_SUCCESS
+
+
+def cmd_operation_plan(args: argparse.Namespace) -> int:
+    trace_report = _read_object(Path(args.trace))
+    _emit_json(operation_plan_from_pic_trace(trace_report))
+    return EXIT_SUCCESS
+
+
+def cmd_operation_execute(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    plan = _read_object(Path(args.plan))
+    config = _read_object(Path(args.config)) if args.config else None
+    result = operation_dispatch(
+        root,
+        plan=plan,
+        provider_name=args.provider,
+        config=config,
+        execute=bool(args.execute),
+    )
+    _emit_json(result)
+    return EXIT_SUCCESS if result.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_verify(args: argparse.Namespace) -> int:

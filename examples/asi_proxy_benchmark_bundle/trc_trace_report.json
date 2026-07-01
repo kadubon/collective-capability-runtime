@@ -1,0 +1,78 @@
+{
+  "accepted": true,
+  "execution_available": true,
+  "execution_blockers": [],
+  "missing_obligations": [],
+  "ok": true,
+  "real_world_operation_gate": {
+    "executed": false,
+    "operation_ready": true,
+    "requires_explicit_authority": true,
+    "requires_provider_config": true,
+    "safe_commands_are_authority": false
+  },
+  "residuals": [],
+  "schema_version": "pic.trc_trace_report.v1",
+  "settled": false,
+  "status": "provisional",
+  "trace_id": "trace:asi-proxy:operation-fixture",
+  "trc_trace_nf": {
+    "steps": [
+      {
+        "action_type": "provider-handoff",
+        "authority_envelope": {
+          "expires_at": "1970-01-01T00:00:00Z",
+          "issuer": "operator:benchmark",
+          "scope": "example://asi-proxy-benchmark/dry-run",
+          "status": "approved"
+        },
+        "causal_schedule_block": {
+          "block_id": "schedule:benchmark:single-step",
+          "happens_after": [],
+          "happens_before": []
+        },
+        "certificate_version_refs": [
+          "cert:benchmark:trc-operation:v1"
+        ],
+        "clock_cell": {
+          "logical_tick": 1,
+          "synchronization": "fixture"
+        },
+        "input_ref": "packet:benchmark:checked",
+        "output_ref": "provider-plan:benchmark:dry-run",
+        "postcondition": {
+          "provider_plan_created": true,
+          "side_effect_performed": false
+        },
+        "precondition": {
+          "blocking_residuals_preserved": true,
+          "packet_checked": true
+        },
+        "residuals": [],
+        "resource_use": {
+          "network_calls": 0,
+          "provider_calls": 0,
+          "wall_time_budget_seconds": 30
+        },
+        "rollback_escrow_obligation": {
+          "escrow_id": "escrow:benchmark:provider-plan",
+          "rollback": "discard dry-run provider plan",
+          "status": "available"
+        },
+        "step_id": "step:provider-plan",
+        "tolerance_ledger": {
+          "calibration_error": 0.0,
+          "observation_error": 0.0,
+          "operation_fidelity": "dry_run"
+        },
+        "tool_call": "ccr.operation.plan",
+        "validity_domain": {
+          "environment": "local-benchmark",
+          "network": "none",
+          "profile": "development"
+        }
+      }
+    ]
+  },
+  "warnings": []
+}

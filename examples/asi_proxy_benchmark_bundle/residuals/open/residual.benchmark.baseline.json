@@ -1,0 +1,21 @@
+{
+  "blocking": true,
+  "created_at": "1970-01-01T00:00:00Z",
+  "description": "Benchmark baseline is stale or synthetic.",
+  "extensions": {
+    "x_pic_source_field": "settled_blockers",
+    "x_pic_source_id": "benchmark:baseline"
+  },
+  "kind": "settlement_blocker",
+  "object_id": "packet.benchmark.candidate",
+  "object_type": "packet",
+  "refs": [
+    "benchmark:baseline"
+  ],
+  "repair_hint": "Refresh resource-matched baseline before interpreting improvement.",
+  "residual_id": "residual:benchmark:baseline",
+  "schema_version": "ccr.residual.v0.1",
+  "severity": "high",
+  "source": "pic",
+  "status": "open"
+}

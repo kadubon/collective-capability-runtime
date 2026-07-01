@@ -20,6 +20,9 @@ EXPECTED_PIC_COMMANDS = [
     "pic packet inspect",
     "pic phase plan --compact",
     "pic runtime collective-certify",
+    "pic trc trace-normalize",
+    "pic trc trace-check",
+    "pic trc trace-to-packet",
 ]
 
 SUPPORTED_PIC_IMPORT_FIELDS = [
@@ -34,6 +37,8 @@ SUPPORTED_PIC_IMPORT_FIELDS = [
     "missing_obligations",
     "residuals",
     "cannot_promote_because",
+    "execution_blockers",
+    "real_world_operation_gate",
 ]
 
 PIC_ROUTE_TEXT = "python -m pip install percolation-inversion-compiler"
@@ -170,7 +175,14 @@ def _check_pic_source_tree(pic_root: Path, findings: list[dict[str, Any]]) -> No
             "cannot_promote_because",
             "settled_blockers",
         ],
-        "docs/v050-audit.md": ["Package version: `0.5.0`", "safe_commands"],
+        "docs/v060-audit.md": ["Package version: `0.6.0`", "operation-readiness"],
+        "docs/ccr-pic-roundtrip.md": ["CCR", "JSONL", "residual"],
+        "docs/asi-proxy-acceleration.md": ["ASI-proxy", "TRC", "CCR"],
+        "examples/asi_proxy_benchmark_bundle/trc_agent_trace.json": [
+            "authority_envelope",
+            "resource_ledger",
+            "tolerance_ledger",
+        ],
         "examples/portability_conformance/phase_acceleration_plan.json": [
             "PhaseAccelerationPlan",
             "candidate_only_reasons",
@@ -188,7 +200,7 @@ def _check_pic_source_tree(pic_root: Path, findings: list[dict[str, Any]]) -> No
                     "high",
                     True,
                     f"PIC source tree does not contain {relative}.",
-                    repair_hint="Point --pic-root at a PIC v0.5.0-compatible source tree.",
+                    repair_hint="Point --pic-root at a PIC v0.6.0-compatible source tree.",
                 )
             )
             continue
@@ -220,14 +232,14 @@ def _check_pic_repo_version(version: str | None, findings: list[dict[str, Any]])
             )
         )
         return
-    if not version.startswith("0.5."):
+    if not version.startswith("0.6."):
         findings.append(
             _finding(
                 "unsupported-pic-version",
                 "pyproject.toml",
                 "medium",
                 False,
-                f"PIC source version is {version}; CCR v1 matrix targets PIC v0.5.x.",
+                f"PIC source version is {version}; CCR v1.1 matrix targets PIC v0.6.x.",
                 repair_hint="Review INTEROP_PIC.md before relying on this PIC version.",
             )
         )
@@ -281,7 +293,7 @@ def _check_non_claim_boundary(
             "README.md",
             "docs/porting.md",
             "docs/phase-acceleration.md",
-            "docs/v050-audit.md",
+            "docs/v060-audit.md",
         ],
     )
     required_ccr = [
@@ -317,7 +329,7 @@ def _check_non_claim_boundary(
                     "medium",
                     True,
                     f"PIC documentation does not expose compatibility boundary text: {needle}",
-                    repair_hint="Review the supplied --pic-root for v0.5.0 compatibility.",
+                    repair_hint="Review the supplied --pic-root for v0.6.0 compatibility.",
                 )
             )
 

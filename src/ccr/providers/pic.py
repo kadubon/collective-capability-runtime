@@ -29,6 +29,9 @@ class PicProvider(Provider):
                 "pic packet inspect",
                 "pic phase plan --compact",
                 "pic runtime collective-certify",
+                "pic trc trace-normalize",
+                "pic trc trace-check",
+                "pic trc trace-to-packet",
             ],
             "interop_boundary": [
                 "PIC is optional and never a hard dependency.",
@@ -48,6 +51,8 @@ class PicProvider(Provider):
                 "missing_obligations",
                 "residuals",
                 "cannot_promote_because",
+                "execution_blockers",
+                "real_world_operation_gate",
             ],
         }
 
