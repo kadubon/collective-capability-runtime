@@ -902,9 +902,7 @@ def operation_plan_from_pic_trace(trace_report: dict[str, Any]) -> dict[str, Any
         )
     operations = [_operation_step(step, index) for index, step in enumerate(steps)]
     ready = (
-        pic_checked
-        and pic_operation_ready
-        and not {item for item in execution_blockers if item}
+        pic_checked and pic_operation_ready and not {item for item in execution_blockers if item}
     )
     return {
         "constraints": {

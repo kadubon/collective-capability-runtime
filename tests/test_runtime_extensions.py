@@ -255,7 +255,7 @@ def test_trc_operation_plan_requires_pic_checked_operation_ready_trace(
                         "tool_call": "fixture-provider",
                         "validity_domain": {"environment": "local-test"},
                     }
-                ]
+                ],
             },
         }
     )
