@@ -1,0 +1,11 @@
+{
+  "accepted": true,
+  "hazard_followup_complete": true,
+  "incident_unresolved": false,
+  "observation_id": "observation:example",
+  "physical_outcome_proven": false,
+  "rollback_verified": true,
+  "schema_version": "ccr.trc_operation_observation_example.v1",
+  "settled": false,
+  "verified": true
+}

@@ -38,6 +38,22 @@ the certificate candidate keeps `settled=false`.
 Failure/residual handling: if thresholds fail, `phase form` creates deterministic
 repair tasks and preserves failed components instead of hiding them.
 
+P2 safe commands:
+
+```bash
+ccr residual market --json
+ccr residual market --mission <mission_id> --json
+ccr residual bounty --residual <residual_id> --mission <mission_id> --emit task --json
+ccr workbench export --mission <mission_id> --format static-html --out site/ --json
+ccr operation replay-manifest --dispatch-report dispatch.json --observation observation.json --out replay.json --json
+ccr operation verify-observation --manifest replay.json --verifier verifier.json --json
+ccr conformance parity --ccr-report ccr.json --pic-report pic.json --json
+ccr provider registry-validate --file provider-registry.json --json
+```
+
+These commands are local diagnostics or local task routing only. They do not
+dispatch providers, prove physical outcomes, or settle CCR.
+
 Provider import: the HTTP and PIC-like reports exercise import semantics only;
 they are not proof that a provider executed anything.
 

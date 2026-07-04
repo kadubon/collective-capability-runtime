@@ -10,6 +10,20 @@ PIC is an optional verifier relation. It is not a CCR settlement oracle.
 
 CCR is a finite transition system over JSON artifacts plus a SQLite index.
 
+Mission is a finite facade over existing finite CCR artifacts:
+
+```text
+M = (target_ref, baseline_ref, authority_envelope, hazard_envelope,
+     resource_envelope, packet_workspace, residual_ledger, loop_policy,
+     provider_policy, report_policy)
+```
+
+Mission transitions may create or reference local JSON artifacts, but they do
+not replace packet promotion, residual preservation, phase threshold, baseline,
+or certificate-candidate relations. A mission workbench report is a finite
+summary relation over local artifacts and does not imply execution or
+settlement.
+
 ## First-time agent guide
 
 Purpose: use the formal model to understand why CCR separates admissible
@@ -33,6 +47,22 @@ candidate artifacts expose finite metrics, blockers, reasons, and `settled=false
 
 Failure/residual handling: failed predicates become residual debt, failed
 components, abstention reasons, or repair tasks rather than hidden state.
+
+P2 safe commands:
+
+```bash
+ccr residual market --json
+ccr residual market --mission <mission_id> --json
+ccr residual bounty --residual <residual_id> --mission <mission_id> --emit task --json
+ccr workbench export --mission <mission_id> --format static-html --out site/ --json
+ccr operation replay-manifest --dispatch-report dispatch.json --observation observation.json --out replay.json --json
+ccr operation verify-observation --manifest replay.json --verifier verifier.json --json
+ccr conformance parity --ccr-report ccr.json --pic-report pic.json --json
+ccr provider registry-validate --file provider-registry.json --json
+```
+
+In the model these are residual-routing, static-export, evidence-replay, and
+metadata-validation relations, not execution or settlement transitions.
 
 Provider import: provider reports enter the model as external evidence
 relations and residual sources, not as direct settlement functions.
@@ -195,6 +225,23 @@ Provider(plan | execute | normalize)
 
 Planning is non-executing. Execution requires explicit operator authority. A
 provider report is evidence input, not settlement authority.
+
+## v1.5 Mission P2 Surfaces
+
+The P2 surfaces are partial functions over local artifacts:
+
+```text
+ResidualMarket(M, R_open) -> ranked_work
+StaticWorkbench(M, P, R) -> html_json_export
+Replay(D, O) -> replay_manifest
+Parity(CCR_report, PIC_report) -> evidence_only_parity
+Registry(registry_manifest, provider_manifests) -> static_metadata_report
+```
+
+They preserve `executed=false`, `network_call_performed=false`, and
+`settled=false`. `ResidualBounty` may create a local task only when `--emit
+task` is supplied. No P2 function grants provider dispatch, imports provider
+code, settles a claim, or proves physical outcomes.
 
 ## Promotion Predicate
 

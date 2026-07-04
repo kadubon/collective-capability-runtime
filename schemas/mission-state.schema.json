@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/mission-state.schema.json",
+  "title": "CCR Mission State",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "mission_id",
+    "mission_path",
+    "target_path",
+    "baseline_path",
+    "loop_state_path",
+    "packet_refs",
+    "residual_refs",
+    "report_refs",
+    "external_execution",
+    "network_call_performed",
+    "settled"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.mission_state.v1" },
+    "mission_id": { "type": "string" },
+    "mission_path": { "type": "string" },
+    "target_path": { "type": "string" },
+    "baseline_path": { "type": "string" },
+    "loop_state_path": { "type": "string" },
+    "packet_refs": { "type": "array", "items": { "type": "string" } },
+    "residual_refs": { "type": "array", "items": { "type": "string" } },
+    "report_refs": { "type": "array", "items": { "type": "string" } },
+    "step_index": { "type": "integer", "minimum": 0 },
+    "external_execution": { "const": false },
+    "network_call_performed": { "const": false },
+    "settled": { "const": false }
+  },
+  "additionalProperties": true
+}

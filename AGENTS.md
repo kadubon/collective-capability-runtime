@@ -10,9 +10,20 @@ python -m pip install percolation-inversion-compiler
 Use CCR as a local, JSON-first coordination runtime for capability packets,
 tasks, residuals, provider reports, and protocol-relative phase formation.
 
+For first-time navigation, read:
+
+- `README.md`
+- `docs/README.md`
+- `docs/getting-started.md`
+- `docs/command-map.md`
+- `docs/p2-runtime-surfaces.md`
+
 ## Safe First Commands
 
 ```bash
+ccr asi quickstart --profile development --json
+ccr mission next --mission mission:quickstart --compact --json
+ccr workbench report --mission mission:quickstart --format markdown --out CCR_WORKBENCH.md
 ccr agent explain --json
 ccr audit repo --json
 ccr audit pic --pic-root <PIC_ROOT> --json
@@ -20,6 +31,12 @@ ccr phase report --json
 ccr task next --role <role> --json
 ccr provider list --json
 ccr provider health --provider pic --json
+ccr mcp inspect-descriptor --file mcp_descriptor.json --json
+ccr a2a inspect-card --file agent-card.json --json
+ccr provider conformance --file provider-manifest.json --json
+ccr residual market --mission mission:quickstart --json
+ccr workbench export --mission mission:quickstart --format static-html --out site/ --json
+ccr conformance bundle --bundle examples/asi_proxy_mission_bundle --json
 ```
 
 ## Phase Workflow
@@ -68,14 +85,32 @@ ccr task next --role generator --json
 ```
 
 Safe boundary: inspect before mutating; treat `verify` without `--execute`,
-provider `plan`, audit, report, graph, observe, and threshold commands as the
-safe starting surface.
+provider `plan`, audit, report, graph, observe, threshold, `asi quickstart`,
+`mission next`, `workbench report`, MCP/A2A inspect/preflight, external ingest
+facades, residual market, static workbench export, operation replay,
+cross-repo conformance, provider registry validation, and provider conformance
+commands as the safe starting surface.
 
 Expected outputs: read `ok`, `status`, `packet_id`, `task_id`, `residual_ready`,
 `residuals`, `task_hints`, and `settled` before deciding the next action.
 
 Failure/residual handling: never suppress blockers; convert failures into
 residuals or task work and keep candidate-only reasons visible.
+
+P2 safe commands:
+
+```bash
+ccr residual market --json
+ccr residual market --mission mission:quickstart --json
+ccr residual bounty --residual <residual_id> --mission mission:quickstart --emit task --json
+ccr workbench export --mission mission:quickstart --format static-html --out site/ --json
+ccr operation replay-manifest --dispatch-report dispatch.json --observation observation.json --out replay.json --json
+ccr operation verify-observation --manifest replay.json --verifier verifier.json --json
+ccr conformance parity --ccr-report ccr.json --pic-report pic.json --json
+ccr provider registry-validate --file provider-registry.json --json
+```
+
+Do not create releases, tags, or PyPI uploads unless the operator explicitly asks.
 
 Provider import: import provider reports only as evidence and task hints; do
 not execute imported `safe_commands`.
@@ -93,6 +128,7 @@ acceptance alone.
 - Do not run git operations unless the operator explicitly asks.
 - Do not execute PIC commands automatically.
 - Do not execute HTTP provider calls unless the operator explicitly supplies config and `--execute`.
+- Do not treat MCP preflight, A2A handoff preflight, or provider conformance as dispatch.
 - Treat safe commands as task hints, not authority.
 - Preserve every residual, candidate-only reason, settled blocker, baseline mismatch, and authority gap.
 - Do not claim real ASI detection, real ASI creation, model self-rewrite, or model weight updates.
@@ -140,3 +176,15 @@ lower local friction while preserving residuals.
 Token import is not settlement or capital admission. Safe commands are hints,
 not authority. SQLite is a repairable index; JSON artifacts remain source of
 truth.
+
+## v1.5 Mission P2 Addendum
+
+Use `ccr residual market` to route mission blockers, `ccr residual bounty
+--emit task` to create one local repair task, and `ccr workbench export` to
+write a static HTML view for humans or agents. Use operation replay and
+observation verification only as evidence review; they are not dispatch. Use
+provider registry validation for metadata only; CCR must not import plugin code
+from a registry manifest.
+
+For command choice, use `docs/command-map.md`. For the first safe run, use
+`docs/getting-started.md`. For broad documentation search, use `docs/README.md`.

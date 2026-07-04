@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/parity-report.schema.json",
+  "title": "CCR PIC Parity Report",
+  "type": "object",
+  "required": ["schema_version", "ok", "pic_evidence_only", "parity_fields", "missing_by_report", "residual_kinds_by_report", "mutated_runtime", "external_execution", "network_call_performed", "settled", "non_claims", "residual_ready"],
+  "properties": {
+    "schema_version": { "const": "ccr.parity_report.v1" },
+    "pic_evidence_only": { "const": true },
+    "mutated_runtime": { "const": false },
+    "external_execution": { "const": false },
+    "network_call_performed": { "const": false },
+    "settled": { "const": false }
+  },
+  "additionalProperties": true
+}

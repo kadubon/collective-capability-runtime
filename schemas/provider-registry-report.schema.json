@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/provider-registry-report.schema.json",
+  "title": "CCR Provider Registry Report",
+  "type": "object",
+  "required": ["schema_version", "ok", "providers", "mutated_runtime", "external_execution", "network_call_performed", "settled", "non_claims", "residual_ready"],
+  "properties": {
+    "schema_version": { "const": "ccr.provider_registry_report.v1" },
+    "mutated_runtime": { "const": false },
+    "external_execution": { "const": false },
+    "network_call_performed": { "const": false },
+    "settled": { "const": false }
+  },
+  "additionalProperties": true
+}

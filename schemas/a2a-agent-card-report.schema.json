@@ -3,9 +3,11 @@
   "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/a2a-agent-card-report.schema.json",
   "title": "CCR A2A Agent Card Report",
   "type": "object",
-  "required": ["schema_version", "ok", "accepted", "agent_id", "residuals", "blockers", "non_claims", "settled"],
+  "required": ["schema_version", "ok", "accepted", "agent_id", "agent_card_hash", "authority_decision", "profile", "external_execution", "network_call_performed", "residuals", "blockers", "non_claims", "settled"],
   "properties": {
     "schema_version": { "const": "ccr.a2a_agent_card_report.v1" },
+    "external_execution": { "const": false },
+    "network_call_performed": { "const": false },
     "settled": { "const": false }
   },
   "additionalProperties": true

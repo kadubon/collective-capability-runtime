@@ -1,0 +1,42 @@
+{
+  "accepted": false,
+  "baseline_ref": "baseline:quickstart",
+  "blocking_residual_count": 0,
+  "candidate_only_count": 1,
+  "external_execution": false,
+  "mission_id": "mission:quickstart",
+  "mutated_runtime": false,
+  "network_call_performed": false,
+  "next_safe_action": {
+    "command": "ccr mission next --mission mission:quickstart --compact --json",
+    "external_execution": false,
+    "writes_runtime": false
+  },
+  "non_claims": [
+    "not_real_asi_proof",
+    "not_execution_authority",
+    "not_physical_outcome_proof",
+    "provider_output_is_evidence_only",
+    "pic_output_is_evidence_only"
+  ],
+  "ok": false,
+  "packet_status_summary": {
+    "candidate": 1,
+    "checked": 0,
+    "deprecated": 0,
+    "expired": 0,
+    "proposed": 0,
+    "provisional": 0,
+    "quarantined": 0,
+    "raw": 0,
+    "rejected": 0,
+    "settled": 0,
+    "speculative": 0
+  },
+  "positive_packet_count": 0,
+  "profile": "development",
+  "schema_version": "ccr.workbench_report.v1",
+  "settled": false,
+  "target_ref": "target:quickstart",
+  "top_residuals": []
+}

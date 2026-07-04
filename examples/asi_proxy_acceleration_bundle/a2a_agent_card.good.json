@@ -1,0 +1,11 @@
+{
+  "agent_id": "agent:fixture",
+  "capabilities": [
+    "diagnostic_read"
+  ],
+  "declared_authority": {
+    "scope": "read-only"
+  },
+  "network_policy": "none",
+  "side_effect_policy": "read_only"
+}

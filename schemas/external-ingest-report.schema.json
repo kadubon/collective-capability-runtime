@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/external-ingest-report.schema.json",
+  "title": "CCR External Ingest Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ok",
+    "candidate_only",
+    "mutated_runtime",
+    "external_execution",
+    "network_call_performed",
+    "settled",
+    "non_claims",
+    "residual_ready"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.external_ingest_report.v1" },
+    "candidate_only": { "const": true },
+    "external_execution": { "const": false },
+    "network_call_performed": { "const": false },
+    "settled": { "const": false }
+  },
+  "additionalProperties": true
+}

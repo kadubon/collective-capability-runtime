@@ -1,0 +1,63 @@
+name: CCR audit
+description: Run Collective Capability Runtime static repository and release audits.
+inputs:
+  run-release-audit:
+    description: Run ccr audit release after build artifacts exist.
+    required: false
+    default: "false"
+  dist:
+    description: Distribution directory for ccr audit release.
+    required: false
+    default: dist
+runs:
+  using: composite
+  steps:
+    - name: Install checkout
+      shell: bash
+      run: |
+        if command -v uv >/dev/null 2>&1; then
+          uv sync --all-extras
+        else
+          python -m pip install -e .
+        fi
+    - name: Repository audit
+      shell: bash
+      run: |
+        if command -v uv >/dev/null 2>&1; then
+          uv run ccr audit repo --json
+        else
+          ccr audit repo --json
+        fi
+    - name: Claim audit README
+      shell: bash
+      run: |
+        if command -v uv >/dev/null 2>&1; then
+          uv run ccr claim audit --input README.md --json
+        else
+          ccr claim audit --input README.md --json
+        fi
+    - name: ASI quickstart smoke
+      shell: bash
+      run: |
+        if command -v uv >/dev/null 2>&1; then
+          uv run ccr --root .tmp/ccr-action-smoke asi quickstart --json
+        else
+          ccr --root .tmp/ccr-action-smoke asi quickstart --json
+        fi
+    - name: Workbench report smoke
+      shell: bash
+      run: |
+        if command -v uv >/dev/null 2>&1; then
+          uv run ccr --root .tmp/ccr-action-smoke workbench report --mission mission:quickstart --format json --out .tmp/ccr-action-smoke/workbench.json
+        else
+          ccr --root .tmp/ccr-action-smoke workbench report --mission mission:quickstart --format json --out .tmp/ccr-action-smoke/workbench.json
+        fi
+    - name: Release audit
+      if: ${{ inputs.run-release-audit == 'true' }}
+      shell: bash
+      run: |
+        if command -v uv >/dev/null 2>&1; then
+          uv run ccr audit release --dist "${{ inputs.dist }}" --json
+        else
+          ccr audit release --dist "${{ inputs.dist }}" --json
+        fi

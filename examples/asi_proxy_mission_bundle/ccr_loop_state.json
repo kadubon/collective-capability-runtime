@@ -1,0 +1,16 @@
+{
+  "external_execution": false,
+  "mission_id": "mission:quickstart",
+  "mutated_runtime": false,
+  "network_call_performed": false,
+  "non_claims": [
+    "not_real_asi_proof",
+    "not_execution_authority",
+    "not_physical_outcome_proof",
+    "provider_output_is_evidence_only",
+    "pic_output_is_evidence_only"
+  ],
+  "ok": true,
+  "schema_version": "ccr.mission_status.v1",
+  "settled": false
+}

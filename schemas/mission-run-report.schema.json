@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/mission-run-report.schema.json",
+  "title": "CCR Mission Run Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "mission_id",
+    "ok",
+    "mutated_runtime",
+    "external_execution",
+    "network_call_performed",
+    "settled"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^ccr\\.(?:mission_[a-z_]+(?:\\.compact)?|asi_quickstart)\\.v1$"
+    },
+    "mission_id": { "type": "string" },
+    "ok": { "type": "boolean" },
+    "mutated_runtime": { "type": "boolean" },
+    "external_execution": { "const": false },
+    "network_call_performed": { "const": false },
+    "settled": { "const": false },
+    "non_claims": { "type": "array", "items": { "type": "string" } },
+    "residual_ready": {
+      "type": ["array", "object", "null"],
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

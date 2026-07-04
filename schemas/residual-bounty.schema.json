@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/residual-bounty.schema.json",
+  "title": "CCR Residual Bounty Report",
+  "type": "object",
+  "required": ["schema_version", "ok", "mission_id", "residual_id", "external_execution", "network_call_performed", "settled", "non_claims"],
+  "properties": {
+    "schema_version": { "const": "ccr.residual_bounty.v1" },
+    "external_execution": { "const": false },
+    "network_call_performed": { "const": false },
+    "settled": { "const": false }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,47 @@
+{
+  "authority_envelope": {
+    "scope": "local_dry_run",
+    "status": "approved"
+  },
+  "baseline_upper_envelope_ref": "baseline:quickstart",
+  "capability_basis": [
+    "local_packet_work",
+    "residual_reduction"
+  ],
+  "capability_envelope": {
+    "status": "accepted"
+  },
+  "externality_law": {
+    "status": "accepted"
+  },
+  "generated_law": {
+    "status": "accepted"
+  },
+  "hazard_envelope": {
+    "status": "accepted",
+    "unknowns_block": true
+  },
+  "horizon": "P1D",
+  "mission_law": {
+    "status": "accepted"
+  },
+  "non_claims": [
+    "not_real_asi_proof",
+    "not_execution_authority",
+    "not_physical_outcome_proof",
+    "provider_output_is_evidence_only",
+    "pic_output_is_evidence_only"
+  ],
+  "raw_net_capital_floor": 0,
+  "schema_version": "ccr.asi_proxy_target.v1",
+  "target_id": "target:quickstart",
+  "target_set": {
+    "thresholds": {
+      "local_residual_reduction": 1.0
+    }
+  },
+  "target_validity_certificate_ref": "target-validity:local-fixture",
+  "viability_set": {
+    "status": "accepted"
+  }
+}

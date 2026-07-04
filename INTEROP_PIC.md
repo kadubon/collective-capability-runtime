@@ -60,6 +60,22 @@ safe command hints.
 Failure/residual handling: missing PIC package or CLI is a provider-missing
 residual-ready state, not an internal CCR failure.
 
+P2 safe commands:
+
+```bash
+ccr residual market --json
+ccr residual market --mission <mission_id> --json
+ccr residual bounty --residual <residual_id> --mission <mission_id> --emit task --json
+ccr workbench export --mission <mission_id> --format static-html --out site/ --json
+ccr operation replay-manifest --dispatch-report dispatch.json --observation observation.json --out replay.json --json
+ccr operation verify-observation --manifest replay.json --verifier verifier.json --json
+ccr conformance parity --ccr-report ccr.json --pic-report pic.json --json
+ccr provider registry-validate --file provider-registry.json --json
+```
+
+PIC/PIC-TS reports are evidence-only in these routes. They do not settle CCR,
+grant authority, dispatch providers, or prove physical outcomes.
+
 Provider import: use `ccr provider import --provider pic --report <file> --json`
 or legacy `ccr integrate --report <file> --json`; neither path executes
 safe commands.
@@ -82,6 +98,13 @@ witnesses, MCP/A2A report fixtures, SQOT protocol diagnostics, BIT MEC frontier
 reports, and operation preflight reports. These imports remain candidate
 evidence. `capital_admitted` is lower-bound evidence, not settlement; proxy-only
 evidence cannot increase safe capital.
+
+Mission Runtime Layer: `ccr asi quickstart` and `ccr mission ...` organize a
+local target, baseline, authority envelope, packet workspace, residual ledger,
+loop policy, provider policy, and workbench report. Mission may reference or
+import PIC-compatible evidence, but PIC remains optional and is not a settlement
+oracle. Mission reports preserve `settled=false` and `external_execution=false`
+unless a separate explicit CCR command and existing CCR semantics say otherwise.
 
 ## Shared Non-Claims
 
@@ -263,3 +286,11 @@ task, residual, and capital-witness reports as candidate runtime work, then
 computes loop-next, foundry, graph quotient, performance, cache, and interval
 diagnostics. PIC/PIC-TS remain checker layers. CCR remains the local runtime
 and never treats PIC acceptance as settlement or execution authority.
+
+## v1.5 P2 Interop
+
+Use `ccr conformance bundle` and `ccr conformance parity` to compare CCR bundle
+reports with PIC/PIC-TS evidence reports. Missing parity fields become
+`residual_ready`; PIC `settled=true` remains evidence-only and is not CCR
+settlement. Provider registry validation reads static manifests only and does
+not import PIC, PIC-TS, or provider plugin modules.

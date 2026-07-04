@@ -47,6 +47,30 @@ DEFAULT_SCHEMA_VERSIONS = {
     "mcp-tool-invocation-preflight": "ccr.mcp_tool_invocation_preflight.v1",
     "a2a-agent-card-report": "ccr.a2a_agent_card_report.v1",
     "a2a-task-handoff-report": "ccr.a2a_task_handoff_report.v1",
+    "mission": "ccr.mission.v1",
+    "mission-state": "ccr.mission_state.v1",
+    "mission-run-report": "ccr.mission_run_report.v1",
+    "workbench-report": "ccr.workbench_report.v1",
+    "claim-passport": "ccr.claim_passport.v1",
+    "mission-bundle": "ccr.mission_bundle.v1",
+    "bundle-validate-report": "ccr.bundle_validate.v1",
+    "provider-manifest": "ccr.provider_manifest.v1",
+    "provider-manifest-report": "ccr.provider_manifest_report.v1",
+    "provider-conformance-report": "ccr.provider_conformance_report.v1",
+    "external-ingest-report": "ccr.external_ingest_report.v1",
+    "residual-market": "ccr.residual_market.v1",
+    "residual-market-report": "ccr.residual_market.v1",
+    "residual-bounty": "ccr.residual_bounty.v1",
+    "residual-bounty-report": "ccr.residual_bounty.v1",
+    "residual-diff": "ccr.residual_diff.v1",
+    "residual-diff-report": "ccr.residual_diff.v1",
+    "static-workbench-export-report": "ccr.static_workbench_export_report.v1",
+    "operation-replay-manifest": "ccr.operation_replay_manifest.v1",
+    "observation-verification-report": "ccr.observation_verification_report.v1",
+    "cross-repo-conformance-report": "ccr.cross_repo_conformance_report.v1",
+    "parity-report": "ccr.parity_report.v1",
+    "provider-registry": "ccr.provider_registry.v1",
+    "provider-registry-report": "ccr.provider_registry_report.v1",
 }
 
 PACKET_STATUSES = (
@@ -108,12 +132,18 @@ RUNTIME_DIRECTORIES = (
     "reports/phase",
     "reports/audit",
     "reports/providers",
+    "reports/workbench",
+    "reports/claims",
     "phase/graphs",
     "phase/observations",
     "phase/thresholds",
     "phase/certificates",
     "phase/comparisons",
     "baselines",
+    "missions",
+    "missions/state",
+    "missions/targets",
+    "missions/baselines",
 )
 
 NON_CLAIMS = (
@@ -128,12 +158,22 @@ NON_CLAIMS = (
 )
 
 SAFE_NEXT_COMMANDS = (
+    "ccr asi quickstart --profile development --json",
+    "ccr mission next --mission mission:quickstart --compact --json",
+    "ccr workbench report --mission mission:quickstart --format markdown --out CCR_WORKBENCH.md",
+    "ccr residual market --mission mission:quickstart --json",
     "ccr agent explain --json",
     "ccr init",
     "ccr schema validate --kind packet --file examples/minimal/packet.json",
     "ccr schema validate --kind task --file examples/minimal/task.json",
     "ccr task next --role generator --json",
     "ccr phase report --json",
+    "ccr mcp inspect-descriptor "
+    "--file examples/asi_proxy_acceleration_bundle/mcp_descriptor.good.json --json",
+    "ccr a2a inspect-card "
+    "--file examples/asi_proxy_acceleration_bundle/a2a_agent_card.good.json --json",
+    "ccr provider registry-validate "
+    "--file examples/asi_proxy_acceleration_bundle/provider_registry.good.json --json",
 )
 
 DEFAULT_ACTOR = "ccr"

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/mission-bundle.schema.json",
+  "title": "CCR Mission Bundle",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "bundle_id",
+    "mission_ref",
+    "target_ref",
+    "baseline_ref",
+    "non_claims",
+    "settled",
+    "executed",
+    "external_execution",
+    "network_call_performed"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.mission_bundle.v1" },
+    "bundle_id": { "type": "string" },
+    "mission_ref": { "type": "string" },
+    "target_ref": { "type": "string" },
+    "baseline_ref": { "type": "string" },
+    "non_claims": { "type": "array", "minItems": 3, "items": { "type": "string", "minLength": 1 } },
+    "settled": { "const": false },
+    "executed": { "const": false },
+    "external_execution": { "const": false },
+    "network_call_performed": { "const": false }
+  },
+  "additionalProperties": true
+}

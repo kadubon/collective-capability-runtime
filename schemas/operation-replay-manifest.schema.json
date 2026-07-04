@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/operation-replay-manifest.schema.json",
+  "title": "CCR Operation Replay Manifest",
+  "type": "object",
+  "required": ["schema_version", "ok", "manifest_id", "dispatch_report_hash", "observation_hash", "executed", "physical_outcome_proven", "external_execution", "network_call_performed", "provider_dispatch_ready", "settled", "non_claims", "residual_ready"],
+  "properties": {
+    "schema_version": { "const": "ccr.operation_replay_manifest.v1" },
+    "executed": { "type": "boolean" },
+    "physical_outcome_proven": { "const": false },
+    "external_execution": { "const": false },
+    "network_call_performed": { "const": false },
+    "provider_dispatch_ready": { "const": false },
+    "settled": { "const": false }
+  },
+  "additionalProperties": true
+}

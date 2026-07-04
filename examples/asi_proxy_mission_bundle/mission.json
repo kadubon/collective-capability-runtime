@@ -1,0 +1,64 @@
+{
+  "asi_proxy_target_ref": "target:quickstart",
+  "authority_envelope": {
+    "scope": "local_dry_run",
+    "status": "approved"
+  },
+  "baseline_ref": "baseline:quickstart",
+  "created_at": "1970-01-01T00:00:00Z",
+  "hazard_envelope": {
+    "status": "accepted",
+    "unknowns_block": true
+  },
+  "loop_policy": {
+    "external_execution": false,
+    "max_steps": 1,
+    "mode": "advisory",
+    "mutate_by_default": false
+  },
+  "mission_id": "mission:quickstart",
+  "non_claims": [
+    "CCR does not detect real ASI.",
+    "CCR does not create real ASI.",
+    "not_real_asi_proof",
+    "not_execution_authority",
+    "not_physical_outcome_proof",
+    "provider_output_is_evidence_only",
+    "pic_output_is_evidence_only"
+  ],
+  "packet_workspace": {
+    "candidate_refs": [
+      "packet:quickstart:mission-candidate"
+    ],
+    "packet_refs": [
+      "packet:quickstart:mission-candidate"
+    ]
+  },
+  "profile": "development",
+  "provider_policy": {
+    "network_calls": "none",
+    "provider_execution": false,
+    "provider_output_is_evidence_only": true
+  },
+  "report_policy": {
+    "default_format": "markdown",
+    "human_readable": true
+  },
+  "resource_envelope": {
+    "budget": "local",
+    "cpu": 1,
+    "network": "none"
+  },
+  "residual_ledger": {
+    "blocking_residuals_prevent_settlement": true,
+    "refs": []
+  },
+  "schema_version": "ccr.mission.v1",
+  "settlement_policy": {
+    "blocking_residuals_prevent_settlement": true,
+    "provider_output_is_evidence_only": true,
+    "residual_waivers_allowed": false
+  },
+  "template": "local-asi-proxy",
+  "updated_at": "1970-01-01T00:00:00Z"
+}

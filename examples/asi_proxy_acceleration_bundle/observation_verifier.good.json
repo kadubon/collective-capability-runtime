@@ -1,0 +1,9 @@
+{
+  "accepted": true,
+  "hazard_followup_complete": true,
+  "incident_unresolved": false,
+  "physical_outcome_proven": false,
+  "rollback_verified": true,
+  "schema_version": "ccr.observation_verifier_profile.example.v1",
+  "verifier_accepts_observation": true
+}

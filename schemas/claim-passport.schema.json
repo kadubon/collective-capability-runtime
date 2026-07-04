@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/claim-passport.schema.json",
+  "title": "CCR Claim Passport",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ok",
+    "source",
+    "claim_count",
+    "unsupported_claim_count",
+    "overclaim_count",
+    "claims",
+    "non_claims",
+    "settled",
+    "external_execution"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.claim_passport.v1" },
+    "ok": { "type": "boolean" },
+    "source": { "type": "string" },
+    "claim_count": { "type": "integer", "minimum": 0 },
+    "unsupported_claim_count": { "type": "integer", "minimum": 0 },
+    "overclaim_count": { "type": "integer", "minimum": 0 },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "claim_text", "unsupported", "overclaim"],
+        "properties": {
+          "claim_id": { "type": "string" },
+          "claim_text": { "type": "string" },
+          "unsupported": { "type": "boolean" },
+          "overclaim": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "non_claims": { "type": "array", "items": { "type": "string" } },
+    "settled": { "const": false },
+    "external_execution": { "const": false }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/mission.schema.json",
+  "title": "CCR Mission",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "mission_id",
+    "profile",
+    "asi_proxy_target_ref",
+    "baseline_ref",
+    "authority_envelope",
+    "hazard_envelope",
+    "resource_envelope",
+    "loop_policy",
+    "settlement_policy",
+    "non_claims"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.mission.v1" },
+    "mission_id": { "type": "string", "pattern": "^mission:[A-Za-z0-9_.:@+-]+$" },
+    "profile": {
+      "type": "string",
+      "enum": ["development", "research", "controlled", "federated", "production", "adversarial", "custom"]
+    },
+    "asi_proxy_target_ref": { "type": "string" },
+    "baseline_ref": { "type": "string" },
+    "authority_envelope": {
+      "type": "object",
+      "required": ["status", "scope"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["approved", "pending", "blocked", "operator_required", "read_only", "unknown"]
+        },
+        "scope": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "hazard_envelope": { "type": "object", "additionalProperties": true },
+    "resource_envelope": { "type": "object", "additionalProperties": true },
+    "loop_policy": {
+      "type": "object",
+      "required": ["mode", "max_steps", "mutate_by_default", "external_execution"],
+      "properties": {
+        "mode": { "type": "string" },
+        "max_steps": { "type": "integer", "minimum": 0 },
+        "mutate_by_default": { "type": "boolean" },
+        "external_execution": { "const": false }
+      },
+      "additionalProperties": true
+    },
+    "settlement_policy": {
+      "type": "object",
+      "required": [
+        "provider_output_is_evidence_only",
+        "blocking_residuals_prevent_settlement",
+        "residual_waivers_allowed"
+      ],
+      "properties": {
+        "provider_output_is_evidence_only": { "const": true },
+        "blocking_residuals_prevent_settlement": { "const": true },
+        "residual_waivers_allowed": { "const": false }
+      },
+      "additionalProperties": true
+    },
+    "non_claims": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "settled": { "const": false }
+  },
+  "additionalProperties": true
+}

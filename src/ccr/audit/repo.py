@@ -28,10 +28,37 @@ REQUIRED_SCHEMA_FILES = [
     "provider.schema.json",
     "audit-report.schema.json",
     "trc-operation-plan.schema.json",
+    "mission.schema.json",
+    "mission-state.schema.json",
+    "mission-run-report.schema.json",
+    "workbench-report.schema.json",
+    "claim-passport.schema.json",
+    "mission-bundle.schema.json",
+    "bundle-validate-report.schema.json",
+    "provider-manifest.schema.json",
+    "provider-manifest-report.schema.json",
+    "provider-conformance-report.schema.json",
+    "external-ingest-report.schema.json",
+    "residual-market.schema.json",
+    "residual-market-report.schema.json",
+    "residual-bounty.schema.json",
+    "residual-bounty-report.schema.json",
+    "residual-diff.schema.json",
+    "residual-diff-report.schema.json",
+    "static-workbench-export-report.schema.json",
+    "operation-replay-manifest.schema.json",
+    "observation-verification-report.schema.json",
+    "cross-repo-conformance-report.schema.json",
+    "parity-report.schema.json",
+    "provider-registry.schema.json",
+    "provider-registry-report.schema.json",
 ]
 
 DOC_ROUTE_FILES = [
     "README.md",
+    "docs/README.md",
+    "docs/getting-started.md",
+    "docs/command-map.md",
     "SPEC.md",
     "FORMAL_MODEL.md",
     "INTEROP_PIC.md",
@@ -90,6 +117,9 @@ PIC_COMPAT_DOCS = [
 ]
 FIRST_TIME_AGENT_DOC_FILES = [
     "README.md",
+    "docs/README.md",
+    "docs/getting-started.md",
+    "docs/command-map.md",
     "AGENTS.md",
     "SPEC.md",
     "SECURITY.md",
@@ -106,6 +136,7 @@ FIRST_TIME_AGENT_MARKERS = [
     "Safe boundary:",
     "Expected outputs:",
     "Failure/residual handling:",
+    "P2 safe commands:",
     "Provider import:",
     "Phase formation cycle:",
     "What not to claim:",
@@ -122,6 +153,133 @@ PUBLIC_RELEASE_DOC_FILES = [
 PUBLIC_DOC_FORBIDDEN_MARKERS = [
     "C:" + "\\Users",
     "199" + "1m",
+]
+MISSION_HARDENING_CHECKS = [
+    (
+        "src/ccr/safe_io.py",
+        ["read_text_bounded", "read_json_bounded", "path_traversal", "input_decode_error"],
+    ),
+    (
+        "src/ccr/mission/model.py",
+        ["mission_scope", "x_ccr_mission_id", "mission_packet_counts", "mission_residual_counts"],
+    ),
+    (
+        "src/ccr/bundles/validate.py",
+        ["SCHEMA_KIND_BY_VERSION", "_validate_reference_closure", "_validate_path_refs"],
+    ),
+    ("src/ccr/cli.py", ['"--fail-on"', "blocking_residual", "missing_mission"]),
+    (
+        "tests/test_v150_mission_hardening.py",
+        ["test_mission_scope_isolation", "test_report_fail_on_missing_mission"],
+    ),
+    (
+        "tests/test_v150_claim_bundle_hardening.py",
+        ["test_claim_overclaim_matrix", "test_bundle_validate_rejects_path_traversal_ref"],
+    ),
+]
+P1_GATE_CHECKS = [
+    (
+        "src/ccr/gates/mcp.py",
+        ["inspect_descriptor", "preflight_invocation", "network_call_performed"],
+    ),
+    (
+        "src/ccr/gates/a2a.py",
+        ["inspect_agent_card", "preflight_handoff", "delegated_tool_execution"],
+    ),
+    (
+        "src/ccr/ingest/facade.py",
+        ["ingest_trace", "ingest_repo", "candidate_only"],
+    ),
+    (
+        "src/ccr/providers/manifest.py",
+        ["inspect_provider_manifest", "provider_conformance", "provider_grants_settlement"],
+    ),
+    (
+        ".github/actions/ccr-audit/action.yml",
+        [
+            "uv sync --all-extras",
+            "uv run ccr audit repo --json",
+            "python -m pip install -e .",
+            "ccr audit release --dist",
+            "run-release-audit",
+        ],
+    ),
+    (
+        "tests/test_v160_p1_gates.py",
+        ["test_mcp_gate_cli_smoke", "test_provider_manifest_conformance_cli_smoke"],
+    ),
+]
+P2_RUNTIME_CHECKS = [
+    (
+        "src/ccr/residuals/market.py",
+        ["residual_market", "residual_bounty", "residual_diff", "runtime", "external_execution"],
+    ),
+    (
+        "src/ccr/workbench/static.py",
+        ["export_static_workbench", "phase.html", "operations.html", "manifest.json"],
+    ),
+    (
+        "src/ccr/operations/replay.py",
+        ["replay_manifest", "verify_observation", "physical_outcome_proven"],
+    ),
+    (
+        "src/ccr/conformance/reports.py",
+        ["conformance_bundle", "conformance_parity", "pic_evidence_only", "REQUIRED_PARITY_FIELDS"],
+    ),
+    (
+        "src/ccr/providers/registry_manifest.py",
+        ["validate_registry_manifest", "list_registry", "inspect_provider_manifest"],
+    ),
+    (
+        "src/ccr/cli.py",
+        [
+            'residual_sub.add_parser("market"',
+            'workbench_sub.add_parser("export"',
+            "operation_replay_cmd = operation_sub.add_parser",
+            'conformance_sub.add_parser("parity"',
+            "provider_registry_validate_cmd = provider_sub.add_parser",
+            "first_use_sequence",
+            "local_mutation_boundary",
+            "safe_boundaries",
+            "p0_p1_p2",
+        ],
+    ),
+    (
+        "docs/README.md",
+        ["Getting Started", "Command Map", "Safety Statements", "Release is not performed"],
+    ),
+    (
+        "docs/getting-started.md",
+        ["shortest safe path", "residual market", "external_execution=false", "Next Documents"],
+    ),
+    (
+        "docs/command-map.md",
+        ["P0 Mission Core", "P1 Gate and Ingest Layer", "P2 Usability Layer"],
+    ),
+    (
+        "docs/p2-runtime-surfaces.md",
+        ["residual market", "operation replay", "provider registry", "P2 safe commands:"],
+    ),
+    (
+        "tests/test_v170_residual_market.py",
+        ["test_residual_market_bounty_and_diff"],
+    ),
+    (
+        "tests/test_v170_static_workbench.py",
+        ["test_static_workbench_export_has_local_assets_only"],
+    ),
+    (
+        "tests/test_v170_operation_replay.py",
+        ["test_operation_replay_manifest_and_verifier"],
+    ),
+    (
+        "tests/test_v170_cross_repo_conformance.py",
+        ["test_cross_repo_conformance_bundle_smoke"],
+    ),
+    (
+        "tests/test_v170_provider_registry.py",
+        ["test_provider_registry_validate_and_list"],
+    ),
 ]
 
 
@@ -142,7 +300,7 @@ def audit_repository(root: Path) -> dict[str, Any]:
         "pyproject.toml",
         must_contain=[
             'name = "collective-capability-runtime"',
-            'version = "1.4.0"',
+            'version = "1.5.0"',
             "Apache-2.0",
             "Development Status :: 5 - Production/Stable",
             "ccr =",
@@ -189,10 +347,14 @@ def audit_repository(root: Path) -> dict[str, Any]:
     _check_public_release_hygiene(root, findings)
     _check_publish_workflow_secrets(root, findings)
     _check_publish_workflow_order(root, findings)
+    _check_ccr_audit_action_safety(root, findings)
     _check_generated_example_artifacts(root, findings)
     _check_non_claims(root, findings)
     _check_spdx(root, findings)
     _check_cli_surface(root, findings)
+    _check_mission_hardening_surface(root, findings)
+    _check_p1_gate_surface(root, findings)
+    _check_p2_runtime_surface(root, findings)
     blocking = [finding for finding in findings if finding["blocking"]]
     return {
         "accepted": not blocking,
@@ -378,6 +540,32 @@ def _check_publish_workflow_order(root: Path, findings: list[dict[str, Any]]) ->
         )
 
 
+def _check_ccr_audit_action_safety(root: Path, findings: list[dict[str, Any]]) -> None:
+    path = root / ".github" / "actions" / "ccr-audit" / "action.yml"
+    if not path.exists():
+        return
+    text = path.read_text(encoding="utf-8")
+    forbidden = [
+        "twine upload",
+        "git tag",
+        "gh release",
+        "python -m pip install collective-capability-runtime",
+        "pip install collective-capability-runtime",
+        "pypa/gh-action-pypi-publish",
+    ]
+    for needle in forbidden:
+        if needle in text:
+            findings.append(
+                _finding(
+                    "ccr-audit-action-unsafe-command",
+                    ".github/actions/ccr-audit/action.yml",
+                    "high",
+                    True,
+                    f"CCR audit action must inspect checked-out source and not run: {needle}",
+                )
+            )
+
+
 def _check_generated_example_artifacts(root: Path, findings: list[dict[str, Any]]) -> None:
     generated_paths = [
         root / "examples" / "phase_formation" / "ccr.sqlite",
@@ -460,6 +648,21 @@ def _check_cli_surface(root: Path, findings: list[dict[str, Any]]) -> None:
                     f"CLI implementation missing marker: {needle}",
                 )
             )
+
+
+def _check_mission_hardening_surface(root: Path, findings: list[dict[str, Any]]) -> None:
+    for relative, markers in MISSION_HARDENING_CHECKS:
+        _check_file(root, findings, relative, must_contain=markers, missing_content_blocks=True)
+
+
+def _check_p1_gate_surface(root: Path, findings: list[dict[str, Any]]) -> None:
+    for relative, markers in P1_GATE_CHECKS:
+        _check_file(root, findings, relative, must_contain=markers, missing_content_blocks=True)
+
+
+def _check_p2_runtime_surface(root: Path, findings: list[dict[str, Any]]) -> None:
+    for relative, markers in P2_RUNTIME_CHECKS:
+        _check_file(root, findings, relative, must_contain=markers, missing_content_blocks=True)
 
 
 def _finding(

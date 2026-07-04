@@ -1,0 +1,16 @@
+{
+  "dispatch_id": "dispatch:example",
+  "executed": true,
+  "external_execution": false,
+  "network_call_performed": false,
+  "non_claims": [
+    "not_real_asi_proof",
+    "not_execution_authority",
+    "not_physical_outcome_proof",
+    "provider_output_is_evidence_only",
+    "pic_output_is_evidence_only"
+  ],
+  "provider_dispatch_ready": true,
+  "schema_version": "ccr.trc_operation_dispatch_report.example.v1",
+  "settled": false
+}

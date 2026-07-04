@@ -15,6 +15,11 @@ from ccr.audit.release import audit_release
 from ccr.audit.repo import audit_repository
 from ccr.blackboard.events import make_event
 from ccr.blackboard.store import append_event
+from ccr.bundles.validate import validate_bundle
+from ccr.claims.audit import audit_claim_file
+from ccr.claims.extract import write_claim_extract
+from ccr.claims.passport import write_claim_passport
+from ccr.conformance.reports import conformance_bundle, conformance_parity
 from ccr.constants import DEFAULT_ACTOR, NON_CLAIMS, SAFE_NEXT_COMMANDS
 from ccr.errors import (
     EXIT_INTERNAL,
@@ -96,8 +101,17 @@ from ccr.extensions import (
     workcell_next,
     workcell_submit,
 )
+from ccr.gates.a2a import inspect_agent_card, preflight_handoff
+from ccr.gates.mcp import inspect_descriptor, preflight_invocation
 from ccr.ids import stable_id
+from ccr.ingest.facade import ingest_repo, ingest_trace
 from ccr.io import json_file_name, pretty_dumps, read_json, write_json_atomic
+from ccr.mission.ingest import ingest_mission
+from ccr.mission.init import asi_quickstart, initialize_mission
+from ccr.mission.next import mission_next
+from ccr.mission.report import write_mission_report
+from ccr.mission.status import mission_status
+from ccr.operations.replay import replay_manifest, verify_observation
 from ccr.packets.promotion import promote_packet
 from ccr.packets.store import load_packet, save_packet_at_status, submit_packet, validate_packet
 from ccr.paths import runtime_root
@@ -108,9 +122,12 @@ from ccr.phase.graph import build_effective_graph
 from ccr.phase.observe import build_phase_observation
 from ccr.phase.threshold import default_threshold, evaluate_threshold
 from ccr.providers.base import Provider
+from ccr.providers.manifest import inspect_provider_manifest, provider_conformance
 from ccr.providers.registry import get_provider, list_providers
+from ccr.providers.registry_manifest import list_registry, validate_registry_manifest
 from ccr.reports.json_report import phase_report
 from ccr.reports.markdown import render_markdown_report
+from ccr.residuals.market import residual_bounty, residual_diff, residual_market
 from ccr.residuals.model import build_residual
 from ccr.residuals.store import save_residual
 from ccr.runtime.init import init_runtime
@@ -121,6 +138,16 @@ from ccr.tasks.lease import lease_task, release_task
 from ccr.tasks.scheduler import next_task
 from ccr.tasks.store import submit_task, validate_task
 from ccr.time import now_iso
+from ccr.workbench.static import export_static_workbench
+from ccr.workbench.summary import write_workbench_report
+
+REPORT_FAIL_POLICY_CHOICES = [
+    "blocking_residual",
+    "missing_mission",
+    "unsupported_claim",
+    "overclaim",
+    "schema_error",
+]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -170,6 +197,186 @@ def build_parser() -> argparse.ArgumentParser:
     demo_roundtrip.add_argument("--execute-pic", action="store_true")
     demo_roundtrip.add_argument("--json", action="store_true", dest="json_output")
     demo_roundtrip.set_defaults(func=cmd_demo_pic_roundtrip)
+
+    asi = sub.add_parser("asi", help="ASI-proxy quickstart commands.")
+    asi_sub = asi.add_subparsers(dest="asi_command", required=True)
+    asi_quickstart_cmd = asi_sub.add_parser("quickstart", help="Create a local mission fixture.")
+    asi_quickstart_cmd.add_argument("--profile", default="development")
+    asi_quickstart_cmd.add_argument("--json", action="store_true", dest="json_output")
+    asi_quickstart_cmd.set_defaults(func=cmd_asi_quickstart)
+
+    mission = sub.add_parser("mission", help="Mission runtime commands.")
+    mission_sub = mission.add_subparsers(dest="mission_command", required=True)
+    mission_init_cmd = mission_sub.add_parser("init", help="Initialize a mission.")
+    mission_init_cmd.add_argument("--name", required=True)
+    mission_init_cmd.add_argument("--profile", default="development")
+    mission_init_cmd.add_argument("--template", default="local-asi-proxy")
+    mission_init_cmd.add_argument("--json", action="store_true", dest="json_output")
+    mission_init_cmd.set_defaults(func=cmd_mission_init)
+    mission_status_cmd = mission_sub.add_parser("status", help="Show mission status.")
+    mission_status_cmd.add_argument("--mission", required=True, dest="mission_id")
+    mission_status_cmd.add_argument("--json", action="store_true", dest="json_output")
+    mission_status_cmd.set_defaults(func=cmd_mission_status)
+    mission_ingest_cmd = mission_sub.add_parser("ingest", help="Ingest local mission input.")
+    mission_ingest_cmd.add_argument("--mission", required=True, dest="mission_id")
+    mission_ingest_cmd.add_argument("--from", required=True, dest="source_format")
+    mission_ingest_cmd.add_argument("--input", required=True)
+    mission_ingest_cmd.add_argument("--json", action="store_true", dest="json_output")
+    mission_ingest_cmd.set_defaults(func=cmd_mission_ingest)
+    mission_next_cmd = mission_sub.add_parser("next", help="Return next safe mission action.")
+    mission_next_cmd.add_argument("--mission", required=True, dest="mission_id")
+    mission_next_cmd.add_argument("--compact", action="store_true")
+    mission_next_cmd.add_argument("--json", action="store_true", dest="json_output")
+    mission_next_cmd.set_defaults(func=cmd_mission_next)
+    mission_report_cmd = mission_sub.add_parser("report", help="Write mission workbench report.")
+    mission_report_cmd.add_argument("--mission", required=True, dest="mission_id")
+    mission_report_cmd.add_argument("--format", choices=["markdown", "json"], default="markdown")
+    mission_report_cmd.add_argument("--out", required=True)
+    mission_report_cmd.add_argument(
+        "--fail-on",
+        action="append",
+        choices=REPORT_FAIL_POLICY_CHOICES,
+        default=[],
+    )
+    mission_report_cmd.set_defaults(func=cmd_mission_report)
+
+    workbench = sub.add_parser("workbench", help="Workbench report commands.")
+    workbench_sub = workbench.add_subparsers(dest="workbench_command", required=True)
+    workbench_report_cmd = workbench_sub.add_parser("report", help="Write a workbench report.")
+    workbench_report_cmd.add_argument("--mission", required=True, dest="mission_id")
+    workbench_report_cmd.add_argument("--format", choices=["markdown", "json"], default="markdown")
+    workbench_report_cmd.add_argument("--out", required=True)
+    workbench_report_cmd.add_argument(
+        "--fail-on",
+        action="append",
+        choices=REPORT_FAIL_POLICY_CHOICES,
+        default=[],
+    )
+    workbench_report_cmd.set_defaults(func=cmd_workbench_report)
+    workbench_export_cmd = workbench_sub.add_parser("export", help="Export static workbench.")
+    workbench_export_cmd.add_argument("--mission", required=True, dest="mission_id")
+    workbench_export_cmd.add_argument("--format", choices=["static-html"], required=True)
+    workbench_export_cmd.add_argument("--out", required=True)
+    workbench_export_cmd.add_argument("--json", action="store_true", dest="json_output")
+    workbench_export_cmd.set_defaults(func=cmd_workbench_export)
+
+    claim = sub.add_parser("claim", help="Claim extraction and audit commands.")
+    claim_sub = claim.add_subparsers(dest="claim_command", required=True)
+    claim_extract_cmd = claim_sub.add_parser("extract", help="Extract candidate claims.")
+    claim_extract_cmd.add_argument("--input", required=True)
+    claim_extract_cmd.add_argument("--out", required=True)
+    claim_extract_cmd.add_argument("--json", action="store_true", dest="json_output")
+    claim_extract_cmd.set_defaults(func=cmd_claim_extract)
+    claim_audit_cmd = claim_sub.add_parser("audit", help="Audit candidate claims.")
+    claim_audit_cmd.add_argument("--input", required=True)
+    claim_audit_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
+    claim_audit_cmd.add_argument("--json", action="store_true", dest="json_output")
+    claim_audit_cmd.set_defaults(func=cmd_claim_audit)
+    claim_passport_cmd = claim_sub.add_parser("passport", help="Build a claim passport.")
+    claim_passport_cmd.add_argument("--claims", required=True)
+    claim_passport_cmd.add_argument("--out", required=True)
+    claim_passport_cmd.add_argument("--json", action="store_true", dest="json_output")
+    claim_passport_cmd.set_defaults(func=cmd_claim_passport)
+
+    bundle = sub.add_parser("bundle", help="Mission bundle commands.")
+    bundle_sub = bundle.add_subparsers(dest="bundle_command", required=True)
+    bundle_validate_cmd = bundle_sub.add_parser("validate", help="Validate a mission bundle.")
+    bundle_validate_cmd.add_argument("--bundle", required=True)
+    bundle_validate_cmd.add_argument("--profile", default="development")
+    bundle_validate_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
+    bundle_validate_cmd.add_argument("--json", action="store_true", dest="json_output")
+    bundle_validate_cmd.set_defaults(func=cmd_bundle_validate)
+
+    conformance = sub.add_parser("conformance", help="Cross-repo conformance commands.")
+    conformance_sub = conformance.add_subparsers(dest="conformance_command", required=True)
+    conformance_bundle_cmd = conformance_sub.add_parser(
+        "bundle", help="Check CCR bundle conformance."
+    )
+    conformance_bundle_cmd.add_argument("--bundle", required=True)
+    conformance_bundle_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
+    conformance_bundle_cmd.add_argument("--json", action="store_true", dest="json_output")
+    conformance_bundle_cmd.set_defaults(func=cmd_conformance_bundle)
+    conformance_parity_cmd = conformance_sub.add_parser("parity", help="Compare CCR/PIC reports.")
+    conformance_parity_cmd.add_argument("--ccr-report", required=True)
+    conformance_parity_cmd.add_argument("--pic-report", required=True)
+    conformance_parity_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
+    conformance_parity_cmd.add_argument("--json", action="store_true", dest="json_output")
+    conformance_parity_cmd.set_defaults(func=cmd_conformance_parity)
+
+    mcp = sub.add_parser("mcp", help="Local MCP gate commands.")
+    mcp_sub = mcp.add_subparsers(dest="mcp_command", required=True)
+    mcp_inspect = mcp_sub.add_parser("inspect-descriptor", help="Inspect an MCP descriptor.")
+    mcp_inspect.add_argument("--file", required=True)
+    mcp_inspect.add_argument("--policy")
+    mcp_inspect.add_argument("--approved-hash")
+    mcp_inspect.add_argument("--authority")
+    mcp_inspect.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
+    mcp_inspect.add_argument("--json", action="store_true", dest="json_output")
+    mcp_inspect.set_defaults(func=cmd_mcp_inspect_descriptor)
+    mcp_preflight = mcp_sub.add_parser("preflight", help="Preflight an MCP invocation.")
+    mcp_preflight.add_argument("--descriptor", required=True)
+    mcp_preflight.add_argument("--invocation", required=True)
+    mcp_preflight.add_argument("--policy")
+    mcp_preflight.add_argument("--approved-hash")
+    mcp_preflight.add_argument("--authority")
+    mcp_preflight.add_argument("--descriptor-report")
+    mcp_preflight.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
+    mcp_preflight.add_argument("--json", action="store_true", dest="json_output")
+    mcp_preflight.set_defaults(func=cmd_mcp_preflight)
+
+    a2a = sub.add_parser("a2a", help="Local A2A gate commands.")
+    a2a_sub = a2a.add_subparsers(dest="a2a_command", required=True)
+    a2a_card = a2a_sub.add_parser("inspect-card", help="Inspect an A2A agent card.")
+    a2a_card.add_argument("--file", required=True)
+    a2a_card.add_argument("--policy")
+    a2a_card.add_argument("--approved-hash")
+    a2a_card.add_argument("--authority")
+    a2a_card.add_argument("--profile", default="development")
+    a2a_card.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
+    a2a_card.add_argument("--json", action="store_true", dest="json_output")
+    a2a_card.set_defaults(func=cmd_a2a_inspect_card)
+    a2a_preflight = a2a_sub.add_parser("preflight-handoff", help="Preflight an A2A handoff.")
+    a2a_preflight.add_argument("--handoff", required=True)
+    a2a_preflight.add_argument("--card")
+    a2a_preflight.add_argument("--policy")
+    a2a_preflight.add_argument("--approved-hash")
+    a2a_preflight.add_argument("--authority")
+    a2a_preflight.add_argument("--profile", default="development")
+    a2a_preflight.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
+    a2a_preflight.add_argument("--json", action="store_true", dest="json_output")
+    a2a_preflight.set_defaults(func=cmd_a2a_preflight_handoff)
+
+    ingest = sub.add_parser("ingest", help="Candidate-only external ingest facades.")
+    ingest_sub = ingest.add_subparsers(dest="ingest_command", required=True)
+    ingest_trace_cmd = ingest_sub.add_parser("trace", help="Inspect an external trace.")
+    ingest_trace_cmd.add_argument("--input", required=True)
+    ingest_trace_cmd.add_argument("--mission", dest="mission_id")
+    ingest_trace_cmd.add_argument("--format", choices=["auto", "jsonl", "markdown"], default="auto")
+    ingest_trace_cmd.add_argument("--write-candidates", action="store_true")
+    ingest_trace_cmd.add_argument("--json", action="store_true", dest="json_output")
+    ingest_trace_cmd.set_defaults(func=cmd_ingest_trace)
+    ingest_repo_cmd = ingest_sub.add_parser("repo", help="Inspect a repository directory.")
+    ingest_repo_cmd.add_argument("--path", required=True)
+    ingest_repo_cmd.add_argument("--mission", dest="mission_id")
+    ingest_repo_cmd.add_argument("--write-candidates", action="store_true")
+    ingest_repo_cmd.add_argument("--json", action="store_true", dest="json_output")
+    ingest_repo_cmd.set_defaults(func=cmd_ingest_repo)
 
     schema = sub.add_parser("schema", help="Schema commands.")
     schema_sub = schema.add_subparsers(dest="schema_command", required=True)
@@ -248,6 +455,24 @@ def build_parser() -> argparse.ArgumentParser:
     residual_rank_cmd = residual_sub.add_parser("rank", help="Rank open residuals.")
     residual_rank_cmd.add_argument("--json", action="store_true", dest="json_output")
     residual_rank_cmd.set_defaults(func=cmd_residual_rank)
+    residual_market_cmd = residual_sub.add_parser("market", help="Rank mission residual work.")
+    residual_market_cmd.add_argument("--mission", dest="mission_id")
+    residual_market_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
+    residual_market_cmd.add_argument("--json", action="store_true", dest="json_output")
+    residual_market_cmd.set_defaults(func=cmd_residual_market)
+    residual_bounty_cmd = residual_sub.add_parser("bounty", help="Create a residual bounty.")
+    residual_bounty_cmd.add_argument("--residual", required=True, dest="residual_id")
+    residual_bounty_cmd.add_argument("--mission", required=True, dest="mission_id")
+    residual_bounty_cmd.add_argument("--emit", choices=["task"])
+    residual_bounty_cmd.add_argument("--json", action="store_true", dest="json_output")
+    residual_bounty_cmd.set_defaults(func=cmd_residual_bounty)
+    residual_diff_cmd = residual_sub.add_parser("diff", help="Diff residual market reports.")
+    residual_diff_cmd.add_argument("--before", required=True)
+    residual_diff_cmd.add_argument("--after", required=True)
+    residual_diff_cmd.add_argument("--json", action="store_true", dest="json_output")
+    residual_diff_cmd.set_defaults(func=cmd_residual_diff)
     residual_emit_cmd = residual_sub.add_parser("emit-tasks", help="Emit residual repair tasks.")
     residual_emit_cmd.add_argument("--top", type=int, default=20)
     residual_emit_cmd.add_argument("--json", action="store_true", dest="json_output")
@@ -588,6 +813,23 @@ def build_parser() -> argparse.ArgumentParser:
     operation_incident_cmd.add_argument("--observation", required=True)
     operation_incident_cmd.add_argument("--json", action="store_true", dest="json_output")
     operation_incident_cmd.set_defaults(func=cmd_operation_incident)
+    operation_replay_cmd = operation_sub.add_parser(
+        "replay-manifest",
+        help="Build a non-dispatching replay manifest from dispatch/observation evidence.",
+    )
+    operation_replay_cmd.add_argument("--dispatch-report", required=True)
+    operation_replay_cmd.add_argument("--observation", required=True)
+    operation_replay_cmd.add_argument("--out")
+    operation_replay_cmd.add_argument("--json", action="store_true", dest="json_output")
+    operation_replay_cmd.set_defaults(func=cmd_operation_replay_manifest)
+    operation_verify_observation_cmd = operation_sub.add_parser(
+        "verify-observation",
+        help="Verify an observation from static JSON verifier evidence.",
+    )
+    operation_verify_observation_cmd.add_argument("--manifest", required=True)
+    operation_verify_observation_cmd.add_argument("--verifier", required=True)
+    operation_verify_observation_cmd.add_argument("--json", action="store_true", dest="json_output")
+    operation_verify_observation_cmd.set_defaults(func=cmd_operation_verify_observation)
 
     verify = sub.add_parser("verify", help="Run or plan a verifier provider.")
     verify.add_argument("--provider", required=True)
@@ -608,6 +850,37 @@ def build_parser() -> argparse.ArgumentParser:
     provider_list = provider_sub.add_parser("list", help="List providers.")
     provider_list.add_argument("--json", action="store_true", dest="json_output")
     provider_list.set_defaults(func=cmd_provider_list)
+    provider_manifest_cmd = provider_sub.add_parser("manifest", help="Inspect provider manifest.")
+    provider_manifest_cmd.add_argument("--file", required=True)
+    provider_manifest_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
+    provider_manifest_cmd.add_argument("--json", action="store_true", dest="json_output")
+    provider_manifest_cmd.set_defaults(func=cmd_provider_manifest)
+    provider_conformance_cmd = provider_sub.add_parser(
+        "conformance", help="Check provider static conformance."
+    )
+    provider_conformance_cmd.add_argument("--file", required=True)
+    provider_conformance_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
+    provider_conformance_cmd.add_argument("--json", action="store_true", dest="json_output")
+    provider_conformance_cmd.set_defaults(func=cmd_provider_conformance)
+    provider_registry_validate_cmd = provider_sub.add_parser(
+        "registry-validate", help="Validate static provider registry manifest."
+    )
+    provider_registry_validate_cmd.add_argument("--file", required=True)
+    provider_registry_validate_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
+    provider_registry_validate_cmd.add_argument("--json", action="store_true", dest="json_output")
+    provider_registry_validate_cmd.set_defaults(func=cmd_provider_registry_validate)
+    provider_registry_list_cmd = provider_sub.add_parser(
+        "registry-list", help="List static provider registry manifest entries."
+    )
+    provider_registry_list_cmd.add_argument("--file", required=True)
+    provider_registry_list_cmd.add_argument("--json", action="store_true", dest="json_output")
+    provider_registry_list_cmd.set_defaults(func=cmd_provider_registry_list)
     provider_health = provider_sub.add_parser("health", help="Check provider health.")
     provider_health.add_argument("--provider", required=True)
     provider_health.add_argument("--json", action="store_true", dest="json_output")
@@ -791,9 +1064,70 @@ def cmd_agent_explain(args: argparse.Namespace) -> int:
     manifest = load_agent_manifest(root=root)
     payload = {
         "agent_manifest": manifest,
+        "docs": {
+            "command_map": "docs/command-map.md",
+            "docs_index": "docs/README.md",
+            "getting_started": "docs/getting-started.md",
+            "operation_gate": "docs/operation-gate.md",
+            "p2_runtime_surfaces": "docs/p2-runtime-surfaces.md",
+            "security": "SECURITY.md",
+        },
         "default_mode": "dry_run",
+        "first_use_sequence": [
+            "ccr agent explain --json",
+            "ccr asi quickstart --profile development --json",
+            "ccr mission next --mission mission:quickstart --compact --json",
+            "ccr workbench report --mission mission:quickstart "
+            "--format markdown --out CCR_WORKBENCH.md",
+            "ccr residual market --mission mission:quickstart --json",
+        ],
+        "local_mutation_boundary": {
+            "explicit_local_writes": [
+                "ccr asi quickstart",
+                "ccr mission init",
+                "ccr mission ingest",
+                "ccr ingest trace --write-candidates",
+                "ccr ingest repo --write-candidates",
+                "ccr residual bounty --emit task",
+                "ccr workbench report --out",
+                "ccr workbench export --out",
+                "ccr operation replay-manifest --out",
+                "ccr task lease",
+                "ccr packet submit",
+                "ccr provider import",
+            ],
+            "external_execution_requires": [
+                "an explicit operator request",
+                "an execution-capable CCR command",
+                "required config or authority envelope",
+                "an explicit --execute flag where the command supports execution",
+            ],
+        },
         "non_claims": list(NON_CLAIMS),
         "ok": True,
+        "p0_p1_p2": {
+            "p0_mission_core": [
+                "asi quickstart",
+                "mission init/status/ingest/next/report",
+                "workbench report",
+                "claim extract/audit/passport",
+                "bundle validate",
+            ],
+            "p1_gate_and_ingest": [
+                "mcp inspect-descriptor/preflight",
+                "a2a inspect-card/preflight-handoff",
+                "ingest trace/repo",
+                "provider manifest/conformance",
+                "checked-out-source GitHub Action audit",
+            ],
+            "p2_usability_layer": [
+                "residual market/bounty/diff",
+                "static workbench export",
+                "operation replay and observation verification",
+                "conformance bundle/parity",
+                "provider registry validate/list",
+            ],
+        },
         "runtime_paths": {
             "blackboard": str(root / "blackboard" / "events.jsonl"),
             "packets": str(root / "packets"),
@@ -802,7 +1136,29 @@ def cmd_agent_explain(args: argparse.Namespace) -> int:
             "root": str(root),
             "tasks": str(root / "tasks"),
         },
+        "safe_boundaries": {
+            "cache_index_hit_is_not_proof": True,
+            "mcp_a2a_descriptor_is_not_authority": True,
+            "operation_replay_is_not_dispatch": True,
+            "pic_provider_output_is_evidence_only": True,
+            "provider_registry_is_not_authority": True,
+            "residual_market_does_not_waive_residuals": True,
+            "static_workbench_is_not_proof": True,
+        },
         "safe_next_commands": list(SAFE_NEXT_COMMANDS),
+        "search_terms": [
+            "AI agent runtime",
+            "agent coordination",
+            "capability packets",
+            "residual ledger",
+            "ASI-proxy mission",
+            "MCP preflight",
+            "A2A handoff",
+            "operation replay",
+            "provider registry",
+            "static workbench",
+            "PIC interop",
+        ],
     }
     _emit_json(payload)
     return EXIT_SUCCESS
@@ -811,6 +1167,202 @@ def cmd_agent_explain(args: argparse.Namespace) -> int:
 def cmd_demo_pic_roundtrip(args: argparse.Namespace) -> int:
     _emit_json(demo_pic_roundtrip(execute_pic=bool(args.execute_pic)))
     return EXIT_SUCCESS
+
+
+def cmd_asi_quickstart(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = asi_quickstart(root, profile=args.profile)
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_mission_init(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = initialize_mission(
+        root,
+        name=args.name,
+        profile=args.profile,
+        template=args.template,
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_mission_status(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = mission_status(root, mission_id=args.mission_id)
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_mission_ingest(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = ingest_mission(
+        root,
+        mission_id=args.mission_id,
+        source_format=args.source_format,
+        input_path=Path(args.input),
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_mission_next(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = mission_next(root, mission_id=args.mission_id, compact=bool(args.compact))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_mission_report(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = write_mission_report(
+        root,
+        mission_id=args.mission_id,
+        report_format=args.format,
+        out=Path(args.out),
+    )
+    _apply_report_fail_policy(report, list(args.fail_on or []))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_workbench_report(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = write_workbench_report(
+        root,
+        mission_id=args.mission_id,
+        report_format=args.format,
+        out=Path(args.out),
+    )
+    _apply_report_fail_policy(report, list(args.fail_on or []))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_workbench_export(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = export_static_workbench(root, mission_id=args.mission_id, out=Path(args.out))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_claim_extract(args: argparse.Namespace) -> int:
+    report = write_claim_extract(Path(args.input), Path(args.out))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_claim_audit(args: argparse.Namespace) -> int:
+    report = audit_claim_file(Path(args.input), fail_on=list(args.fail_on or []))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_claim_passport(args: argparse.Namespace) -> int:
+    report = write_claim_passport(Path(args.claims), Path(args.out))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_bundle_validate(args: argparse.Namespace) -> int:
+    report = validate_bundle(Path(args.bundle), profile=args.profile)
+    _apply_report_fail_policy(report, list(args.fail_on or []))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_conformance_bundle(args: argparse.Namespace) -> int:
+    report = conformance_bundle(Path(args.bundle))
+    _apply_report_fail_policy(report, list(args.fail_on or []))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_conformance_parity(args: argparse.Namespace) -> int:
+    report = conformance_parity(Path(args.ccr_report), Path(args.pic_report))
+    _apply_report_fail_policy(report, list(args.fail_on or []))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_mcp_inspect_descriptor(args: argparse.Namespace) -> int:
+    report = inspect_descriptor(
+        Path(args.file),
+        policy_path=Path(args.policy) if args.policy else None,
+        approved_hash=args.approved_hash,
+        authority=args.authority,
+    )
+    _apply_report_fail_policy(report, list(args.fail_on or []))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_mcp_preflight(args: argparse.Namespace) -> int:
+    report = preflight_invocation(
+        Path(args.descriptor),
+        Path(args.invocation),
+        policy_path=Path(args.policy) if args.policy else None,
+        approved_hash=args.approved_hash,
+        authority=args.authority,
+        descriptor_report_path=Path(args.descriptor_report) if args.descriptor_report else None,
+    )
+    _apply_report_fail_policy(report, list(args.fail_on or []))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_a2a_inspect_card(args: argparse.Namespace) -> int:
+    report = inspect_agent_card(
+        Path(args.file),
+        policy_path=Path(args.policy) if args.policy else None,
+        approved_hash=args.approved_hash,
+        authority=args.authority,
+        profile=args.profile,
+    )
+    _apply_report_fail_policy(report, list(args.fail_on or []))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_a2a_preflight_handoff(args: argparse.Namespace) -> int:
+    card_path = Path(args.card) if args.card else None
+    report = preflight_handoff(
+        Path(args.handoff),
+        card_path=card_path,
+        policy_path=Path(args.policy) if args.policy else None,
+        approved_hash=args.approved_hash,
+        authority=args.authority,
+        profile=args.profile,
+    )
+    _apply_report_fail_policy(report, list(args.fail_on or []))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_ingest_trace(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = ingest_trace(
+        Path(args.input),
+        root=root,
+        mission_id=args.mission_id,
+        source_format=args.format,
+        write_candidates=bool(args.write_candidates),
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_ingest_repo(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = ingest_repo(
+        Path(args.path),
+        root=root,
+        mission_id=args.mission_id,
+        write_candidates=bool(args.write_candidates),
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_schema_validate(args: argparse.Namespace) -> int:
@@ -1021,6 +1573,32 @@ def cmd_residual_rank(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     _emit_json(residual_rank(root))
     return EXIT_SUCCESS
+
+
+def cmd_residual_market(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = residual_market(root, mission_id=args.mission_id)
+    _apply_report_fail_policy(report, list(args.fail_on or []))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_residual_bounty(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = residual_bounty(
+        root,
+        residual_id=args.residual_id,
+        mission_id=args.mission_id,
+        emit_task=args.emit == "task",
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_residual_diff(args: argparse.Namespace) -> int:
+    report = residual_diff(Path(args.before), Path(args.after))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_residual_emit_tasks(args: argparse.Namespace) -> int:
@@ -1622,6 +2200,22 @@ def cmd_operation_incident(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def cmd_operation_replay_manifest(args: argparse.Namespace) -> int:
+    report = replay_manifest(
+        Path(args.dispatch_report),
+        Path(args.observation),
+        out=Path(args.out) if args.out else None,
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_operation_verify_observation(args: argparse.Namespace) -> int:
+    report = verify_observation(Path(args.manifest), Path(args.verifier))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
 def cmd_verify(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     if args.provider != "pic":
@@ -1743,6 +2337,33 @@ def cmd_provider_list(args: argparse.Namespace) -> int:
         )
     _emit_json({"ok": True, "providers": providers})
     return EXIT_SUCCESS
+
+
+def cmd_provider_manifest(args: argparse.Namespace) -> int:
+    report = inspect_provider_manifest(Path(args.file))
+    _apply_report_fail_policy(report, list(args.fail_on or []))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_provider_conformance(args: argparse.Namespace) -> int:
+    report = provider_conformance(Path(args.file))
+    _apply_report_fail_policy(report, list(args.fail_on or []))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_provider_registry_validate(args: argparse.Namespace) -> int:
+    report = validate_registry_manifest(Path(args.file))
+    _apply_report_fail_policy(report, list(args.fail_on or []))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_provider_registry_list(args: argparse.Namespace) -> int:
+    report = list_registry(Path(args.file))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_provider_health(args: argparse.Namespace) -> int:
@@ -2826,6 +3447,114 @@ def _validation_failure_payload(
         "residual_ready": residual,
         "schema_version": validation.get("schema_version"),
     }
+
+
+def _apply_report_fail_policy(report: dict[str, Any], fail_on: list[str]) -> None:
+    normalized = {item.strip().lower() for item in fail_on if item.strip()}
+    if not normalized:
+        return
+    embedded = report.get("report")
+    workbench = embedded if isinstance(embedded, dict) else report
+    failures: list[str] = []
+    if "blocking_residual" in normalized and _report_has_blocking_residual(workbench):
+        failures.append("blocking_residual")
+    if "missing_mission" in normalized and _report_has_missing_mission(workbench):
+        failures.append("missing_mission")
+    if "unsupported_claim" in normalized and int(workbench.get("unsupported_claim_count", 0)) > 0:
+        failures.append("unsupported_claim")
+    if "overclaim" in normalized and int(workbench.get("overclaim_count", 0)) > 0:
+        failures.append("overclaim")
+    if "schema_error" in normalized and _report_has_schema_error(workbench):
+        failures.append("schema_error")
+    report["fail_on"] = sorted(normalized)
+    report["policy_failures"] = sorted(set(failures))
+    if failures:
+        report["ok"] = False
+        report["accepted"] = False
+
+
+def _report_has_missing_mission(report: dict[str, Any]) -> bool:
+    blockers = report.get("blockers")
+    if isinstance(blockers, list) and "missing_mission" in {str(item) for item in blockers}:
+        return True
+    if _residuals_contain_finding(report.get("residual_ready"), {"missing_mission"}):
+        return True
+    residuals = report.get("top_residuals")
+    if not isinstance(residuals, list):
+        return False
+    for residual in residuals:
+        if not isinstance(residual, dict):
+            continue
+        if residual.get("finding_kind") == "missing_mission":
+            return True
+        description = str(residual.get("description", "")).lower()
+        if "mission not found" in description:
+            return True
+    return False
+
+
+def _report_has_blocking_residual(report: dict[str, Any]) -> bool:
+    if int(report.get("blocking_residual_count", 0)) > 0:
+        return True
+    market = report.get("market")
+    if isinstance(market, list) and any(
+        isinstance(item, dict) and item.get("blocking") is True for item in market
+    ):
+        return True
+    return _residuals_contain_blocking(report.get("residual_ready")) or _residuals_contain_blocking(
+        report.get("residuals")
+    )
+
+
+def _report_has_schema_error(report: dict[str, Any]) -> bool:
+    if report.get("schema_error_count"):
+        return True
+    if isinstance(report.get("errors"), list) and report["errors"]:
+        return True
+    if _residuals_contain_schema_error(report.get("residual_ready")):
+        return True
+    if _residuals_contain_schema_error(report.get("residuals")):
+        return True
+    embedded = report.get("validation")
+    if isinstance(embedded, dict) and _report_has_schema_error(embedded):
+        return True
+    bundle = report.get("bundle_report")
+    return isinstance(bundle, dict) and _report_has_schema_error(bundle)
+
+
+def _residuals_contain_blocking(value: Any) -> bool:
+    if isinstance(value, dict):
+        return bool(value.get("blocking"))
+    if isinstance(value, list):
+        return any(_residuals_contain_blocking(item) for item in value)
+    return False
+
+
+def _residuals_contain_finding(value: Any, findings: set[str]) -> bool:
+    if isinstance(value, dict):
+        extensions = value.get("extensions")
+        finding = str(extensions.get("finding_kind", "")) if isinstance(extensions, dict) else ""
+        return finding in findings or str(value.get("kind", "")) in findings
+    if isinstance(value, list):
+        return any(_residuals_contain_finding(item, findings) for item in value)
+    return False
+
+
+def _residuals_contain_schema_error(value: Any) -> bool:
+    if isinstance(value, dict):
+        kind = str(value.get("kind", ""))
+        extensions = value.get("extensions")
+        finding = str(extensions.get("finding_kind", "")) if isinstance(extensions, dict) else ""
+        return kind == "validation_error" or finding in {
+            "input_decode_error",
+            "json_not_object",
+            "malformed_json",
+            "schema_error",
+            "validation_error",
+        }
+    if isinstance(value, list):
+        return any(_residuals_contain_schema_error(item) for item in value)
+    return False
 
 
 def _emit_json(payload: Any) -> None:

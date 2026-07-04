@@ -43,6 +43,22 @@ provider health, failure reports, residuals, or `residual_ready` objects.
 Failure/residual handling: preserve malicious, malformed, stale, unsafe,
 authority-gap, and missing-provider cases as residual evidence.
 
+P2 safe commands:
+
+```bash
+ccr residual market --json
+ccr residual market --mission <mission_id> --json
+ccr residual bounty --residual <residual_id> --mission <mission_id> --emit task --json
+ccr workbench export --mission <mission_id> --format static-html --out site/ --json
+ccr operation replay-manifest --dispatch-report dispatch.json --observation observation.json --out replay.json --json
+ccr operation verify-observation --manifest replay.json --verifier verifier.json --json
+ccr conformance parity --ccr-report ccr.json --pic-report pic.json --json
+ccr provider registry-validate --file provider-registry.json --json
+```
+
+P2 surfaces are local evidence and static metadata routes. They do not create
+releases, push tags, upload to PyPI, import provider code, or dispatch providers.
+
 Provider import: provider import is not provider execution; `safe_commands`
 become review tasks only.
 

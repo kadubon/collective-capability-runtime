@@ -35,6 +35,22 @@ phase gaps, and `safe_commands`.
 Failure/residual handling: provider-missing and blocker examples should remain
 visible as residual-ready state or open residuals.
 
+P2 safe commands:
+
+```bash
+ccr residual market --json
+ccr residual market --mission <mission_id> --json
+ccr residual bounty --residual <residual_id> --mission <mission_id> --emit task --json
+ccr workbench export --mission <mission_id> --format static-html --out site/ --json
+ccr operation replay-manifest --dispatch-report dispatch.json --observation observation.json --out replay.json --json
+ccr operation verify-observation --manifest replay.json --verifier verifier.json --json
+ccr conformance parity --ccr-report ccr.json --pic-report pic.json --json
+ccr provider registry-validate --file provider-registry.json --json
+```
+
+PIC interop evidence remains evidence-only in these commands. It does not grant
+CCR settlement, dispatch authority, or physical outcome proof.
+
 Provider import: both `provider import --provider pic` and legacy `integrate`
 use the same CCR settlement boundary.
 

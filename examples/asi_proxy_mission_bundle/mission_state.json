@@ -1,0 +1,22 @@
+{
+  "baseline_path": "baseline_upper_envelope.json",
+  "created_at": "1970-01-01T00:00:00Z",
+  "external_execution": false,
+  "loop_state_path": "ccr_loop_state.json",
+  "mission_id": "mission:quickstart",
+  "mission_path": "mission.json",
+  "mutated_runtime": true,
+  "network_call_performed": false,
+  "packet_refs": [
+    "packet:quickstart:mission-candidate"
+  ],
+  "report_refs": [
+    "workbench_report.json"
+  ],
+  "residual_refs": [],
+  "schema_version": "ccr.mission_state.v1",
+  "settled": false,
+  "step_index": 0,
+  "target_path": "target.json",
+  "updated_at": "1970-01-01T00:00:00Z"
+}

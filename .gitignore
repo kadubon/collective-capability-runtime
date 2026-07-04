@@ -17,6 +17,12 @@ build/
 /packets/
 /residuals/
 /reports/
+/missions/
+/loop/
+/tokens/
+/providers/
+/workcells/
+/experiments/
 /ccr.sqlite
 
 # Generated outputs when running the phase formation example

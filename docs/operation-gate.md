@@ -23,3 +23,13 @@ observation verifier.
 Operation gates keep operation readiness, provider dispatch readiness, physical dispatch readiness, execution, and physical outcome proof separate. `operation_ready` is not executed; `provider_dispatch_ready` is not dispatched; `physical_dispatch_ready` is not physical outcome proof.
 
 Structured MCP/A2A reports are primary when supplied; legacy boolean fields are preserved only for backward compatibility.
+
+## v1.5 P2 Replay Boundary
+
+`ccr operation replay-manifest` and `ccr operation verify-observation` are
+local evidence-review commands. Operation replay is not dispatch. Observation verification is not physical outcome proof. A source dispatch report may carry
+`executed=true` evidence, but the replay command itself keeps
+`external_execution=false`, `network_call_performed=false`,
+`provider_dispatch_ready=false`, `physical_outcome_proven=false`, and
+`settled=false`. Missing verifier acceptance, rollback confirmation, hazard
+follow-up, or unresolved incident evidence becomes residual-ready work.
