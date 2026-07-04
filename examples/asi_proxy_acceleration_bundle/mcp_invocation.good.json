@@ -1,0 +1,10 @@
+{
+  "arguments": {
+    "query": "local fixture"
+  },
+  "dispatch": false,
+  "execute": false,
+  "invocation_id": "mcp-invocation:fixture",
+  "network_call_performed": false,
+  "tool_name": "read"
+}

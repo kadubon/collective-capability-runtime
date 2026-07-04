@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/provider-conformance-report.schema.json",
+  "title": "CCR Provider Conformance Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ok",
+    "accepted",
+    "provider_id",
+    "manifest_hash",
+    "conformance_profile",
+    "blockers",
+    "residuals",
+    "non_claims",
+    "external_execution",
+    "network_call_performed",
+    "settled"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.provider_conformance_report.v1" },
+    "ok": { "type": "boolean" },
+    "accepted": { "type": "boolean" },
+    "provider_id": { "type": "string" },
+    "manifest_hash": { "type": "string" },
+    "conformance_profile": { "type": "string" },
+    "blockers": { "type": "array", "items": { "type": "string" } },
+    "residuals": { "type": "array", "items": { "type": "object" } },
+    "non_claims": { "type": "array", "items": { "type": "string" } },
+    "external_execution": { "const": false },
+    "network_call_performed": { "const": false },
+    "settled": { "const": false }
+  },
+  "additionalProperties": true
+}

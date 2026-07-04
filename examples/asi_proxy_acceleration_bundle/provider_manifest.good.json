@@ -1,0 +1,16 @@
+{
+  "network_policy": "none",
+  "non_claims": [
+    "not_real_asi_proof",
+    "not_execution_authority",
+    "not_physical_outcome_proof"
+  ],
+  "provider_id": "provider:fixture",
+  "provider_type": "fixture",
+  "schema_version": "ccr.provider_manifest.v1",
+  "settlement_policy": {
+    "provider_grants_settlement": false,
+    "provider_output_is_evidence_only": true
+  },
+  "side_effect_policy": "read_only"
+}

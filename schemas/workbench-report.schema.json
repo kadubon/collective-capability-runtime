@@ -10,6 +10,7 @@
     "ok",
     "accepted",
     "settled",
+    "network_call_performed",
     "positive_packet_count",
     "candidate_only_count",
     "blocking_residual_count",
@@ -25,12 +26,42 @@
     "accepted": { "type": "boolean" },
     "settled": { "const": false },
     "external_execution": { "const": false },
+    "network_call_performed": { "const": false },
+    "mutated_runtime": { "const": false },
     "positive_packet_count": { "type": "integer", "minimum": 0 },
     "candidate_only_count": { "type": "integer", "minimum": 0 },
     "blocking_residual_count": { "type": "integer", "minimum": 0 },
-    "top_residuals": { "type": "array", "items": { "type": "object" } },
-    "next_safe_action": { "type": "object", "additionalProperties": true },
-    "non_claims": { "type": "array", "items": { "type": "string" } }
+    "top_residuals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["residual_id", "kind", "description", "blocking"],
+        "properties": {
+          "residual_id": { "type": "string" },
+          "kind": { "type": "string" },
+          "finding_kind": { "type": "string" },
+          "description": { "type": "string" },
+          "blocking": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "next_safe_action": {
+      "type": "object",
+      "required": ["external_execution", "writes_runtime"],
+      "properties": {
+        "command": { "type": "string" },
+        "external_execution": { "const": false },
+        "writes_runtime": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "packet_status_summary": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "non_claims": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "type": "string", "minLength": 1 }
+    }
   },
   "additionalProperties": true
 }

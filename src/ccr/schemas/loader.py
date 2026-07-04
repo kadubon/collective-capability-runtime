@@ -57,6 +57,9 @@ SCHEMA_FILENAMES = {
     "claim-passport": "claim-passport.schema.json",
     "mission-bundle": "mission-bundle.schema.json",
     "bundle-validate-report": "bundle-validate-report.schema.json",
+    "provider-manifest": "provider-manifest.schema.json",
+    "provider-manifest-report": "provider-manifest-report.schema.json",
+    "provider-conformance-report": "provider-conformance-report.schema.json",
 }
 
 

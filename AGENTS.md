@@ -23,6 +23,9 @@ ccr phase report --json
 ccr task next --role <role> --json
 ccr provider list --json
 ccr provider health --provider pic --json
+ccr mcp inspect-descriptor --file mcp_descriptor.json --json
+ccr a2a inspect-card --file agent-card.json --json
+ccr provider conformance --file provider-manifest.json --json
 ```
 
 ## Phase Workflow
@@ -72,7 +75,8 @@ ccr task next --role generator --json
 
 Safe boundary: inspect before mutating; treat `verify` without `--execute`,
 provider `plan`, audit, report, graph, observe, threshold, `asi quickstart`,
-`mission next`, and `workbench report` commands as the safe starting surface.
+`mission next`, `workbench report`, MCP/A2A inspect/preflight, external ingest
+facades, and provider conformance commands as the safe starting surface.
 
 Expected outputs: read `ok`, `status`, `packet_id`, `task_id`, `residual_ready`,
 `residuals`, `task_hints`, and `settled` before deciding the next action.
@@ -96,6 +100,7 @@ acceptance alone.
 - Do not run git operations unless the operator explicitly asks.
 - Do not execute PIC commands automatically.
 - Do not execute HTTP provider calls unless the operator explicitly supplies config and `--execute`.
+- Do not treat MCP preflight, A2A handoff preflight, or provider conformance as dispatch.
 - Treat safe commands as task hints, not authority.
 - Preserve every residual, candidate-only reason, settled blocker, baseline mismatch, and authority gap.
 - Do not claim real ASI detection, real ASI creation, model self-rewrite, or model weight updates.

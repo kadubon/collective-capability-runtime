@@ -22,7 +22,20 @@
     "claim_count": { "type": "integer", "minimum": 0 },
     "unsupported_claim_count": { "type": "integer", "minimum": 0 },
     "overclaim_count": { "type": "integer", "minimum": 0 },
-    "claims": { "type": "array", "items": { "type": "object" } },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "claim_text", "unsupported", "overclaim"],
+        "properties": {
+          "claim_id": { "type": "string" },
+          "claim_text": { "type": "string" },
+          "unsupported": { "type": "boolean" },
+          "overclaim": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
     "non_claims": { "type": "array", "items": { "type": "string" } },
     "settled": { "const": false },
     "external_execution": { "const": false }

@@ -8,9 +8,9 @@ from typing import Any
 
 from ccr.constants import PACKET_STATUSES
 from ccr.io import json_file_name, pretty_dumps, write_json_atomic
-from ccr.mission.model import MISSION_NON_CLAIMS, load_mission, load_mission_state, mission_path
-from ccr.packets.store import iter_packets
-from ccr.residuals.store import iter_residuals, linked_open_blocking_residuals
+from ccr.mission.model import MISSION_NON_CLAIMS, load_mission, mission_path, mission_scope
+from ccr.safe_io import residual_ready
+from ccr.schemas.validation import validate_instance
 from ccr.workbench.markdown import render_markdown_report
 
 
@@ -18,28 +18,34 @@ def build_workbench_report(root: Path, *, mission_id: str) -> dict[str, Any]:
     """Build a mission workbench report without executing external actions."""
 
     if not mission_path(root, mission_id).exists():
-        residual = {
-            "blocking": True,
-            "description": f"Mission not found: {mission_id}",
-            "kind": "missing_mission",
-            "residual_id": f"residual:missing-mission:{mission_id.replace(':', '_')}",
-        }
-        return {
-            "accepted": False,
-            "blocking_residual_count": 1,
-            "candidate_only_count": 0,
-            "external_execution": False,
-            "mission_id": mission_id,
-            "non_claims": list(MISSION_NON_CLAIMS),
-            "ok": False,
-            "positive_packet_count": 0,
-            "schema_version": "ccr.workbench_report.v1",
-            "settled": False,
-            "top_residuals": [residual],
-        }
+        residual = residual_ready(
+            "missing_mission",
+            mission_id,
+            f"Mission not found: {mission_id}",
+            "ccr.workbench",
+        )
+        report = _failure_report(
+            mission_id,
+            profile=None,
+            residual=residual,
+            target_ref="",
+            baseline_ref="",
+        )
+        _validate_workbench_report(root, report)
+        return report
     mission = load_mission(root, mission_id)
-    state = load_mission_state(root, mission_id)
-    packets = _mission_packets(root, state)
+    scope = mission_scope(root, mission_id)
+    if not scope["ok"]:
+        report = _failure_report(
+            mission_id,
+            profile=mission.get("profile"),
+            residual=scope["residual_ready"],
+            target_ref=str(mission.get("asi_proxy_target_ref", "")),
+            baseline_ref=str(mission.get("baseline_ref", "")),
+        )
+        _validate_workbench_report(root, report)
+        return report
+    packets = [packet for packet in scope["packets"] if isinstance(packet, dict)]
     packet_summary = {status: 0 for status in PACKET_STATUSES}
     for packet in packets:
         packet_summary[str(packet.get("status", "candidate"))] = (
@@ -49,7 +55,15 @@ def build_workbench_report(root: Path, *, mission_id: str) -> dict[str, Any]:
         packet
         for packet in packets
         if packet.get("status") in {"checked", "settled"}
-        and not linked_open_blocking_residuals(root, str(packet.get("packet_id", "")))
+        and not [
+            residual
+            for residual in scope["residuals"]
+            if residual.get("blocking")
+            and (
+                residual.get("object_id") == packet.get("packet_id")
+                or packet.get("packet_id") in _residual_refs(residual)
+            )
+        ]
     ]
     candidate_only_count = sum(
         1
@@ -57,9 +71,7 @@ def build_workbench_report(root: Path, *, mission_id: str) -> dict[str, Any]:
         if packet.get("status") in {"raw", "proposed", "candidate", "provisional", "speculative"}
     )
     duplicate_count = sum(1 for packet in packets if _is_duplicate(packet))
-    blocking_residuals = [
-        residual for residual in iter_residuals(root, status="open") if residual.get("blocking")
-    ]
+    blocking_residuals = [residual for residual in scope["residuals"] if residual.get("blocking")]
     top_residuals = [_residual_summary(item) for item in _rank_residuals(blocking_residuals)[:5]]
     accepted = bool(positive_packets) and not blocking_residuals
     report = {
@@ -83,6 +95,7 @@ def build_workbench_report(root: Path, *, mission_id: str) -> dict[str, Any]:
             "template": mission.get("template", "unknown"),
         },
         "mutated_runtime": False,
+        "network_call_performed": False,
         "next_safe_action": {
             "command": f"ccr mission next --mission {mission_id} --compact --json",
             "external_execution": False,
@@ -109,6 +122,7 @@ def build_workbench_report(root: Path, *, mission_id: str) -> dict[str, Any]:
         "target_ref": mission.get("asi_proxy_target_ref"),
         "top_residuals": top_residuals,
     }
+    _validate_workbench_report(root, report)
     return report
 
 
@@ -117,6 +131,7 @@ def write_report_artifact(root: Path, report: dict[str, Any]) -> Path:
 
     mission_id = str(report.get("mission_id", "mission:unknown"))
     path = root / "reports" / "workbench" / json_file_name(f"workbench:{mission_id}")
+    _validate_workbench_report(root, report)
     write_json_atomic(path, report, overwrite=True)
     return path
 
@@ -131,6 +146,7 @@ def write_workbench_report(
     """Write a workbench report to an explicit output path."""
 
     report = build_workbench_report(root, mission_id=mission_id)
+    _validate_workbench_report(root, report)
     out.parent.mkdir(parents=True, exist_ok=True)
     if report_format == "json":
         out.write_text(pretty_dumps(report) + "\n", encoding="utf-8", newline="\n")
@@ -143,6 +159,7 @@ def write_workbench_report(
         "format": report_format,
         "mission_id": mission_id,
         "mutated_runtime": False,
+        "network_call_performed": False,
         "ok": True,
         "out": str(out),
         "report": report,
@@ -151,13 +168,42 @@ def write_workbench_report(
     }
 
 
-def _mission_packets(root: Path, state: dict[str, Any]) -> list[dict[str, Any]]:
-    refs = state.get("packet_refs")
-    ref_set = {str(item) for item in refs} if isinstance(refs, list) else set()
-    packets = iter_packets(root)
-    if not ref_set:
-        return packets
-    return [packet for packet in packets if str(packet.get("packet_id", "")) in ref_set]
+def _failure_report(
+    mission_id: str,
+    *,
+    profile: Any,
+    residual: dict[str, Any],
+    target_ref: str,
+    baseline_ref: str,
+) -> dict[str, Any]:
+    return {
+        "accepted": False,
+        "baseline_ref": baseline_ref,
+        "blocking_residual_count": 1,
+        "candidate_only_count": 0,
+        "duplicate_count": 0,
+        "external_execution": False,
+        "mission_id": mission_id,
+        "mutated_runtime": False,
+        "network_call_performed": False,
+        "next_safe_action": {
+            "command": f"ccr mission status --mission {mission_id} --json",
+            "external_execution": False,
+            "writes_runtime": False,
+        },
+        "non_claims": list(MISSION_NON_CLAIMS),
+        "ok": False,
+        "packet_status_summary": {status: 0 for status in PACKET_STATUSES},
+        "positive_packet_count": 0,
+        "profile": profile,
+        "quarantined_count": 0,
+        "repair_hints": [str(residual.get("repair_hint", ""))],
+        "schema_version": "ccr.workbench_report.v1",
+        "settled": False,
+        "speculative_count": 0,
+        "target_ref": target_ref,
+        "top_residuals": [_residual_summary(residual)],
+    }
 
 
 def _is_duplicate(packet: dict[str, Any]) -> bool:
@@ -165,6 +211,11 @@ def _is_duplicate(packet: dict[str, Any]) -> bool:
     if isinstance(extensions, dict) and extensions.get("x_duplicate") is True:
         return True
     return bool(packet.get("duplicate_of"))
+
+
+def _residual_refs(residual: dict[str, Any]) -> list[Any]:
+    refs = residual.get("refs")
+    return refs if isinstance(refs, list) else []
 
 
 def _rank_residuals(residuals: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -180,9 +231,16 @@ def _rank_residuals(residuals: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _residual_summary(residual: dict[str, Any]) -> dict[str, Any]:
+    extensions = residual.get("extensions")
+    finding_kind = (
+        str(extensions.get("finding_kind", ""))
+        if isinstance(extensions, dict) and extensions.get("finding_kind")
+        else ""
+    )
     return {
         "blocking": bool(residual.get("blocking", False)),
         "description": str(residual.get("description", "")),
+        "finding_kind": finding_kind,
         "kind": str(residual.get("kind", "other")),
         "repair_hint": str(residual.get("repair_hint", "")),
         "residual_id": str(residual.get("residual_id", "")),
@@ -196,3 +254,10 @@ def _repair_hints(top_residuals: list[dict[str, Any]]) -> list[str]:
     if hints:
         return hints
     return ["Run ccr mission next --compact for the next advisory action."]
+
+
+def _validate_workbench_report(root: Path, report: dict[str, Any]) -> None:
+    validation = validate_instance("workbench-report", report, root=root)
+    if not validation.ok:
+        messages = "; ".join(issue.message for issue in validation.errors)
+        raise ValueError(f"invalid workbench report: {messages}")

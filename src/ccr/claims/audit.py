@@ -12,13 +12,18 @@ from ccr.ids import stable_id
 from ccr.mission.model import FIXED_CREATED_AT, MISSION_NON_CLAIMS
 
 OVERCLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("real_asi_claim", re.compile(r"\bccr\s+(?:is|as)\s+(?:a\s+)?real\s+asi\b")),
     (
         "real_asi_detection",
-        re.compile(r"\b(?:detects?|proves?|identif(?:y|ies))\b.*\breal\s+asi\b"),
+        re.compile(r"\b(?:detects?|identif(?:y|ies))\b.{0,80}\breal\s+asi\b"),
+    ),
+    (
+        "real_asi_proof",
+        re.compile(r"\b(?:proof\s+of\s+real\s+asi|proves?\s+(?:real\s+)?asi)\b"),
     ),
     (
         "real_asi_creation",
-        re.compile(r"\b(?:creates?|builds?|forms?)\b.*\breal\s+asi\b"),
+        re.compile(r"\b(?:creates?|builds?|forms?)\b.{0,80}\b(?:real\s+)?asi\b"),
     ),
     (
         "model_self_rewrite",
@@ -35,7 +40,8 @@ OVERCLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "execution_authority_grant",
         re.compile(
-            r"\bgrants?\b.*\bexecution\s+authority\b|\bexecute[s]?\b.*\bwithout\s+authority\b"
+            r"\bgrants?\b.{0,80}\b(?:execution\s+)?authority\b|"
+            r"\bexecute[s]?\b.{0,80}\bwithout\s+authority\b"
         ),
     ),
     (
@@ -45,19 +51,58 @@ OVERCLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "provider_output_as_settlement",
         re.compile(
-            r"\b(?:pic|provider)\s+output\b.*\bsettlement\b|\bsettles?\b.*\b(?:pic|provider)\b"
+            r"\b(?:pic|provider)\s+(?:output|acceptance)\b.{0,80}\bsettle(?:s|ment|d)?\b|"
+            r"\b(?:provider\s+output)\b.{0,80}\bsettlement\s+oracle\b"
         ),
     ),
+    (
+        "execution_available_as_executed",
+        re.compile(r"\bexecution_available\b.{0,80}\b(?:means|implies|is)\b.{0,40}\bexecuted\b"),
+    ),
+    (
+        "preflight_as_dispatch",
+        re.compile(r"\bpreflight\b.{0,80}\b(?:means|implies|is)\b.{0,40}\bdispatch\b"),
+    ),
+    (
+        "physical_readiness_as_outcome_proof",
+        re.compile(r"\bphysical\s+readiness\b.{0,80}\bproves?\b.{0,40}\bphysical\s+outcome\b"),
+    ),
+    (
+        "cache_hit_as_proof",
+        re.compile(r"\bcache\s+hit\b.{0,80}\b(?:is|means|implies)\b.{0,40}\bproof\b"),
+    ),
+    (
+        "index_hit_as_proof",
+        re.compile(r"\bindex\s+hit\b.{0,80}\b(?:is|means|implies)\b.{0,40}\bproof\b"),
+    ),
+    (
+        "safe_command_as_authority",
+        re.compile(r"\bsafe\s+command\b.{0,80}\b(?:is|means|implies)\b.{0,40}\bauthority\b"),
+    ),
 )
-NEGATION_RE = re.compile(
-    r"\b(?:does\s+not|do\s+not|must\s+not|is\s+not|are\s+not|never|cannot|can't|not)\b"
-)
+NEGATION_TOKENS = {"not", "never", "cannot", "cant"}
 
 
 def audit_claim_file(path: Path, *, fail_on: list[str] | None = None) -> dict[str, Any]:
     """Audit claims from a local file."""
 
     extracted = extract_claim_file(path)
+    if not extracted.get("ok", False):
+        residuals = extracted.get("residual_ready", [])
+        residual_ready = [item for item in residuals if isinstance(item, dict)]
+        return {
+            "claim_count": 0,
+            "claims": [],
+            "external_execution": False,
+            "non_claims": list(MISSION_NON_CLAIMS),
+            "ok": False,
+            "overclaim_count": 0,
+            "residual_ready": residual_ready,
+            "schema_version": "ccr.claim_audit.v1",
+            "settled": False,
+            "source": str(extracted.get("source", path.name)),
+            "unsupported_claim_count": 0,
+        }
     claims = extracted.get("claims", [])
     if not isinstance(claims, list):
         claims = []
@@ -136,15 +181,41 @@ def audit_claims(
 
 
 def _overclaim_kinds(text: str) -> list[str]:
-    lowered = text.lower()
-    return [kind for kind, pattern in OVERCLAIM_PATTERNS if pattern.search(lowered)]
+    normalized = _normalize_for_audit(text)
+    kinds = []
+    for kind, pattern in OVERCLAIM_PATTERNS:
+        match = pattern.search(normalized)
+        if match and not _has_negative_context(normalized, match):
+            kinds.append(kind)
+    return kinds
 
 
 def _is_explicit_non_claim(text: str) -> bool:
-    lowered = text.lower()
-    if not NEGATION_RE.search(lowered):
-        return False
-    return bool(_overclaim_kinds(text) or "real asi" in lowered or "settlement" in lowered)
+    normalized = _normalize_for_audit(text)
+    for _kind, pattern in OVERCLAIM_PATTERNS:
+        match = pattern.search(normalized)
+        if match and _has_negative_context(normalized, match):
+            return True
+    return False
+
+
+def _normalize_for_audit(text: str) -> str:
+    normalized = text.lower().replace("can't", "cant")
+    normalized = re.sub(r"[^a-z0-9_]+", " ", normalized)
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def _has_negative_context(text: str, match: re.Match[str]) -> bool:
+    tokens = list(re.finditer(r"[a-z0-9_]+", text))
+    match_tokens = [
+        token.group(0)
+        for token in tokens
+        if token.start() >= match.start() and token.end() <= match.end()
+    ]
+    if any(token in NEGATION_TOKENS for token in match_tokens):
+        return True
+    before = [token.group(0) for token in tokens if token.end() <= match.start()]
+    return any(token in NEGATION_TOKENS for token in before[-5:])
 
 
 def _claim_residual(

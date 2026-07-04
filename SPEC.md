@@ -33,6 +33,12 @@ CCR persists these source artifacts as JSON:
   residual ledger, loop policy, provider policy, and report policy
 - workbench report: human-readable and JSON mission summary for CI and
   first-time agents
+- MCP descriptor/preflight report: local-only gate record for tool descriptors
+  and invocation inputs; accepted preflight is not tool dispatch
+- A2A agent-card/handoff report: local-only gate record for agent cards and
+  handoff envelopes; accepted handoff preflight is not delegated execution
+- provider manifest/conformance report: static provider contract stating side
+  effect, network, and settlement boundaries before provider use
 
 SQLite (`ccr.sqlite`) is an index and transaction support layer. JSON artifacts
 remain the auditable source of truth.
@@ -72,6 +78,19 @@ threshold/baseline gates decide whether a candidate is usable.
 What not to claim: the specification does not define real ASI detection,
 physical truth proof, model-weight updates, model self-rewrite, or automatic
 settlement from PIC/provider output.
+
+Mission and gate audit commands:
+
+```bash
+ccr mission report --mission <mission_id> --format json --out report.json --fail-on blocking_residual
+ccr workbench report --mission <mission_id> --format json --out report.json --fail-on missing_mission
+ccr mcp inspect-descriptor --file mcp_descriptor.json --json
+ccr mcp preflight --descriptor mcp_descriptor.json --invocation invocation.json --json
+ccr a2a inspect-card --file agent-card.json --json
+ccr a2a preflight-handoff --handoff handoff.json --card agent-card.json --json
+ccr provider conformance --file provider-manifest.json --json
+ccr ingest trace --input trace.md --json
+```
 
 ## Runtime State
 

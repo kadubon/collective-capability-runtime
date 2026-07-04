@@ -21,15 +21,22 @@ def build_claim_passport(claims_payload: dict[str, Any]) -> dict[str, Any]:
     audit = audit_claims(claims, source=source, fail_on=[])
     passport_claims = []
     for claim in audit["claims"]:
+        overclaim = bool(claim.get("overclaim_kinds", []))
+        unsupported = not bool(claim.get("supported", False)) and not bool(
+            claim.get("explicit_non_claim", False)
+        )
         passport_claims.append(
             {
                 "claim_id": claim.get("claim_id"),
+                "claim_text": _short_claim_text(str(claim.get("text", ""))),
                 "evidence_refs": claim.get("evidence_refs", []),
                 "explicit_non_claim": claim.get("explicit_non_claim", False),
                 "must_not_be_read_as": claim.get("must_not_be_read_as", []),
+                "overclaim": overclaim,
                 "overclaim_kinds": claim.get("overclaim_kinds", []),
                 "status": claim.get("status", "candidate"),
                 "supported": bool(claim.get("supported", False)),
+                "unsupported": unsupported,
             }
         )
     return {
@@ -45,6 +52,11 @@ def build_claim_passport(claims_payload: dict[str, Any]) -> dict[str, Any]:
         "source": source,
         "unsupported_claim_count": audit["unsupported_claim_count"],
     }
+
+
+def _short_claim_text(text: str) -> str:
+    clean = " ".join(text.replace("\x00", " ").split())
+    return clean[:240]
 
 
 def write_claim_passport(claims_path: Path, out: Path) -> dict[str, Any]:

@@ -35,6 +35,9 @@ REQUIRED_SCHEMA_FILES = [
     "claim-passport.schema.json",
     "mission-bundle.schema.json",
     "bundle-validate-report.schema.json",
+    "provider-manifest.schema.json",
+    "provider-manifest-report.schema.json",
+    "provider-conformance-report.schema.json",
 ]
 
 DOC_ROUTE_FILES = [
@@ -130,6 +133,55 @@ PUBLIC_DOC_FORBIDDEN_MARKERS = [
     "C:" + "\\Users",
     "199" + "1m",
 ]
+MISSION_HARDENING_CHECKS = [
+    (
+        "src/ccr/safe_io.py",
+        ["read_text_bounded", "read_json_bounded", "path_traversal", "input_decode_error"],
+    ),
+    (
+        "src/ccr/mission/model.py",
+        ["mission_scope", "x_ccr_mission_id", "mission_packet_counts", "mission_residual_counts"],
+    ),
+    (
+        "src/ccr/bundles/validate.py",
+        ["SCHEMA_KIND_BY_VERSION", "_validate_reference_closure", "_validate_path_refs"],
+    ),
+    ("src/ccr/cli.py", ['"--fail-on"', "blocking_residual", "missing_mission"]),
+    (
+        "tests/test_v150_mission_hardening.py",
+        ["test_mission_scope_isolation", "test_report_fail_on_missing_mission"],
+    ),
+    (
+        "tests/test_v150_claim_bundle_hardening.py",
+        ["test_claim_overclaim_matrix", "test_bundle_validate_rejects_path_traversal_ref"],
+    ),
+]
+P1_GATE_CHECKS = [
+    (
+        "src/ccr/gates/mcp.py",
+        ["inspect_descriptor", "preflight_invocation", "network_call_performed"],
+    ),
+    (
+        "src/ccr/gates/a2a.py",
+        ["inspect_agent_card", "preflight_handoff", "delegated_tool_execution"],
+    ),
+    (
+        "src/ccr/ingest/facade.py",
+        ["ingest_trace", "ingest_repo", "candidate_only"],
+    ),
+    (
+        "src/ccr/providers/manifest.py",
+        ["inspect_provider_manifest", "provider_conformance", "provider_grants_settlement"],
+    ),
+    (
+        ".github/actions/ccr-audit/action.yml",
+        ["ccr audit repo --json", "ccr audit release --dist"],
+    ),
+    (
+        "tests/test_v160_p1_gates.py",
+        ["test_mcp_gate_cli_smoke", "test_provider_manifest_conformance_cli_smoke"],
+    ),
+]
 
 
 def audit_repository(root: Path) -> dict[str, Any]:
@@ -200,6 +252,8 @@ def audit_repository(root: Path) -> dict[str, Any]:
     _check_non_claims(root, findings)
     _check_spdx(root, findings)
     _check_cli_surface(root, findings)
+    _check_mission_hardening_surface(root, findings)
+    _check_p1_gate_surface(root, findings)
     blocking = [finding for finding in findings if finding["blocking"]]
     return {
         "accepted": not blocking,
@@ -467,6 +521,16 @@ def _check_cli_surface(root: Path, findings: list[dict[str, Any]]) -> None:
                     f"CLI implementation missing marker: {needle}",
                 )
             )
+
+
+def _check_mission_hardening_surface(root: Path, findings: list[dict[str, Any]]) -> None:
+    for relative, markers in MISSION_HARDENING_CHECKS:
+        _check_file(root, findings, relative, must_contain=markers, missing_content_blocks=True)
+
+
+def _check_p1_gate_surface(root: Path, findings: list[dict[str, Any]]) -> None:
+    for relative, markers in P1_GATE_CHECKS:
+        _check_file(root, findings, relative, must_contain=markers, missing_content_blocks=True)
 
 
 def _finding(

@@ -27,6 +27,7 @@
     "packet_refs": { "type": "array", "items": { "type": "string" } },
     "residual_refs": { "type": "array", "items": { "type": "string" } },
     "report_refs": { "type": "array", "items": { "type": "string" } },
+    "step_index": { "type": "integer", "minimum": 0 },
     "external_execution": { "const": false },
     "network_call_performed": { "const": false },
     "settled": { "const": false }

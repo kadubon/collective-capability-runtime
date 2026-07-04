@@ -10,6 +10,7 @@ from typing import Any
 from ccr.ids import stable_id
 from ccr.io import write_json_atomic
 from ccr.mission.model import FIXED_CREATED_AT
+from ccr.safe_io import read_text_bounded
 
 MAX_CLAIM_BYTES = 1_000_000
 MAX_CLAIMS = 200
@@ -21,26 +22,18 @@ DECLARATIVE_START = re.compile(
 def extract_claim_file(path: Path) -> dict[str, Any]:
     """Extract candidate claims from a local text file."""
 
-    if not path.exists():
-        raise FileNotFoundError(path)
-    if path.stat().st_size > MAX_CLAIM_BYTES:
+    read = read_text_bounded(path, max_bytes=MAX_CLAIM_BYTES, source="ccr.claim.extract")
+    if not read.get("ok"):
         return {
             "claim_count": 0,
             "claims": [],
             "created_at": FIXED_CREATED_AT,
             "ok": False,
-            "residual_ready": [
-                {
-                    "blocking": True,
-                    "description": "Claim input exceeds local size bound.",
-                    "kind": "input_too_large",
-                    "residual_id": stable_id("residual", "claim-input-too-large", path.name),
-                }
-            ],
+            "residual_ready": [read["residual_ready"]],
             "schema_version": "ccr.claim_extract.v1",
-            "source": path.name,
+            "source": str(read.get("display", path.name)),
         }
-    return extract_claims_from_text(path.read_text(encoding="utf-8"), source=path.name)
+    return extract_claims_from_text(str(read["text"]), source=str(read["display"]))
 
 
 def extract_claims_from_text(text: str, *, source: str) -> dict[str, Any]:

@@ -83,6 +83,28 @@ The quickstart intentionally reports `settled=false` and
 CCR JSON artifacts, not as real ASI proof, execution authority, provider
 settlement, PIC settlement, or physical outcome proof.
 
+Mission reports are mission-scoped: packets and residuals from another mission
+do not contribute to acceptance or blocker counts. CI can make advisory reports
+fail closed when desired:
+
+```bash
+ccr mission report --mission mission:quickstart --format json --out report.json --fail-on blocking_residual
+ccr workbench report --mission mission:quickstart --format json --out report.json --fail-on missing_mission
+```
+
+Local gate facades are available for first-pass MCP/A2A/provider review. They
+read local JSON only, perform no dispatch, make no network calls, and return
+residual-ready blockers for authority, egress, replay, or settlement gaps:
+
+```bash
+ccr mcp inspect-descriptor --file examples/asi_proxy_acceleration_bundle/mcp_descriptor.good.json --json
+ccr mcp preflight --descriptor examples/asi_proxy_acceleration_bundle/mcp_descriptor.good.json --invocation examples/asi_proxy_acceleration_bundle/mcp_invocation.good.json --json
+ccr a2a inspect-card --file examples/asi_proxy_acceleration_bundle/a2a_agent_card.good.json --json
+ccr a2a preflight-handoff --handoff examples/asi_proxy_acceleration_bundle/a2a_handoff.good.json --card examples/asi_proxy_acceleration_bundle/a2a_agent_card.good.json --json
+ccr provider conformance --file examples/asi_proxy_acceleration_bundle/provider_manifest.good.json --json
+ccr ingest trace --input README.md --json
+```
+
 PIC is optional but recommended for packet-level and phase-proxy verification:
 [kadubon/percolation-inversion-compiler](https://github.com/kadubon/percolation-inversion-compiler).
 PIC output never settles CCR by itself.

@@ -58,10 +58,23 @@ GENERATED_TOP_LEVEL_DIRS = {
 }
 GENERATED_EXAMPLE_DIRS = {
     "blackboard",
+    "cache",
+    "experiments",
+    "loop",
+    "missions",
+    "packets",
     "phase",
+    "providers",
     "reports",
     "residuals",
     "tasks",
+    "tokens",
+    "workcells",
+}
+ALLOWED_EXAMPLE_RUNTIME_FIXTURES = {
+    ("asi_proxy_benchmark_bundle", "packets"),
+    ("asi_proxy_benchmark_bundle", "residuals"),
+    ("phase_formation", "packets"),
 }
 CACHE_OR_BUILD_PARTS = {
     ".mypy_cache",
@@ -267,8 +280,10 @@ def _has_forbidden_artifact_name(relative: str) -> bool:
         return True
     if (
         len(parts) >= 3
-        and parts[:2] == ["examples", "phase_formation"]
+        and parts[0] == "examples"
         and parts[2] in GENERATED_EXAMPLE_DIRS
+        and parts[1] != "asi_proxy_mission_bundle"
+        and (parts[1], parts[2]) not in ALLOWED_EXAMPLE_RUNTIME_FIXTURES
     ):
         return True
     if parts and parts[-1].startswith("ccr.sqlite"):

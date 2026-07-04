@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/provider-manifest.schema.json",
+  "title": "CCR Provider Manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "provider_id",
+    "provider_type",
+    "side_effect_policy",
+    "network_policy",
+    "settlement_policy",
+    "non_claims"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.provider_manifest.v1" },
+    "provider_id": { "type": "string", "minLength": 1 },
+    "provider_type": { "type": "string", "minLength": 1 },
+    "side_effect_policy": {
+      "type": "string",
+      "enum": ["none", "read_only", "read-only", "dry_run_only", "dry-run-only"]
+    },
+    "network_policy": {
+      "type": "string",
+      "enum": ["none", "disabled", "explicit_source_only", "local_only", "local-only"]
+    },
+    "settlement_policy": {
+      "type": "object",
+      "required": ["provider_output_is_evidence_only", "provider_grants_settlement"],
+      "properties": {
+        "provider_output_is_evidence_only": { "const": true },
+        "provider_grants_settlement": { "const": false }
+      },
+      "additionalProperties": true
+    },
+    "non_claims": { "type": "array", "minItems": 3, "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

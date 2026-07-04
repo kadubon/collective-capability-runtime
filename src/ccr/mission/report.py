@@ -34,6 +34,7 @@ def write_mission_report(
         "format": report_format,
         "mission_id": mission_id,
         "mutated_runtime": False,
+        "network_call_performed": False,
         "ok": True,
         "out": str(out),
         "report": report,

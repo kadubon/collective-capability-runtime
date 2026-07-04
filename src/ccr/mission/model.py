@@ -9,6 +9,9 @@ from typing import Any
 
 from ccr.constants import NON_CLAIMS
 from ccr.io import json_file_name, read_json, write_json_atomic
+from ccr.packets.store import iter_packets
+from ccr.residuals.store import iter_residuals
+from ccr.safe_io import residual_ready
 
 FIXED_CREATED_AT = "1970-01-01T00:00:00Z"
 MISSION_NON_CLAIMS = (
@@ -249,3 +252,109 @@ def merge_state_refs(
         updated[key] = sorted(set(refs))
     updated["updated_at"] = FIXED_CREATED_AT
     return updated
+
+
+def mission_scope(root: Path, mission_id: str) -> dict[str, Any]:
+    """Return mission-scoped packets and residuals without global fallback."""
+
+    state = load_mission_state(root, mission_id)
+    if not state:
+        residual = residual_ready(
+            "missing_mission_state",
+            mission_id,
+            f"Mission state not found for {mission_id}.",
+            "ccr.mission.scope",
+        )
+        return {
+            "known_packet_refs": [],
+            "ok": False,
+            "packets": [],
+            "residual_ready": residual,
+            "residuals": [],
+            "state": {},
+            "state_missing": True,
+        }
+    packets = _mission_packets_from_state(root, mission_id, state)
+    packet_ids = sorted(
+        str(packet.get("packet_id", "")) for packet in packets if packet.get("packet_id")
+    )
+    residuals = _mission_residuals_from_state(root, mission_id, state, packet_ids)
+    return {
+        "known_packet_refs": packet_ids,
+        "ok": True,
+        "packets": packets,
+        "residual_ready": None,
+        "residuals": residuals,
+        "state": state,
+        "state_missing": False,
+    }
+
+
+def mission_packet_counts(packets: list[dict[str, Any]]) -> dict[str, int]:
+    """Return packet status counts for a mission-scoped packet list."""
+
+    counts: dict[str, int] = {}
+    for packet in packets:
+        status = str(packet.get("status", "candidate"))
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
+def mission_residual_counts(residuals: list[dict[str, Any]]) -> dict[str, int]:
+    """Return mission-scoped residual counts."""
+
+    counts: dict[str, int] = {}
+    for residual in residuals:
+        status = str(residual.get("status", "open"))
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
+def _mission_packets_from_state(
+    root: Path, mission_id: str, state: dict[str, Any]
+) -> list[dict[str, Any]]:
+    refs = state.get("packet_refs")
+    ref_set = {str(item) for item in refs} if isinstance(refs, list) else set()
+    packets = iter_packets(root)
+    if ref_set:
+        matched = [packet for packet in packets if str(packet.get("packet_id", "")) in ref_set]
+        if matched:
+            return matched
+    return [
+        packet for packet in packets if _extensions(packet).get("x_ccr_mission_id") == mission_id
+    ]
+
+
+def _mission_residuals_from_state(
+    root: Path,
+    mission_id: str,
+    state: dict[str, Any],
+    packet_ids: list[str],
+) -> list[dict[str, Any]]:
+    residual_refs = state.get("residual_refs")
+    residual_ref_set = (
+        {str(item) for item in residual_refs} if isinstance(residual_refs, list) else set()
+    )
+    packet_ref_set = set(packet_ids)
+    residuals: list[dict[str, Any]] = []
+    for residual in iter_residuals(root, status="open"):
+        residual_id = str(residual.get("residual_id", ""))
+        refs = residual.get("refs")
+        ref_set = {str(item) for item in refs} if isinstance(refs, list) else set()
+        object_id = str(residual.get("object_id", ""))
+        extensions = _extensions(residual)
+        if (
+            (residual_ref_set and residual_id in residual_ref_set)
+            or extensions.get("x_ccr_mission_id") == mission_id
+            or object_id in packet_ref_set
+            or bool(ref_set & packet_ref_set)
+            or object_id == mission_id
+            or mission_id in ref_set
+        ):
+            residuals.append(residual)
+    return sorted(residuals, key=lambda item: str(item.get("residual_id", "")))
+
+
+def _extensions(value: dict[str, Any]) -> dict[str, Any]:
+    raw = value.get("extensions")
+    return raw if isinstance(raw, dict) else {}

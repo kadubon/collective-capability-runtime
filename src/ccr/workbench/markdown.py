@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import html
+import re
 from typing import Any
 
 
@@ -16,10 +18,10 @@ def render_markdown_report(report: dict[str, Any]) -> str:
     lines = [
         "# CCR Workbench Report",
         "",
-        f"Mission: {report.get('mission_id', '')}",
-        f"Profile: {report.get('profile', '')}",
-        f"Target: {report.get('target_ref', '')}",
-        f"Baseline: {report.get('baseline_ref', '')}",
+        f"Mission: {_text(report.get('mission_id', ''))}",
+        f"Profile: {_text(report.get('profile', ''))}",
+        f"Target: {_text(report.get('target_ref', ''))}",
+        f"Baseline: {_text(report.get('baseline_ref', ''))}",
         f"Accepted: {_bool(report.get('accepted', False))}",
         f"Settled: {_bool(report.get('settled', False))}",
         f"External execution: {_bool(report.get('external_execution', False))}",
@@ -48,11 +50,11 @@ def render_markdown_report(report: dict[str, Any]) -> str:
             if isinstance(residual, dict):
                 lines.append(
                     "- "
-                    + str(residual.get("residual_id", ""))
+                    + _text(residual.get("residual_id", ""))
                     + " "
-                    + str(residual.get("kind", ""))
+                    + _text(residual.get("kind", ""))
                     + ": "
-                    + str(residual.get("description", ""))
+                    + _text(residual.get("description", ""))
                 )
     else:
         lines.append("- none")
@@ -71,10 +73,17 @@ def render_markdown_report(report: dict[str, Any]) -> str:
         ]
     )
     for item in report.get("non_claims", []):
-        lines.append(f"- {item}")
+        lines.append(f"- {_text(item)}")
     lines.append("")
     return "\n".join(lines)
 
 
 def _bool(value: Any) -> str:
     return "true" if bool(value) else "false"
+
+
+def _text(value: Any) -> str:
+    text = str(value)
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", " ", text)
+    text = " ".join(text.split())
+    return html.escape(text, quote=False)

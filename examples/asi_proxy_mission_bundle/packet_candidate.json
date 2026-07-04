@@ -88,8 +88,9 @@
   "verifiers": [
     {
       "provider": "pic",
+      "purpose": "schema",
       "required": false,
-      "scope": "candidate"
+      "verifier_id": "verifier:quickstart"
     }
   ]
 }

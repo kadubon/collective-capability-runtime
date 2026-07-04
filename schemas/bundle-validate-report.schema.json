@@ -11,7 +11,11 @@
     "accepted",
     "settled",
     "executed",
+    "external_execution",
+    "network_call_performed",
     "capital_admitted",
+    "object_count",
+    "observed_parity",
     "blockers",
     "residual_ready",
     "non_claims"
@@ -24,10 +28,24 @@
     "accepted": { "type": "boolean" },
     "settled": { "const": false },
     "executed": { "const": false },
+    "external_execution": { "const": false },
+    "network_call_performed": { "const": false },
     "capital_admitted": { "const": false },
+    "object_count": { "type": "integer", "minimum": 0 },
+    "observed_parity": {
+      "type": "object",
+      "required": ["schema_bound", "target_present", "baseline_present", "reference_closed"],
+      "properties": {
+        "schema_bound": { "type": "boolean" },
+        "target_present": { "type": "boolean" },
+        "baseline_present": { "type": "boolean" },
+        "reference_closed": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
     "blockers": { "type": "array", "items": { "type": "string" } },
     "residual_ready": { "type": "array", "items": { "type": "object" } },
-    "non_claims": { "type": "array", "items": { "type": "string" } }
+    "non_claims": { "type": "array", "minItems": 3, "items": { "type": "string", "minLength": 1 } }
   },
   "additionalProperties": true
 }

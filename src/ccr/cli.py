@@ -100,7 +100,10 @@ from ccr.extensions import (
     workcell_next,
     workcell_submit,
 )
+from ccr.gates.a2a import inspect_agent_card, preflight_handoff
+from ccr.gates.mcp import inspect_descriptor, preflight_invocation
 from ccr.ids import stable_id
+from ccr.ingest.facade import ingest_repo, ingest_trace
 from ccr.io import json_file_name, pretty_dumps, read_json, write_json_atomic
 from ccr.mission.ingest import ingest_mission
 from ccr.mission.init import asi_quickstart, initialize_mission
@@ -117,6 +120,7 @@ from ccr.phase.graph import build_effective_graph
 from ccr.phase.observe import build_phase_observation
 from ccr.phase.threshold import default_threshold, evaluate_threshold
 from ccr.providers.base import Provider
+from ccr.providers.manifest import inspect_provider_manifest, provider_conformance
 from ccr.providers.registry import get_provider, list_providers
 from ccr.reports.json_report import phase_report
 from ccr.reports.markdown import render_markdown_report
@@ -215,6 +219,12 @@ def build_parser() -> argparse.ArgumentParser:
     mission_report_cmd.add_argument("--mission", required=True, dest="mission_id")
     mission_report_cmd.add_argument("--format", choices=["markdown", "json"], default="markdown")
     mission_report_cmd.add_argument("--out", required=True)
+    mission_report_cmd.add_argument(
+        "--fail-on",
+        action="append",
+        choices=["blocking_residual", "missing_mission"],
+        default=[],
+    )
     mission_report_cmd.set_defaults(func=cmd_mission_report)
 
     workbench = sub.add_parser("workbench", help="Workbench report commands.")
@@ -223,6 +233,12 @@ def build_parser() -> argparse.ArgumentParser:
     workbench_report_cmd.add_argument("--mission", required=True, dest="mission_id")
     workbench_report_cmd.add_argument("--format", choices=["markdown", "json"], default="markdown")
     workbench_report_cmd.add_argument("--out", required=True)
+    workbench_report_cmd.add_argument(
+        "--fail-on",
+        action="append",
+        choices=["blocking_residual", "missing_mission"],
+        default=[],
+    )
     workbench_report_cmd.set_defaults(func=cmd_workbench_report)
 
     claim = sub.add_parser("claim", help="Claim extraction and audit commands.")
@@ -250,6 +266,41 @@ def build_parser() -> argparse.ArgumentParser:
     bundle_validate_cmd.add_argument("--profile", default="development")
     bundle_validate_cmd.add_argument("--json", action="store_true", dest="json_output")
     bundle_validate_cmd.set_defaults(func=cmd_bundle_validate)
+
+    mcp = sub.add_parser("mcp", help="Local MCP gate commands.")
+    mcp_sub = mcp.add_subparsers(dest="mcp_command", required=True)
+    mcp_inspect = mcp_sub.add_parser("inspect-descriptor", help="Inspect an MCP descriptor.")
+    mcp_inspect.add_argument("--file", required=True)
+    mcp_inspect.add_argument("--json", action="store_true", dest="json_output")
+    mcp_inspect.set_defaults(func=cmd_mcp_inspect_descriptor)
+    mcp_preflight = mcp_sub.add_parser("preflight", help="Preflight an MCP invocation.")
+    mcp_preflight.add_argument("--descriptor", required=True)
+    mcp_preflight.add_argument("--invocation", required=True)
+    mcp_preflight.add_argument("--json", action="store_true", dest="json_output")
+    mcp_preflight.set_defaults(func=cmd_mcp_preflight)
+
+    a2a = sub.add_parser("a2a", help="Local A2A gate commands.")
+    a2a_sub = a2a.add_subparsers(dest="a2a_command", required=True)
+    a2a_card = a2a_sub.add_parser("inspect-card", help="Inspect an A2A agent card.")
+    a2a_card.add_argument("--file", required=True)
+    a2a_card.add_argument("--json", action="store_true", dest="json_output")
+    a2a_card.set_defaults(func=cmd_a2a_inspect_card)
+    a2a_preflight = a2a_sub.add_parser("preflight-handoff", help="Preflight an A2A handoff.")
+    a2a_preflight.add_argument("--handoff", required=True)
+    a2a_preflight.add_argument("--card")
+    a2a_preflight.add_argument("--json", action="store_true", dest="json_output")
+    a2a_preflight.set_defaults(func=cmd_a2a_preflight_handoff)
+
+    ingest = sub.add_parser("ingest", help="Candidate-only external ingest facades.")
+    ingest_sub = ingest.add_subparsers(dest="ingest_command", required=True)
+    ingest_trace_cmd = ingest_sub.add_parser("trace", help="Inspect an external trace.")
+    ingest_trace_cmd.add_argument("--input", required=True)
+    ingest_trace_cmd.add_argument("--json", action="store_true", dest="json_output")
+    ingest_trace_cmd.set_defaults(func=cmd_ingest_trace)
+    ingest_repo_cmd = ingest_sub.add_parser("repo", help="Inspect a repository directory.")
+    ingest_repo_cmd.add_argument("--path", required=True)
+    ingest_repo_cmd.add_argument("--json", action="store_true", dest="json_output")
+    ingest_repo_cmd.set_defaults(func=cmd_ingest_repo)
 
     schema = sub.add_parser("schema", help="Schema commands.")
     schema_sub = schema.add_subparsers(dest="schema_command", required=True)
@@ -688,6 +739,16 @@ def build_parser() -> argparse.ArgumentParser:
     provider_list = provider_sub.add_parser("list", help="List providers.")
     provider_list.add_argument("--json", action="store_true", dest="json_output")
     provider_list.set_defaults(func=cmd_provider_list)
+    provider_manifest_cmd = provider_sub.add_parser("manifest", help="Inspect provider manifest.")
+    provider_manifest_cmd.add_argument("--file", required=True)
+    provider_manifest_cmd.add_argument("--json", action="store_true", dest="json_output")
+    provider_manifest_cmd.set_defaults(func=cmd_provider_manifest)
+    provider_conformance_cmd = provider_sub.add_parser(
+        "conformance", help="Check provider static conformance."
+    )
+    provider_conformance_cmd.add_argument("--file", required=True)
+    provider_conformance_cmd.add_argument("--json", action="store_true", dest="json_output")
+    provider_conformance_cmd.set_defaults(func=cmd_provider_conformance)
     provider_health = provider_sub.add_parser("health", help="Check provider health.")
     provider_health.add_argument("--provider", required=True)
     provider_health.add_argument("--json", action="store_true", dest="json_output")
@@ -946,8 +1007,9 @@ def cmd_mission_report(args: argparse.Namespace) -> int:
         report_format=args.format,
         out=Path(args.out),
     )
+    _apply_report_fail_policy(report, list(args.fail_on or []))
     _emit_json(report)
-    return EXIT_SUCCESS
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_workbench_report(args: argparse.Namespace) -> int:
@@ -958,8 +1020,9 @@ def cmd_workbench_report(args: argparse.Namespace) -> int:
         report_format=args.format,
         out=Path(args.out),
     )
+    _apply_report_fail_policy(report, list(args.fail_on or []))
     _emit_json(report)
-    return EXIT_SUCCESS
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_claim_extract(args: argparse.Namespace) -> int:
@@ -982,6 +1045,43 @@ def cmd_claim_passport(args: argparse.Namespace) -> int:
 
 def cmd_bundle_validate(args: argparse.Namespace) -> int:
     report = validate_bundle(Path(args.bundle), profile=args.profile)
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_mcp_inspect_descriptor(args: argparse.Namespace) -> int:
+    report = inspect_descriptor(Path(args.file))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_mcp_preflight(args: argparse.Namespace) -> int:
+    report = preflight_invocation(Path(args.descriptor), Path(args.invocation))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_a2a_inspect_card(args: argparse.Namespace) -> int:
+    report = inspect_agent_card(Path(args.file))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_a2a_preflight_handoff(args: argparse.Namespace) -> int:
+    card_path = Path(args.card) if args.card else None
+    report = preflight_handoff(Path(args.handoff), card_path=card_path)
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_ingest_trace(args: argparse.Namespace) -> int:
+    report = ingest_trace(Path(args.input))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_ingest_repo(args: argparse.Namespace) -> int:
+    report = ingest_repo(Path(args.path))
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
@@ -1916,6 +2016,18 @@ def cmd_provider_list(args: argparse.Namespace) -> int:
         )
     _emit_json({"ok": True, "providers": providers})
     return EXIT_SUCCESS
+
+
+def cmd_provider_manifest(args: argparse.Namespace) -> int:
+    report = inspect_provider_manifest(Path(args.file))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_provider_conformance(args: argparse.Namespace) -> int:
+    report = provider_conformance(Path(args.file))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_provider_health(args: argparse.Namespace) -> int:
@@ -2999,6 +3111,39 @@ def _validation_failure_payload(
         "residual_ready": residual,
         "schema_version": validation.get("schema_version"),
     }
+
+
+def _apply_report_fail_policy(report: dict[str, Any], fail_on: list[str]) -> None:
+    normalized = {item.strip().lower() for item in fail_on if item.strip()}
+    if not normalized:
+        return
+    embedded = report.get("report")
+    workbench = embedded if isinstance(embedded, dict) else report
+    failures: list[str] = []
+    if "blocking_residual" in normalized and int(workbench.get("blocking_residual_count", 0)) > 0:
+        failures.append("blocking_residual")
+    if "missing_mission" in normalized and _report_has_missing_mission(workbench):
+        failures.append("missing_mission")
+    report["fail_on"] = sorted(normalized)
+    report["policy_failures"] = sorted(set(failures))
+    if failures:
+        report["ok"] = False
+        report["accepted"] = False
+
+
+def _report_has_missing_mission(report: dict[str, Any]) -> bool:
+    residuals = report.get("top_residuals")
+    if not isinstance(residuals, list):
+        return False
+    for residual in residuals:
+        if not isinstance(residual, dict):
+            continue
+        if residual.get("finding_kind") == "missing_mission":
+            return True
+        description = str(residual.get("description", "")).lower()
+        if "mission not found" in description:
+            return True
+    return False
 
 
 def _emit_json(payload: Any) -> None:

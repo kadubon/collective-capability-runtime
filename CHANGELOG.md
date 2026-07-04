@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Hardens the Mission Runtime Layer with mission-scoped packet/residual
+  isolation, schema-valid failure reports, `--fail-on blocking_residual` and
+  `--fail-on missing_mission` report exit policies, bounded UTF-8/JSON input
+  handling, schema-bound bundle validation, reference-closure checks, markdown
+  escaping, and stronger deterministic overclaim detection.
+- Adds local-only P1 gate facades: `ccr mcp inspect-descriptor/preflight`,
+  `ccr a2a inspect-card/preflight-handoff`, `ccr ingest trace/repo`, provider
+  manifest/conformance reports, provider manifest schemas, and a non-publishing
+  `.github/actions/ccr-audit` helper.
 - Adds a local Mission Runtime Layer with `ccr asi quickstart`, `ccr mission
   init/status/ingest/next/report`, and `ccr workbench report` for immediate
   ASI-proxy mission setup without provider execution, network calls, settlement,

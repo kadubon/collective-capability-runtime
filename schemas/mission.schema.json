@@ -19,14 +19,20 @@
   "properties": {
     "schema_version": { "const": "ccr.mission.v1" },
     "mission_id": { "type": "string", "pattern": "^mission:[A-Za-z0-9_.:@+-]+$" },
-    "profile": { "type": "string" },
+    "profile": {
+      "type": "string",
+      "enum": ["development", "research", "controlled", "federated", "production", "adversarial", "custom"]
+    },
     "asi_proxy_target_ref": { "type": "string" },
     "baseline_ref": { "type": "string" },
     "authority_envelope": {
       "type": "object",
       "required": ["status", "scope"],
       "properties": {
-        "status": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["approved", "pending", "blocked", "operator_required", "read_only", "unknown"]
+        },
         "scope": { "type": "string" }
       },
       "additionalProperties": true
@@ -58,7 +64,12 @@
       },
       "additionalProperties": true
     },
-    "non_claims": { "type": "array", "items": { "type": "string" } }
+    "non_claims": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "settled": { "const": false }
   },
   "additionalProperties": true
 }

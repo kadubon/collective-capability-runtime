@@ -2,7 +2,9 @@
   "baseline_ref": "baseline:quickstart",
   "bundle_id": "bundle:quickstart",
   "executed": false,
+  "external_execution": false,
   "mission_ref": "mission:quickstart",
+  "network_call_performed": false,
   "non_claims": [
     "not_real_asi_proof",
     "not_execution_authority",

@@ -5,6 +5,8 @@
   "candidate_only_count": 1,
   "external_execution": false,
   "mission_id": "mission:quickstart",
+  "mutated_runtime": false,
+  "network_call_performed": false,
   "next_safe_action": {
     "command": "ccr mission next --mission mission:quickstart --compact --json",
     "external_execution": false,
@@ -16,6 +18,19 @@
     "not_physical_outcome_proof"
   ],
   "ok": false,
+  "packet_status_summary": {
+    "candidate": 1,
+    "checked": 0,
+    "deprecated": 0,
+    "expired": 0,
+    "proposed": 0,
+    "provisional": 0,
+    "quarantined": 0,
+    "raw": 0,
+    "rejected": 0,
+    "settled": 0,
+    "speculative": 0
+  },
   "positive_packet_count": 0,
   "profile": "development",
   "schema_version": "ccr.workbench_report.v1",
