@@ -28,6 +28,11 @@ CCR persists these source artifacts as JSON:
 - threshold status: ASI-proxy threshold evaluation over one observation
 - baseline comparison: resource-matched comparison against a declared baseline
 - certificate candidate: protocol-relative collective phase candidate, never real ASI proof
+- mission: an operational facade over a target, baseline upper envelope,
+  authority envelope, hazard envelope, resource envelope, packet workspace,
+  residual ledger, loop policy, provider policy, and report policy
+- workbench report: human-readable and JSON mission summary for CI and
+  first-time agents
 
 SQLite (`ccr.sqlite`) is an index and transaction support layer. JSON artifacts
 remain the auditable source of truth.
@@ -82,6 +87,7 @@ residuals/open residuals/resolved residuals/quarantined
 reports/pic reports/verifier reports/phase reports/audit reports/providers
 phase/graphs phase/observations phase/thresholds phase/certificates phase/comparisons
 baselines
+missions missions/state missions/targets missions/baselines reports/workbench reports/claims
 ccr.config.json
 ccr.sqlite
 ```
@@ -176,6 +182,23 @@ safety/SPDX/CI drift and returns residual-ready findings.
 `ccr audit pic --json` checks the optional PIC source root, installed package,
 CLI availability, expected commands, report-field mapping, non-claim boundary,
 safe-command handling, and settlement boundary.
+
+`ccr asi quickstart --profile development --json` initializes a local
+non-executing mission fixture, target, baseline upper envelope, advisory loop
+state, candidate packet, and workbench report. It reports `settled=false` and
+`external_execution=false`.
+
+`ccr mission init/status/ingest/next/report` exposes Mission as an operational
+facade. Mission does not replace phase semantics and does not grant provider,
+network, shell, repository, physical, or model-update authority.
+
+`ccr claim extract/audit/passport` deterministically extracts prose claims,
+skips fenced code blocks, and converts ASI-proxy overclaims into residual-ready
+objects.
+
+`ccr bundle validate --bundle <dir> --profile development --json` validates
+mission bundles for target/baseline/non-claim presence and fail-closed
+execution, settlement, capital-admission, and cache/index proof boundaries.
 
 `ccr phase graph --json` writes an effective graph artifact.
 

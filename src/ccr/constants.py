@@ -47,6 +47,13 @@ DEFAULT_SCHEMA_VERSIONS = {
     "mcp-tool-invocation-preflight": "ccr.mcp_tool_invocation_preflight.v1",
     "a2a-agent-card-report": "ccr.a2a_agent_card_report.v1",
     "a2a-task-handoff-report": "ccr.a2a_task_handoff_report.v1",
+    "mission": "ccr.mission.v1",
+    "mission-state": "ccr.mission_state.v1",
+    "mission-run-report": "ccr.mission_run_report.v1",
+    "workbench-report": "ccr.workbench_report.v1",
+    "claim-passport": "ccr.claim_passport.v1",
+    "mission-bundle": "ccr.mission_bundle.v1",
+    "bundle-validate-report": "ccr.bundle_validate.v1",
 }
 
 PACKET_STATUSES = (
@@ -108,12 +115,18 @@ RUNTIME_DIRECTORIES = (
     "reports/phase",
     "reports/audit",
     "reports/providers",
+    "reports/workbench",
+    "reports/claims",
     "phase/graphs",
     "phase/observations",
     "phase/thresholds",
     "phase/certificates",
     "phase/comparisons",
     "baselines",
+    "missions",
+    "missions/state",
+    "missions/targets",
+    "missions/baselines",
 )
 
 NON_CLAIMS = (
@@ -128,6 +141,8 @@ NON_CLAIMS = (
 )
 
 SAFE_NEXT_COMMANDS = (
+    "ccr asi quickstart --profile development --json",
+    "ccr mission next --mission mission:quickstart --compact --json",
     "ccr agent explain --json",
     "ccr init",
     "ccr schema validate --kind packet --file examples/minimal/packet.json",

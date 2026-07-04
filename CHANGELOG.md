@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- Adds a local Mission Runtime Layer with `ccr asi quickstart`, `ccr mission
+  init/status/ingest/next/report`, and `ccr workbench report` for immediate
+  ASI-proxy mission setup without provider execution, network calls, settlement,
+  or physical outcome claims.
+- Adds deterministic `ccr claim extract/audit/passport` commands that skip
+  fenced code blocks, classify unsupported claims, and convert real-ASI,
+  execution-authority, physical-outcome, model-update, and provider/PIC
+  settlement overclaims into residual-ready objects.
+- Adds `ccr bundle validate` plus mission/workbench/claim/bundle schemas and a
+  local `examples/asi_proxy_mission_bundle/` fixture. Validation fails closed on
+  missing target/baseline/non-claim surfaces, implicit execution, implicit
+  settlement, capital admission without witness refs, and cache/index proof
+  confusion.
+
 ## 1.4.0 - 2026-07-02
 
 - Adds the advisory `ccr loop` layer, token distillation/import/dedup/next

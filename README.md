@@ -64,6 +64,25 @@ uv sync --all-extras
 uv run ccr agent explain --json
 ```
 
+## ASI-Proxy Mission Quickstart
+
+The fastest local path is the Mission Runtime Layer. It creates a local
+ASI-proxy mission, target fixture, baseline upper envelope, advisory loop state,
+candidate packet workspace, and workbench report without provider execution,
+network calls, shell authority, settlement, or physical outcome claims.
+
+```bash
+python -m pip install collective-capability-runtime
+ccr asi quickstart --profile development --json
+ccr mission next --mission mission:quickstart --compact --json
+ccr workbench report --mission mission:quickstart --format markdown --out CCR_WORKBENCH.md
+```
+
+The quickstart intentionally reports `settled=false` and
+`external_execution=false`. Treat the workbench as an operational facade over
+CCR JSON artifacts, not as real ASI proof, execution authority, provider
+settlement, PIC settlement, or physical outcome proof.
+
 PIC is optional but recommended for packet-level and phase-proxy verification:
 [kadubon/percolation-inversion-compiler](https://github.com/kadubon/percolation-inversion-compiler).
 PIC output never settles CCR by itself.
@@ -148,6 +167,8 @@ external commands by default.
 First commands:
 
 ```bash
+ccr asi quickstart --profile development --json
+ccr mission next --mission mission:quickstart --compact --json
 ccr agent explain --json
 ccr audit repo --json
 ccr provider health --provider pic --json

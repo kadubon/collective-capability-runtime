@@ -74,6 +74,8 @@ packages = ["src/ccr"]
 "docs/agent-loop-protocol.md" = "ccr/data/docs/agent-loop-protocol.md"
 "docs/performance.md" = "ccr/data/docs/performance.md"
 "docs/cross-repo-loop-conformance.md" = "ccr/data/docs/cross-repo-loop-conformance.md"
+"docs/asi-proxy-mission.md" = "ccr/data/docs/asi-proxy-mission.md"
+"examples/asi_proxy_mission_bundle" = "ccr/data/examples/asi_proxy_mission_bundle"
 
 [tool.hatch.build.targets.sdist]
 include = [

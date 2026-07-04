@@ -1,0 +1,14 @@
+{
+  "baseline_ref": "baseline:quickstart",
+  "bundle_id": "bundle:quickstart",
+  "executed": false,
+  "mission_ref": "mission:quickstart",
+  "non_claims": [
+    "not_real_asi_proof",
+    "not_execution_authority",
+    "not_physical_outcome_proof"
+  ],
+  "schema_version": "ccr.mission_bundle.v1",
+  "settled": false,
+  "target_ref": "target:quickstart"
+}

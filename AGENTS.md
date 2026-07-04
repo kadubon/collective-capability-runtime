@@ -13,6 +13,9 @@ tasks, residuals, provider reports, and protocol-relative phase formation.
 ## Safe First Commands
 
 ```bash
+ccr asi quickstart --profile development --json
+ccr mission next --mission mission:quickstart --compact --json
+ccr workbench report --mission mission:quickstart --format markdown --out CCR_WORKBENCH.md
 ccr agent explain --json
 ccr audit repo --json
 ccr audit pic --pic-root <PIC_ROOT> --json
@@ -68,8 +71,8 @@ ccr task next --role generator --json
 ```
 
 Safe boundary: inspect before mutating; treat `verify` without `--execute`,
-provider `plan`, audit, report, graph, observe, and threshold commands as the
-safe starting surface.
+provider `plan`, audit, report, graph, observe, threshold, `asi quickstart`,
+`mission next`, and `workbench report` commands as the safe starting surface.
 
 Expected outputs: read `ok`, `status`, `packet_id`, `task_id`, `residual_ready`,
 `residuals`, `task_hints`, and `settled` before deciding the next action.

@@ -1,0 +1,95 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "artifact:quickstart",
+      "content_sha256": "unknown",
+      "kind": "text",
+      "uri_or_path": "inline"
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "claim:quickstart",
+      "claim_text": "CCR can initialize a local non-executing ASI-proxy mission workbench for packet and residual review.",
+      "claim_type": "implementation",
+      "settlement_target": "diagnostic_only",
+      "status": "candidate"
+    }
+  ],
+  "created_at": "1970-01-01T00:00:00Z",
+  "issuer": {
+    "actor_id": "agent:ccr",
+    "actor_type": "agent"
+  },
+  "lineage": {
+    "children": [],
+    "parents": [],
+    "revision": 0
+  },
+  "packet_id": "packet:quickstart:mission-candidate",
+  "packet_type": "workflow",
+  "pic_interop": {
+    "candidate_kind": "packet_json",
+    "enabled": true,
+    "profile": "development",
+    "recommended_commands": [
+      "pic agent check --compact"
+    ],
+    "status_mapping": {
+      "pic_accepted_maps_to": "checked",
+      "pic_settled_false_maps_to": "provisional",
+      "pic_settled_true_maps_to": "checked"
+    }
+  },
+  "provenance": {
+    "content_sha256": "unknown",
+    "origin_kind": "derived",
+    "source_refs": [
+      "quickstart"
+    ]
+  },
+  "residuals": [
+    {
+      "blocking": false,
+      "description": "Candidate packet requires verification.",
+      "kind": "unverified_claim",
+      "residual_id": "residual:quickstart",
+      "severity": "medium"
+    }
+  ],
+  "reuse": {
+    "intended_downstream_uses": [
+      "verification"
+    ],
+    "reuse_mode": "local",
+    "transport_limits": [
+      "candidate-only"
+    ]
+  },
+  "risk": {
+    "authority_level": "none",
+    "hazard_level": "none",
+    "misuse_risk": "low",
+    "overclaim_risk": "medium"
+  },
+  "schema_version": "ccr.packet.v0.1",
+  "scope": {
+    "out_of_scope": [
+      "real ASI proof",
+      "execution authority"
+    ],
+    "profiles": [
+      "development"
+    ],
+    "validity_domain": "local-asi-proxy-quickstart"
+  },
+  "status": "candidate",
+  "summary": "Local quickstart candidate packet for ASI-proxy mission workbench setup.",
+  "verifiers": [
+    {
+      "provider": "pic",
+      "required": false,
+      "scope": "candidate"
+    }
+  ]
+}

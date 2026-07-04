@@ -28,6 +28,13 @@ REQUIRED_SCHEMA_FILES = [
     "provider.schema.json",
     "audit-report.schema.json",
     "trc-operation-plan.schema.json",
+    "mission.schema.json",
+    "mission-state.schema.json",
+    "mission-run-report.schema.json",
+    "workbench-report.schema.json",
+    "claim-passport.schema.json",
+    "mission-bundle.schema.json",
+    "bundle-validate-report.schema.json",
 ]
 
 DOC_ROUTE_FILES = [

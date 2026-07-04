@@ -50,6 +50,13 @@ SCHEMA_FILENAMES = {
     "mcp-tool-invocation-preflight": "mcp-tool-invocation-preflight.schema.json",
     "a2a-agent-card-report": "a2a-agent-card-report.schema.json",
     "a2a-task-handoff-report": "a2a-task-handoff-report.schema.json",
+    "mission": "mission.schema.json",
+    "mission-state": "mission-state.schema.json",
+    "mission-run-report": "mission-run-report.schema.json",
+    "workbench-report": "workbench-report.schema.json",
+    "claim-passport": "claim-passport.schema.json",
+    "mission-bundle": "mission-bundle.schema.json",
+    "bundle-validate-report": "bundle-validate-report.schema.json",
 }
 
 

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/workbench-report.schema.json",
+  "title": "CCR Workbench Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "mission_id",
+    "profile",
+    "ok",
+    "accepted",
+    "settled",
+    "positive_packet_count",
+    "candidate_only_count",
+    "blocking_residual_count",
+    "top_residuals",
+    "next_safe_action",
+    "non_claims"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.workbench_report.v1" },
+    "mission_id": { "type": "string" },
+    "profile": { "type": ["string", "null"] },
+    "ok": { "type": "boolean" },
+    "accepted": { "type": "boolean" },
+    "settled": { "const": false },
+    "external_execution": { "const": false },
+    "positive_packet_count": { "type": "integer", "minimum": 0 },
+    "candidate_only_count": { "type": "integer", "minimum": 0 },
+    "blocking_residual_count": { "type": "integer", "minimum": 0 },
+    "top_residuals": { "type": "array", "items": { "type": "object" } },
+    "next_safe_action": { "type": "object", "additionalProperties": true },
+    "non_claims": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

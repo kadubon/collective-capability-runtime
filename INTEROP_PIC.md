@@ -83,6 +83,13 @@ reports, and operation preflight reports. These imports remain candidate
 evidence. `capital_admitted` is lower-bound evidence, not settlement; proxy-only
 evidence cannot increase safe capital.
 
+Mission Runtime Layer: `ccr asi quickstart` and `ccr mission ...` organize a
+local target, baseline, authority envelope, packet workspace, residual ledger,
+loop policy, provider policy, and workbench report. Mission may reference or
+import PIC-compatible evidence, but PIC remains optional and is not a settlement
+oracle. Mission reports preserve `settled=false` and `external_execution=false`
+unless a separate explicit CCR command and existing CCR semantics say otherwise.
+
 ## Shared Non-Claims
 
 CCR and PIC interop MUST preserve these constraints:

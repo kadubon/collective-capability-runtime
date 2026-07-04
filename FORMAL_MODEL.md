@@ -10,6 +10,20 @@ PIC is an optional verifier relation. It is not a CCR settlement oracle.
 
 CCR is a finite transition system over JSON artifacts plus a SQLite index.
 
+Mission is a finite facade over existing finite CCR artifacts:
+
+```text
+M = (target_ref, baseline_ref, authority_envelope, hazard_envelope,
+     resource_envelope, packet_workspace, residual_ledger, loop_policy,
+     provider_policy, report_policy)
+```
+
+Mission transitions may create or reference local JSON artifacts, but they do
+not replace packet promotion, residual preservation, phase threshold, baseline,
+or certificate-candidate relations. A mission workbench report is a finite
+summary relation over local artifacts and does not imply execution or
+settlement.
+
 ## First-time agent guide
 
 Purpose: use the formal model to understand why CCR separates admissible

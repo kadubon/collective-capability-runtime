@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/bundle-validate-report.schema.json",
+  "title": "CCR Bundle Validate Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ok",
+    "bundle",
+    "profile",
+    "accepted",
+    "settled",
+    "executed",
+    "capital_admitted",
+    "blockers",
+    "residual_ready",
+    "non_claims"
+  ],
+  "properties": {
+    "schema_version": { "const": "ccr.bundle_validate.v1" },
+    "ok": { "type": "boolean" },
+    "bundle": { "type": "string" },
+    "profile": { "type": "string" },
+    "accepted": { "type": "boolean" },
+    "settled": { "const": false },
+    "executed": { "const": false },
+    "capital_admitted": { "const": false },
+    "blockers": { "type": "array", "items": { "type": "string" } },
+    "residual_ready": { "type": "array", "items": { "type": "object" } },
+    "non_claims": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

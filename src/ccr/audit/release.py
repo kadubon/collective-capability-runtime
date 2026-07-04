@@ -43,11 +43,18 @@ SKIP_SOURCE_PARTS = {
 }
 GENERATED_TOP_LEVEL_DIRS = {
     "blackboard",
+    "cache",
+    "experiments",
+    "loop",
+    "missions",
     "packets",
     "phase",
+    "providers",
     "reports",
     "residuals",
     "tasks",
+    "tokens",
+    "workcells",
 }
 GENERATED_EXAMPLE_DIRS = {
     "blackboard",

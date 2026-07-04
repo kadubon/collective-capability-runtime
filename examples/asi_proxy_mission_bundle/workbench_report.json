@@ -1,0 +1,25 @@
+{
+  "accepted": false,
+  "baseline_ref": "baseline:quickstart",
+  "blocking_residual_count": 0,
+  "candidate_only_count": 1,
+  "external_execution": false,
+  "mission_id": "mission:quickstart",
+  "next_safe_action": {
+    "command": "ccr mission next --mission mission:quickstart --compact --json",
+    "external_execution": false,
+    "writes_runtime": false
+  },
+  "non_claims": [
+    "not_real_asi_proof",
+    "not_execution_authority",
+    "not_physical_outcome_proof"
+  ],
+  "ok": false,
+  "positive_packet_count": 0,
+  "profile": "development",
+  "schema_version": "ccr.workbench_report.v1",
+  "settled": false,
+  "target_ref": "target:quickstart",
+  "top_residuals": []
+}

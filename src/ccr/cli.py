@@ -15,6 +15,10 @@ from ccr.audit.release import audit_release
 from ccr.audit.repo import audit_repository
 from ccr.blackboard.events import make_event
 from ccr.blackboard.store import append_event
+from ccr.bundles.validate import validate_bundle
+from ccr.claims.audit import audit_claim_file
+from ccr.claims.extract import write_claim_extract
+from ccr.claims.passport import write_claim_passport
 from ccr.constants import DEFAULT_ACTOR, NON_CLAIMS, SAFE_NEXT_COMMANDS
 from ccr.errors import (
     EXIT_INTERNAL,
@@ -98,6 +102,11 @@ from ccr.extensions import (
 )
 from ccr.ids import stable_id
 from ccr.io import json_file_name, pretty_dumps, read_json, write_json_atomic
+from ccr.mission.ingest import ingest_mission
+from ccr.mission.init import asi_quickstart, initialize_mission
+from ccr.mission.next import mission_next
+from ccr.mission.report import write_mission_report
+from ccr.mission.status import mission_status
 from ccr.packets.promotion import promote_packet
 from ccr.packets.store import load_packet, save_packet_at_status, submit_packet, validate_packet
 from ccr.paths import runtime_root
@@ -121,6 +130,7 @@ from ccr.tasks.lease import lease_task, release_task
 from ccr.tasks.scheduler import next_task
 from ccr.tasks.store import submit_task, validate_task
 from ccr.time import now_iso
+from ccr.workbench.summary import write_workbench_report
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -170,6 +180,76 @@ def build_parser() -> argparse.ArgumentParser:
     demo_roundtrip.add_argument("--execute-pic", action="store_true")
     demo_roundtrip.add_argument("--json", action="store_true", dest="json_output")
     demo_roundtrip.set_defaults(func=cmd_demo_pic_roundtrip)
+
+    asi = sub.add_parser("asi", help="ASI-proxy quickstart commands.")
+    asi_sub = asi.add_subparsers(dest="asi_command", required=True)
+    asi_quickstart_cmd = asi_sub.add_parser("quickstart", help="Create a local mission fixture.")
+    asi_quickstart_cmd.add_argument("--profile", default="development")
+    asi_quickstart_cmd.add_argument("--json", action="store_true", dest="json_output")
+    asi_quickstart_cmd.set_defaults(func=cmd_asi_quickstart)
+
+    mission = sub.add_parser("mission", help="Mission runtime commands.")
+    mission_sub = mission.add_subparsers(dest="mission_command", required=True)
+    mission_init_cmd = mission_sub.add_parser("init", help="Initialize a mission.")
+    mission_init_cmd.add_argument("--name", required=True)
+    mission_init_cmd.add_argument("--profile", default="development")
+    mission_init_cmd.add_argument("--template", default="local-asi-proxy")
+    mission_init_cmd.add_argument("--json", action="store_true", dest="json_output")
+    mission_init_cmd.set_defaults(func=cmd_mission_init)
+    mission_status_cmd = mission_sub.add_parser("status", help="Show mission status.")
+    mission_status_cmd.add_argument("--mission", required=True, dest="mission_id")
+    mission_status_cmd.add_argument("--json", action="store_true", dest="json_output")
+    mission_status_cmd.set_defaults(func=cmd_mission_status)
+    mission_ingest_cmd = mission_sub.add_parser("ingest", help="Ingest local mission input.")
+    mission_ingest_cmd.add_argument("--mission", required=True, dest="mission_id")
+    mission_ingest_cmd.add_argument("--from", required=True, dest="source_format")
+    mission_ingest_cmd.add_argument("--input", required=True)
+    mission_ingest_cmd.add_argument("--json", action="store_true", dest="json_output")
+    mission_ingest_cmd.set_defaults(func=cmd_mission_ingest)
+    mission_next_cmd = mission_sub.add_parser("next", help="Return next safe mission action.")
+    mission_next_cmd.add_argument("--mission", required=True, dest="mission_id")
+    mission_next_cmd.add_argument("--compact", action="store_true")
+    mission_next_cmd.add_argument("--json", action="store_true", dest="json_output")
+    mission_next_cmd.set_defaults(func=cmd_mission_next)
+    mission_report_cmd = mission_sub.add_parser("report", help="Write mission workbench report.")
+    mission_report_cmd.add_argument("--mission", required=True, dest="mission_id")
+    mission_report_cmd.add_argument("--format", choices=["markdown", "json"], default="markdown")
+    mission_report_cmd.add_argument("--out", required=True)
+    mission_report_cmd.set_defaults(func=cmd_mission_report)
+
+    workbench = sub.add_parser("workbench", help="Workbench report commands.")
+    workbench_sub = workbench.add_subparsers(dest="workbench_command", required=True)
+    workbench_report_cmd = workbench_sub.add_parser("report", help="Write a workbench report.")
+    workbench_report_cmd.add_argument("--mission", required=True, dest="mission_id")
+    workbench_report_cmd.add_argument("--format", choices=["markdown", "json"], default="markdown")
+    workbench_report_cmd.add_argument("--out", required=True)
+    workbench_report_cmd.set_defaults(func=cmd_workbench_report)
+
+    claim = sub.add_parser("claim", help="Claim extraction and audit commands.")
+    claim_sub = claim.add_subparsers(dest="claim_command", required=True)
+    claim_extract_cmd = claim_sub.add_parser("extract", help="Extract candidate claims.")
+    claim_extract_cmd.add_argument("--input", required=True)
+    claim_extract_cmd.add_argument("--out", required=True)
+    claim_extract_cmd.add_argument("--json", action="store_true", dest="json_output")
+    claim_extract_cmd.set_defaults(func=cmd_claim_extract)
+    claim_audit_cmd = claim_sub.add_parser("audit", help="Audit candidate claims.")
+    claim_audit_cmd.add_argument("--input", required=True)
+    claim_audit_cmd.add_argument("--fail-on", action="append", default=[])
+    claim_audit_cmd.add_argument("--json", action="store_true", dest="json_output")
+    claim_audit_cmd.set_defaults(func=cmd_claim_audit)
+    claim_passport_cmd = claim_sub.add_parser("passport", help="Build a claim passport.")
+    claim_passport_cmd.add_argument("--claims", required=True)
+    claim_passport_cmd.add_argument("--out", required=True)
+    claim_passport_cmd.add_argument("--json", action="store_true", dest="json_output")
+    claim_passport_cmd.set_defaults(func=cmd_claim_passport)
+
+    bundle = sub.add_parser("bundle", help="Mission bundle commands.")
+    bundle_sub = bundle.add_subparsers(dest="bundle_command", required=True)
+    bundle_validate_cmd = bundle_sub.add_parser("validate", help="Validate a mission bundle.")
+    bundle_validate_cmd.add_argument("--bundle", required=True)
+    bundle_validate_cmd.add_argument("--profile", default="development")
+    bundle_validate_cmd.add_argument("--json", action="store_true", dest="json_output")
+    bundle_validate_cmd.set_defaults(func=cmd_bundle_validate)
 
     schema = sub.add_parser("schema", help="Schema commands.")
     schema_sub = schema.add_subparsers(dest="schema_command", required=True)
@@ -811,6 +891,99 @@ def cmd_agent_explain(args: argparse.Namespace) -> int:
 def cmd_demo_pic_roundtrip(args: argparse.Namespace) -> int:
     _emit_json(demo_pic_roundtrip(execute_pic=bool(args.execute_pic)))
     return EXIT_SUCCESS
+
+
+def cmd_asi_quickstart(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = asi_quickstart(root, profile=args.profile)
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_mission_init(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = initialize_mission(
+        root,
+        name=args.name,
+        profile=args.profile,
+        template=args.template,
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_mission_status(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = mission_status(root, mission_id=args.mission_id)
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_mission_ingest(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = ingest_mission(
+        root,
+        mission_id=args.mission_id,
+        source_format=args.source_format,
+        input_path=Path(args.input),
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_mission_next(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = mission_next(root, mission_id=args.mission_id, compact=bool(args.compact))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_mission_report(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = write_mission_report(
+        root,
+        mission_id=args.mission_id,
+        report_format=args.format,
+        out=Path(args.out),
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS
+
+
+def cmd_workbench_report(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = write_workbench_report(
+        root,
+        mission_id=args.mission_id,
+        report_format=args.format,
+        out=Path(args.out),
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS
+
+
+def cmd_claim_extract(args: argparse.Namespace) -> int:
+    report = write_claim_extract(Path(args.input), Path(args.out))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_claim_audit(args: argparse.Namespace) -> int:
+    report = audit_claim_file(Path(args.input), fail_on=list(args.fail_on or []))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_claim_passport(args: argparse.Namespace) -> int:
+    report = write_claim_passport(Path(args.claims), Path(args.out))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_bundle_validate(args: argparse.Namespace) -> int:
+    report = validate_bundle(Path(args.bundle), profile=args.profile)
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_schema_validate(args: argparse.Namespace) -> int:
