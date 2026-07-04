@@ -270,3 +270,11 @@ task, residual, and capital-witness reports as candidate runtime work, then
 computes loop-next, foundry, graph quotient, performance, cache, and interval
 diagnostics. PIC/PIC-TS remain checker layers. CCR remains the local runtime
 and never treats PIC acceptance as settlement or execution authority.
+
+## v1.5 P2 Interop
+
+Use `ccr conformance bundle` and `ccr conformance parity` to compare CCR bundle
+reports with PIC/PIC-TS evidence reports. Missing parity fields become
+`residual_ready`; PIC `settled=true` remains evidence-only and is not CCR
+settlement. Provider registry validation reads static manifests only and does
+not import PIC, PIC-TS, or provider plugin modules.

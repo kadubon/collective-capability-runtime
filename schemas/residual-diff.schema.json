@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/residual-diff.schema.json",
+  "title": "CCR Residual Diff Report",
+  "type": "object",
+  "required": ["schema_version", "ok", "added_residual_ids", "removed_residual_ids", "unchanged_residual_ids", "external_execution", "network_call_performed", "settled", "non_claims"],
+  "properties": {
+    "schema_version": { "const": "ccr.residual_diff.v1" },
+    "external_execution": { "const": false },
+    "network_call_performed": { "const": false },
+    "settled": { "const": false }
+  },
+  "additionalProperties": true
+}

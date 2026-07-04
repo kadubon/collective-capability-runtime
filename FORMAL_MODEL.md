@@ -210,6 +210,23 @@ Provider(plan | execute | normalize)
 Planning is non-executing. Execution requires explicit operator authority. A
 provider report is evidence input, not settlement authority.
 
+## v1.5 Mission P2 Surfaces
+
+The P2 surfaces are partial functions over local artifacts:
+
+```text
+ResidualMarket(M, R_open) -> ranked_work
+StaticWorkbench(M, P, R) -> html_json_export
+Replay(D, O) -> replay_manifest
+Parity(CCR_report, PIC_report) -> evidence_only_parity
+Registry(registry_manifest, provider_manifests) -> static_metadata_report
+```
+
+They preserve `executed=false`, `network_call_performed=false`, and
+`settled=false`. `ResidualBounty` may create a local task only when `--emit
+task` is supplied. No P2 function grants provider dispatch, imports provider
+code, settles a claim, or proves physical outcomes.
+
 ## Promotion Predicate
 
 Candidate to checked:

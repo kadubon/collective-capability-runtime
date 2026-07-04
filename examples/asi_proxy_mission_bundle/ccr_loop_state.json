@@ -1,9 +1,7 @@
 {
-  "baseline_ref": "baseline:quickstart",
-  "bundle_id": "bundle:quickstart",
-  "executed": false,
   "external_execution": false,
-  "mission_ref": "mission:quickstart",
+  "mission_id": "mission:quickstart",
+  "mutated_runtime": false,
   "network_call_performed": false,
   "non_claims": [
     "not_real_asi_proof",
@@ -12,7 +10,7 @@
     "provider_output_is_evidence_only",
     "pic_output_is_evidence_only"
   ],
-  "schema_version": "ccr.mission_bundle.v1",
-  "settled": false,
-  "target_ref": "target:quickstart"
+  "ok": true,
+  "schema_version": "ccr.mission_status.v1",
+  "settled": false
 }

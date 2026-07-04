@@ -34,6 +34,30 @@
       "additionalProperties": true
     },
     "non_claims": { "type": "array", "minItems": 3, "items": { "type": "string" } }
+    ,
+    "capabilities": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "output_schemas": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "execution_modes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["static", "dry_run", "plan", "import", "normalize", "evidence_only", "candidate_only"]
+      }
+    },
+    "normalization_contract": { "type": "object", "additionalProperties": true },
+    "residual_mapping": { "type": "object", "additionalProperties": true },
+    "safe_command_handling": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "object", "additionalProperties": true }
+      ]
+    },
+    "authority_boundary": { "type": "object", "additionalProperties": true },
+    "network_required": { "type": "boolean" },
+    "side_effect_class": {
+      "type": "string",
+      "enum": ["none", "read_only", "read-only", "dry_run_only", "dry-run-only"]
+    }
   },
   "additionalProperties": true
 }

@@ -38,6 +38,17 @@ REQUIRED_SCHEMA_FILES = [
     "provider-manifest.schema.json",
     "provider-manifest-report.schema.json",
     "provider-conformance-report.schema.json",
+    "external-ingest-report.schema.json",
+    "residual-market.schema.json",
+    "residual-bounty.schema.json",
+    "residual-diff.schema.json",
+    "static-workbench-export-report.schema.json",
+    "operation-replay-manifest.schema.json",
+    "observation-verification-report.schema.json",
+    "cross-repo-conformance-report.schema.json",
+    "parity-report.schema.json",
+    "provider-registry.schema.json",
+    "provider-registry-report.schema.json",
 ]
 
 DOC_ROUTE_FILES = [
@@ -175,11 +186,67 @@ P1_GATE_CHECKS = [
     ),
     (
         ".github/actions/ccr-audit/action.yml",
-        ["ccr audit repo --json", "ccr audit release --dist"],
+        ["pip install -e .", "ccr audit repo --json", "ccr audit release --dist"],
     ),
     (
         "tests/test_v160_p1_gates.py",
         ["test_mcp_gate_cli_smoke", "test_provider_manifest_conformance_cli_smoke"],
+    ),
+]
+P2_RUNTIME_CHECKS = [
+    (
+        "src/ccr/residuals/market.py",
+        ["residual_market", "residual_bounty", "residual_diff", "external_execution"],
+    ),
+    (
+        "src/ccr/workbench/static.py",
+        ["export_static_workbench", "external_assets", "network_call_performed"],
+    ),
+    (
+        "src/ccr/operations/replay.py",
+        ["replay_manifest", "verify_observation", "provider_dispatch_ready"],
+    ),
+    (
+        "src/ccr/conformance/reports.py",
+        ["conformance_bundle", "conformance_parity", "pic_evidence_only"],
+    ),
+    (
+        "src/ccr/providers/registry_manifest.py",
+        ["validate_registry_manifest", "list_registry", "inspect_provider_manifest"],
+    ),
+    (
+        "src/ccr/cli.py",
+        [
+            'residual_sub.add_parser("market"',
+            'workbench_sub.add_parser("export"',
+            "operation_replay_cmd = operation_sub.add_parser",
+            'conformance_sub.add_parser("parity"',
+            "provider_registry_validate_cmd = provider_sub.add_parser",
+        ],
+    ),
+    (
+        "docs/p2-runtime-surfaces.md",
+        ["residual market", "operation replay", "provider registry"],
+    ),
+    (
+        "tests/test_v170_residual_market.py",
+        ["test_residual_market_bounty_and_diff"],
+    ),
+    (
+        "tests/test_v170_static_workbench.py",
+        ["test_static_workbench_export_has_local_assets_only"],
+    ),
+    (
+        "tests/test_v170_operation_replay.py",
+        ["test_operation_replay_manifest_and_verifier"],
+    ),
+    (
+        "tests/test_v170_cross_repo_conformance.py",
+        ["test_cross_repo_conformance_bundle_smoke"],
+    ),
+    (
+        "tests/test_v170_provider_registry.py",
+        ["test_provider_registry_validate_and_list"],
     ),
 ]
 
@@ -201,7 +268,7 @@ def audit_repository(root: Path) -> dict[str, Any]:
         "pyproject.toml",
         must_contain=[
             'name = "collective-capability-runtime"',
-            'version = "1.4.0"',
+            'version = "1.5.0"',
             "Apache-2.0",
             "Development Status :: 5 - Production/Stable",
             "ccr =",
@@ -254,6 +321,7 @@ def audit_repository(root: Path) -> dict[str, Any]:
     _check_cli_surface(root, findings)
     _check_mission_hardening_surface(root, findings)
     _check_p1_gate_surface(root, findings)
+    _check_p2_runtime_surface(root, findings)
     blocking = [finding for finding in findings if finding["blocking"]]
     return {
         "accepted": not blocking,
@@ -530,6 +598,11 @@ def _check_mission_hardening_surface(root: Path, findings: list[dict[str, Any]])
 
 def _check_p1_gate_surface(root: Path, findings: list[dict[str, Any]]) -> None:
     for relative, markers in P1_GATE_CHECKS:
+        _check_file(root, findings, relative, must_contain=markers, missing_content_blocks=True)
+
+
+def _check_p2_runtime_surface(root: Path, findings: list[dict[str, Any]]) -> None:
+    for relative, markers in P2_RUNTIME_CHECKS:
         _check_file(root, findings, relative, must_contain=markers, missing_content_blocks=True)
 
 

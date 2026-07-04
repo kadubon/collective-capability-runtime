@@ -60,6 +60,17 @@ SCHEMA_FILENAMES = {
     "provider-manifest": "provider-manifest.schema.json",
     "provider-manifest-report": "provider-manifest-report.schema.json",
     "provider-conformance-report": "provider-conformance-report.schema.json",
+    "external-ingest-report": "external-ingest-report.schema.json",
+    "residual-market": "residual-market.schema.json",
+    "residual-bounty": "residual-bounty.schema.json",
+    "residual-diff": "residual-diff.schema.json",
+    "static-workbench-export-report": "static-workbench-export-report.schema.json",
+    "operation-replay-manifest": "operation-replay-manifest.schema.json",
+    "observation-verification-report": "observation-verification-report.schema.json",
+    "cross-repo-conformance-report": "cross-repo-conformance-report.schema.json",
+    "parity-report": "parity-report.schema.json",
+    "provider-registry": "provider-registry.schema.json",
+    "provider-registry-report": "provider-registry-report.schema.json",
 }
 
 

@@ -40,6 +40,14 @@ ccr bundle validate --bundle examples/asi_proxy_mission_bundle --profile develop
 ccr mcp inspect-descriptor --file examples/asi_proxy_acceleration_bundle/mcp_descriptor.good.json --json
 ccr a2a preflight-handoff --handoff examples/asi_proxy_acceleration_bundle/a2a_handoff.good.json --json
 ccr provider conformance --file examples/asi_proxy_acceleration_bundle/provider_manifest.good.json --json
+ccr ingest trace --input README.md --mission mission:demo --write-candidates --json
+ccr residual market --mission mission:demo --json
+ccr residual bounty --residual <residual_id> --mission mission:demo --emit task --json
+ccr workbench export --mission mission:demo --format static-html --out site/ --json
+ccr operation replay-manifest --dispatch-report dispatch.json --observation observation.json --out replay.json --json
+ccr operation verify-observation --manifest replay.json --verifier verifier.json --json
+ccr conformance bundle --bundle examples/asi_proxy_mission_bundle --json
+ccr provider registry-validate --file provider-registry.json --json
 ```
 
 Input hardening:
@@ -51,3 +59,8 @@ Input hardening:
 - Bundle validation is schema-bound and reference-closed for local CCR object
   refs. Path traversal and implicit execution/network/settlement claims fail
   closed.
+- MCP/A2A gates compare approved hashes, authority envelopes, descriptor/card
+  identity, replay/idempotency fields, side-effect class, and egress policy.
+- P2 runtime surfaces are local report generators. Only `--write-candidates`
+  and `--emit task` create local CCR artifacts, and neither promotes, settles,
+  dispatches providers, or performs physical actions.

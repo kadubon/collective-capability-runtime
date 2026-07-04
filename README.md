@@ -17,6 +17,14 @@ packets form a collective system that improves downstream problem-solving
 relative to a resource-matched baseline while preserving hazards, residuals,
 authority bounds, and non-execution-by-default constraints.
 
+v1.5.0 completes the Mission Runtime P2 surface. Agents can inspect MCP/A2A
+gates with descriptor/card hashes and authority envelopes, ingest local traces
+or repositories into mission-scoped candidate packets, rank residual work,
+export a static HTML workbench, build operation replay manifests, compare
+CCR/PIC evidence reports, and validate static provider registries. These
+surfaces are local-first: no provider dispatch, network call, shell command,
+physical actuation, or settlement is implied.
+
 v1.4.0 adds the local advisory ASI-proxy loop layer on top of the v1.3.0
 PIC/PIC-TS v0.8.0 interop helpers. Agents can run `ccr loop init`, `ccr loop
 next`, token distill/import/dedup/next commands, foundry smoothing/frontier/VOI
@@ -103,6 +111,13 @@ ccr a2a inspect-card --file examples/asi_proxy_acceleration_bundle/a2a_agent_car
 ccr a2a preflight-handoff --handoff examples/asi_proxy_acceleration_bundle/a2a_handoff.good.json --card examples/asi_proxy_acceleration_bundle/a2a_agent_card.good.json --json
 ccr provider conformance --file examples/asi_proxy_acceleration_bundle/provider_manifest.good.json --json
 ccr ingest trace --input README.md --json
+ccr ingest trace --input README.md --mission mission:quickstart --write-candidates --json
+ccr residual market --mission mission:quickstart --json
+ccr workbench export --mission mission:quickstart --format static-html --out site/ --json
+ccr operation replay-manifest --dispatch-report dispatch.json --observation observation.json --out replay.json --json
+ccr operation verify-observation --manifest replay.json --verifier verifier.json --json
+ccr conformance bundle --bundle examples/asi_proxy_mission_bundle --json
+ccr provider registry-validate --file provider-registry.json --json
 ```
 
 PIC is optional but recommended for packet-level and phase-proxy verification:

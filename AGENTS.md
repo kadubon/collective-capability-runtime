@@ -26,6 +26,9 @@ ccr provider health --provider pic --json
 ccr mcp inspect-descriptor --file mcp_descriptor.json --json
 ccr a2a inspect-card --file agent-card.json --json
 ccr provider conformance --file provider-manifest.json --json
+ccr residual market --mission mission:quickstart --json
+ccr workbench export --mission mission:quickstart --format static-html --out site/ --json
+ccr conformance bundle --bundle examples/asi_proxy_mission_bundle --json
 ```
 
 ## Phase Workflow
@@ -76,7 +79,9 @@ ccr task next --role generator --json
 Safe boundary: inspect before mutating; treat `verify` without `--execute`,
 provider `plan`, audit, report, graph, observe, threshold, `asi quickstart`,
 `mission next`, `workbench report`, MCP/A2A inspect/preflight, external ingest
-facades, and provider conformance commands as the safe starting surface.
+facades, residual market, static workbench export, operation replay,
+cross-repo conformance, provider registry validation, and provider conformance
+commands as the safe starting surface.
 
 Expected outputs: read `ok`, `status`, `packet_id`, `task_id`, `residual_ready`,
 `residuals`, `task_hints`, and `settled` before deciding the next action.
@@ -148,3 +153,12 @@ lower local friction while preserving residuals.
 Token import is not settlement or capital admission. Safe commands are hints,
 not authority. SQLite is a repairable index; JSON artifacts remain source of
 truth.
+
+## v1.5 Mission P2 Addendum
+
+Use `ccr residual market` to route mission blockers, `ccr residual bounty
+--emit task` to create one local repair task, and `ccr workbench export` to
+write a static HTML view for humans or agents. Use operation replay and
+observation verification only as evidence review; they are not dispatch. Use
+provider registry validation for metadata only; CCR must not import plugin code
+from a registry manifest.

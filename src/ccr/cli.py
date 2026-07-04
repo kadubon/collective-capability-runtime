@@ -19,6 +19,7 @@ from ccr.bundles.validate import validate_bundle
 from ccr.claims.audit import audit_claim_file
 from ccr.claims.extract import write_claim_extract
 from ccr.claims.passport import write_claim_passport
+from ccr.conformance.reports import conformance_bundle, conformance_parity
 from ccr.constants import DEFAULT_ACTOR, NON_CLAIMS, SAFE_NEXT_COMMANDS
 from ccr.errors import (
     EXIT_INTERNAL,
@@ -110,6 +111,7 @@ from ccr.mission.init import asi_quickstart, initialize_mission
 from ccr.mission.next import mission_next
 from ccr.mission.report import write_mission_report
 from ccr.mission.status import mission_status
+from ccr.operations.replay import replay_manifest, verify_observation
 from ccr.packets.promotion import promote_packet
 from ccr.packets.store import load_packet, save_packet_at_status, submit_packet, validate_packet
 from ccr.paths import runtime_root
@@ -122,8 +124,10 @@ from ccr.phase.threshold import default_threshold, evaluate_threshold
 from ccr.providers.base import Provider
 from ccr.providers.manifest import inspect_provider_manifest, provider_conformance
 from ccr.providers.registry import get_provider, list_providers
+from ccr.providers.registry_manifest import list_registry, validate_registry_manifest
 from ccr.reports.json_report import phase_report
 from ccr.reports.markdown import render_markdown_report
+from ccr.residuals.market import residual_bounty, residual_diff, residual_market
 from ccr.residuals.model import build_residual
 from ccr.residuals.store import save_residual
 from ccr.runtime.init import init_runtime
@@ -134,6 +138,7 @@ from ccr.tasks.lease import lease_task, release_task
 from ccr.tasks.scheduler import next_task
 from ccr.tasks.store import submit_task, validate_task
 from ccr.time import now_iso
+from ccr.workbench.static import export_static_workbench
 from ccr.workbench.summary import write_workbench_report
 
 
@@ -240,6 +245,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
     )
     workbench_report_cmd.set_defaults(func=cmd_workbench_report)
+    workbench_export_cmd = workbench_sub.add_parser("export", help="Export static workbench.")
+    workbench_export_cmd.add_argument("--mission", required=True, dest="mission_id")
+    workbench_export_cmd.add_argument("--format", choices=["static-html"], required=True)
+    workbench_export_cmd.add_argument("--out", required=True)
+    workbench_export_cmd.add_argument("--json", action="store_true", dest="json_output")
+    workbench_export_cmd.set_defaults(func=cmd_workbench_export)
 
     claim = sub.add_parser("claim", help="Claim extraction and audit commands.")
     claim_sub = claim.add_subparsers(dest="claim_command", required=True)
@@ -267,15 +278,36 @@ def build_parser() -> argparse.ArgumentParser:
     bundle_validate_cmd.add_argument("--json", action="store_true", dest="json_output")
     bundle_validate_cmd.set_defaults(func=cmd_bundle_validate)
 
+    conformance = sub.add_parser("conformance", help="Cross-repo conformance commands.")
+    conformance_sub = conformance.add_subparsers(dest="conformance_command", required=True)
+    conformance_bundle_cmd = conformance_sub.add_parser(
+        "bundle", help="Check CCR bundle conformance."
+    )
+    conformance_bundle_cmd.add_argument("--bundle", required=True)
+    conformance_bundle_cmd.add_argument("--json", action="store_true", dest="json_output")
+    conformance_bundle_cmd.set_defaults(func=cmd_conformance_bundle)
+    conformance_parity_cmd = conformance_sub.add_parser("parity", help="Compare CCR/PIC reports.")
+    conformance_parity_cmd.add_argument("--ccr-report", required=True)
+    conformance_parity_cmd.add_argument("--pic-report", required=True)
+    conformance_parity_cmd.add_argument("--json", action="store_true", dest="json_output")
+    conformance_parity_cmd.set_defaults(func=cmd_conformance_parity)
+
     mcp = sub.add_parser("mcp", help="Local MCP gate commands.")
     mcp_sub = mcp.add_subparsers(dest="mcp_command", required=True)
     mcp_inspect = mcp_sub.add_parser("inspect-descriptor", help="Inspect an MCP descriptor.")
     mcp_inspect.add_argument("--file", required=True)
+    mcp_inspect.add_argument("--policy")
+    mcp_inspect.add_argument("--approved-hash")
+    mcp_inspect.add_argument("--authority")
     mcp_inspect.add_argument("--json", action="store_true", dest="json_output")
     mcp_inspect.set_defaults(func=cmd_mcp_inspect_descriptor)
     mcp_preflight = mcp_sub.add_parser("preflight", help="Preflight an MCP invocation.")
     mcp_preflight.add_argument("--descriptor", required=True)
     mcp_preflight.add_argument("--invocation", required=True)
+    mcp_preflight.add_argument("--policy")
+    mcp_preflight.add_argument("--approved-hash")
+    mcp_preflight.add_argument("--authority")
+    mcp_preflight.add_argument("--descriptor-report")
     mcp_preflight.add_argument("--json", action="store_true", dest="json_output")
     mcp_preflight.set_defaults(func=cmd_mcp_preflight)
 
@@ -283,11 +315,19 @@ def build_parser() -> argparse.ArgumentParser:
     a2a_sub = a2a.add_subparsers(dest="a2a_command", required=True)
     a2a_card = a2a_sub.add_parser("inspect-card", help="Inspect an A2A agent card.")
     a2a_card.add_argument("--file", required=True)
+    a2a_card.add_argument("--policy")
+    a2a_card.add_argument("--approved-hash")
+    a2a_card.add_argument("--authority")
+    a2a_card.add_argument("--profile", default="development")
     a2a_card.add_argument("--json", action="store_true", dest="json_output")
     a2a_card.set_defaults(func=cmd_a2a_inspect_card)
     a2a_preflight = a2a_sub.add_parser("preflight-handoff", help="Preflight an A2A handoff.")
     a2a_preflight.add_argument("--handoff", required=True)
     a2a_preflight.add_argument("--card")
+    a2a_preflight.add_argument("--policy")
+    a2a_preflight.add_argument("--approved-hash")
+    a2a_preflight.add_argument("--authority")
+    a2a_preflight.add_argument("--profile", default="development")
     a2a_preflight.add_argument("--json", action="store_true", dest="json_output")
     a2a_preflight.set_defaults(func=cmd_a2a_preflight_handoff)
 
@@ -295,10 +335,15 @@ def build_parser() -> argparse.ArgumentParser:
     ingest_sub = ingest.add_subparsers(dest="ingest_command", required=True)
     ingest_trace_cmd = ingest_sub.add_parser("trace", help="Inspect an external trace.")
     ingest_trace_cmd.add_argument("--input", required=True)
+    ingest_trace_cmd.add_argument("--mission", dest="mission_id")
+    ingest_trace_cmd.add_argument("--format", choices=["auto", "jsonl", "markdown"], default="auto")
+    ingest_trace_cmd.add_argument("--write-candidates", action="store_true")
     ingest_trace_cmd.add_argument("--json", action="store_true", dest="json_output")
     ingest_trace_cmd.set_defaults(func=cmd_ingest_trace)
     ingest_repo_cmd = ingest_sub.add_parser("repo", help="Inspect a repository directory.")
     ingest_repo_cmd.add_argument("--path", required=True)
+    ingest_repo_cmd.add_argument("--mission", dest="mission_id")
+    ingest_repo_cmd.add_argument("--write-candidates", action="store_true")
     ingest_repo_cmd.add_argument("--json", action="store_true", dest="json_output")
     ingest_repo_cmd.set_defaults(func=cmd_ingest_repo)
 
@@ -379,6 +424,21 @@ def build_parser() -> argparse.ArgumentParser:
     residual_rank_cmd = residual_sub.add_parser("rank", help="Rank open residuals.")
     residual_rank_cmd.add_argument("--json", action="store_true", dest="json_output")
     residual_rank_cmd.set_defaults(func=cmd_residual_rank)
+    residual_market_cmd = residual_sub.add_parser("market", help="Rank mission residual work.")
+    residual_market_cmd.add_argument("--mission", required=True, dest="mission_id")
+    residual_market_cmd.add_argument("--json", action="store_true", dest="json_output")
+    residual_market_cmd.set_defaults(func=cmd_residual_market)
+    residual_bounty_cmd = residual_sub.add_parser("bounty", help="Create a residual bounty.")
+    residual_bounty_cmd.add_argument("--residual", required=True, dest="residual_id")
+    residual_bounty_cmd.add_argument("--mission", required=True, dest="mission_id")
+    residual_bounty_cmd.add_argument("--emit", choices=["task"])
+    residual_bounty_cmd.add_argument("--json", action="store_true", dest="json_output")
+    residual_bounty_cmd.set_defaults(func=cmd_residual_bounty)
+    residual_diff_cmd = residual_sub.add_parser("diff", help="Diff residual market reports.")
+    residual_diff_cmd.add_argument("--before", required=True)
+    residual_diff_cmd.add_argument("--after", required=True)
+    residual_diff_cmd.add_argument("--json", action="store_true", dest="json_output")
+    residual_diff_cmd.set_defaults(func=cmd_residual_diff)
     residual_emit_cmd = residual_sub.add_parser("emit-tasks", help="Emit residual repair tasks.")
     residual_emit_cmd.add_argument("--top", type=int, default=20)
     residual_emit_cmd.add_argument("--json", action="store_true", dest="json_output")
@@ -719,6 +779,23 @@ def build_parser() -> argparse.ArgumentParser:
     operation_incident_cmd.add_argument("--observation", required=True)
     operation_incident_cmd.add_argument("--json", action="store_true", dest="json_output")
     operation_incident_cmd.set_defaults(func=cmd_operation_incident)
+    operation_replay_cmd = operation_sub.add_parser(
+        "replay-manifest",
+        help="Build a non-dispatching replay manifest from dispatch/observation evidence.",
+    )
+    operation_replay_cmd.add_argument("--dispatch-report", required=True)
+    operation_replay_cmd.add_argument("--observation", required=True)
+    operation_replay_cmd.add_argument("--out")
+    operation_replay_cmd.add_argument("--json", action="store_true", dest="json_output")
+    operation_replay_cmd.set_defaults(func=cmd_operation_replay_manifest)
+    operation_verify_observation_cmd = operation_sub.add_parser(
+        "verify-observation",
+        help="Verify an observation from static JSON verifier evidence.",
+    )
+    operation_verify_observation_cmd.add_argument("--manifest", required=True)
+    operation_verify_observation_cmd.add_argument("--verifier", required=True)
+    operation_verify_observation_cmd.add_argument("--json", action="store_true", dest="json_output")
+    operation_verify_observation_cmd.set_defaults(func=cmd_operation_verify_observation)
 
     verify = sub.add_parser("verify", help="Run or plan a verifier provider.")
     verify.add_argument("--provider", required=True)
@@ -749,6 +826,18 @@ def build_parser() -> argparse.ArgumentParser:
     provider_conformance_cmd.add_argument("--file", required=True)
     provider_conformance_cmd.add_argument("--json", action="store_true", dest="json_output")
     provider_conformance_cmd.set_defaults(func=cmd_provider_conformance)
+    provider_registry_validate_cmd = provider_sub.add_parser(
+        "registry-validate", help="Validate static provider registry manifest."
+    )
+    provider_registry_validate_cmd.add_argument("--file", required=True)
+    provider_registry_validate_cmd.add_argument("--json", action="store_true", dest="json_output")
+    provider_registry_validate_cmd.set_defaults(func=cmd_provider_registry_validate)
+    provider_registry_list_cmd = provider_sub.add_parser(
+        "registry-list", help="List static provider registry manifest entries."
+    )
+    provider_registry_list_cmd.add_argument("--file", required=True)
+    provider_registry_list_cmd.add_argument("--json", action="store_true", dest="json_output")
+    provider_registry_list_cmd.set_defaults(func=cmd_provider_registry_list)
     provider_health = provider_sub.add_parser("health", help="Check provider health.")
     provider_health.add_argument("--provider", required=True)
     provider_health.add_argument("--json", action="store_true", dest="json_output")
@@ -1025,6 +1114,13 @@ def cmd_workbench_report(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
+def cmd_workbench_export(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = export_static_workbench(root, mission_id=args.mission_id, out=Path(args.out))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
 def cmd_claim_extract(args: argparse.Namespace) -> int:
     report = write_claim_extract(Path(args.input), Path(args.out))
     _emit_json(report)
@@ -1049,39 +1145,89 @@ def cmd_bundle_validate(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
+def cmd_conformance_bundle(args: argparse.Namespace) -> int:
+    report = conformance_bundle(Path(args.bundle))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_conformance_parity(args: argparse.Namespace) -> int:
+    report = conformance_parity(Path(args.ccr_report), Path(args.pic_report))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
 def cmd_mcp_inspect_descriptor(args: argparse.Namespace) -> int:
-    report = inspect_descriptor(Path(args.file))
+    report = inspect_descriptor(
+        Path(args.file),
+        policy_path=Path(args.policy) if args.policy else None,
+        approved_hash=args.approved_hash,
+        authority=args.authority,
+    )
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_mcp_preflight(args: argparse.Namespace) -> int:
-    report = preflight_invocation(Path(args.descriptor), Path(args.invocation))
+    report = preflight_invocation(
+        Path(args.descriptor),
+        Path(args.invocation),
+        policy_path=Path(args.policy) if args.policy else None,
+        approved_hash=args.approved_hash,
+        authority=args.authority,
+        descriptor_report_path=Path(args.descriptor_report) if args.descriptor_report else None,
+    )
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_a2a_inspect_card(args: argparse.Namespace) -> int:
-    report = inspect_agent_card(Path(args.file))
+    report = inspect_agent_card(
+        Path(args.file),
+        policy_path=Path(args.policy) if args.policy else None,
+        approved_hash=args.approved_hash,
+        authority=args.authority,
+        profile=args.profile,
+    )
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_a2a_preflight_handoff(args: argparse.Namespace) -> int:
     card_path = Path(args.card) if args.card else None
-    report = preflight_handoff(Path(args.handoff), card_path=card_path)
+    report = preflight_handoff(
+        Path(args.handoff),
+        card_path=card_path,
+        policy_path=Path(args.policy) if args.policy else None,
+        approved_hash=args.approved_hash,
+        authority=args.authority,
+        profile=args.profile,
+    )
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_ingest_trace(args: argparse.Namespace) -> int:
-    report = ingest_trace(Path(args.input))
+    root = runtime_root(args.root)
+    report = ingest_trace(
+        Path(args.input),
+        root=root,
+        mission_id=args.mission_id,
+        source_format=args.format,
+        write_candidates=bool(args.write_candidates),
+    )
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_ingest_repo(args: argparse.Namespace) -> int:
-    report = ingest_repo(Path(args.path))
+    root = runtime_root(args.root)
+    report = ingest_repo(
+        Path(args.path),
+        root=root,
+        mission_id=args.mission_id,
+        write_candidates=bool(args.write_candidates),
+    )
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
@@ -1294,6 +1440,31 @@ def cmd_residual_rank(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     _emit_json(residual_rank(root))
     return EXIT_SUCCESS
+
+
+def cmd_residual_market(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = residual_market(root, mission_id=args.mission_id)
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_residual_bounty(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    report = residual_bounty(
+        root,
+        residual_id=args.residual_id,
+        mission_id=args.mission_id,
+        emit_task=args.emit == "task",
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_residual_diff(args: argparse.Namespace) -> int:
+    report = residual_diff(Path(args.before), Path(args.after))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_residual_emit_tasks(args: argparse.Namespace) -> int:
@@ -1895,6 +2066,22 @@ def cmd_operation_incident(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def cmd_operation_replay_manifest(args: argparse.Namespace) -> int:
+    report = replay_manifest(
+        Path(args.dispatch_report),
+        Path(args.observation),
+        out=Path(args.out) if args.out else None,
+    )
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_operation_verify_observation(args: argparse.Namespace) -> int:
+    report = verify_observation(Path(args.manifest), Path(args.verifier))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
 def cmd_verify(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     if args.provider != "pic":
@@ -2026,6 +2213,18 @@ def cmd_provider_manifest(args: argparse.Namespace) -> int:
 
 def cmd_provider_conformance(args: argparse.Namespace) -> int:
     report = provider_conformance(Path(args.file))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_provider_registry_validate(args: argparse.Namespace) -> int:
+    report = validate_registry_manifest(Path(args.file))
+    _emit_json(report)
+    return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_provider_registry_list(args: argparse.Namespace) -> int:
+    report = list_registry(Path(args.file))
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 

@@ -12,12 +12,26 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install CCR
+    - name: Install checkout
       shell: bash
-      run: python -m pip install collective-capability-runtime
+      run: |
+        if command -v uv >/dev/null 2>&1; then
+          uv pip install --system -e .
+        else
+          python -m pip install -e .
+        fi
     - name: Repository audit
       shell: bash
       run: ccr audit repo --json
+    - name: Claim audit README
+      shell: bash
+      run: ccr claim audit --input README.md --json
+    - name: ASI quickstart smoke
+      shell: bash
+      run: ccr --root .tmp/ccr-action-smoke asi quickstart --json
+    - name: Workbench report smoke
+      shell: bash
+      run: ccr --root .tmp/ccr-action-smoke workbench report --mission mission:quickstart --format json --out .tmp/ccr-action-smoke/workbench.json --json
     - name: Release audit
       if: ${{ inputs.run-release-audit == 'true' }}
       shell: bash

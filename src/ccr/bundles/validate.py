@@ -46,6 +46,7 @@ SCHEMA_KIND_BY_VERSION = {
     "ccr.claim_passport.v1": "claim-passport",
     "ccr.mission.v1": "mission",
     "ccr.mission_bundle.v1": "mission-bundle",
+    "ccr.mission_status.v1": "mission-run-report",
     "ccr.mission_state.v1": "mission-state",
     "ccr.packet.v0.1": "packet",
     "ccr.provider_conformance_report.v1": "provider-conformance-report",
@@ -180,8 +181,11 @@ def validate_bundle(bundle: Path, *, profile: str = "development") -> dict[str, 
 
     for path, data in objects:
         _validate_object(path, data, blockers, residual_ready, root=root)
+        _validate_non_claims(path, data, blockers, residual_ready, root=root)
         _validate_path_refs(path, data, blockers, residual_ready, root=root)
     _validate_reference_closure(objects, valid_object_ids, blockers, residual_ready, root=root)
+    _validate_manifest_file_closure(objects, blockers, residual_ready, root=root)
+    _validate_mission_target_baseline_closure(objects, blockers, residual_ready, root=root)
 
     observed_parity = {
         "baseline_present": has_baseline,
@@ -283,6 +287,27 @@ def _validate_object(
         )
 
 
+def _validate_non_claims(
+    path: Path,
+    data: dict[str, Any],
+    blockers: list[str],
+    residual_ready: list[dict[str, Any]],
+    *,
+    root: Path,
+) -> None:
+    if "non_claims" not in data:
+        return
+    if _has_required_non_claims(data):
+        return
+    _add_blocker(
+        blockers,
+        residual_ready,
+        "missing_non_claims",
+        f"{_display(path, root)}:non_claims",
+        "Bundle object non_claims must include all ASI-proxy mission non-claim boundaries.",
+    )
+
+
 def _validate_path_refs(
     path: Path,
     data: dict[str, Any],
@@ -307,7 +332,7 @@ def _validate_path_refs(
             continue
         expected_hash = _expected_hash(holder)
         if expected_hash is None:
-            if candidate.exists():
+            if candidate.exists() and candidate.is_file():
                 _add_residual(
                     residual_ready,
                     "missing_evidence",
@@ -315,6 +340,14 @@ def _validate_path_refs(
                     f"Path reference has no content hash: {value}",
                     blocking=False,
                     severity="info",
+                )
+            else:
+                _add_blocker(
+                    blockers,
+                    residual_ready,
+                    "path_ref_missing",
+                    display,
+                    f"Bundle path reference is missing and has no content hash: {value}",
                 )
             continue
         if expected_hash == "unknown":
@@ -365,6 +398,123 @@ def _validate_reference_closure(
                     f"{_display(path, root)}:{key}",
                     f"Bundle local reference is not backed by a schema-valid object: {ref}",
                 )
+
+
+def _validate_manifest_file_closure(
+    objects: list[tuple[Path, dict[str, Any]]],
+    blockers: list[str],
+    residual_ready: list[dict[str, Any]],
+    *,
+    root: Path,
+) -> None:
+    bundle_objects = [(path, data) for path, data in objects if data.get("bundle_id")]
+    for path, data in bundle_objects:
+        files = data.get("files")
+        if files is None:
+            continue
+        declared = _declared_files(files)
+        display = _display(path, root)
+        if not declared:
+            _add_blocker(
+                blockers,
+                residual_ready,
+                "bundle_manifest_files_empty",
+                display,
+                "Bundle manifest files list is present but empty or malformed.",
+            )
+            continue
+        for relative in declared:
+            candidate = (path.parent / relative).resolve()
+            if Path(relative).is_absolute() or not is_path_within_root(candidate, root):
+                _add_blocker(
+                    blockers,
+                    residual_ready,
+                    "path_traversal",
+                    f"{display}:files",
+                    f"Bundle manifest file reference resolves outside root: {relative}",
+                )
+            elif not candidate.exists() or not candidate.is_file():
+                _add_blocker(
+                    blockers,
+                    residual_ready,
+                    "bundle_manifest_file_missing",
+                    f"{display}:files",
+                    f"Bundle manifest file reference is missing: {relative}",
+                )
+        object_paths = {
+            _display(object_path, path.parent.resolve())
+            for object_path, _ in objects
+            if object_path != path
+        }
+        missing_from_manifest = sorted(object_paths - declared)
+        if missing_from_manifest:
+            _add_blocker(
+                blockers,
+                residual_ready,
+                "bundle_manifest_files_not_closed",
+                f"{display}:files",
+                "Bundle manifest files list does not cover every JSON object in the bundle.",
+                extensions={"missing_files": missing_from_manifest},
+            )
+
+
+def _validate_mission_target_baseline_closure(
+    objects: list[tuple[Path, dict[str, Any]]],
+    blockers: list[str],
+    residual_ready: list[dict[str, Any]],
+    *,
+    root: Path,
+) -> None:
+    missions = [(path, data) for path, data in objects if data.get("mission_id")]
+    targets = {
+        str(data.get("target_id")): (path, data)
+        for path, data in objects
+        if isinstance(data.get("target_id"), str)
+    }
+    baselines = {
+        str(data.get("baseline_id")): (path, data)
+        for path, data in objects
+        if isinstance(data.get("baseline_id"), str)
+    }
+    for mission_path_value, mission in missions:
+        target_ref = str(mission.get("asi_proxy_target_ref", ""))
+        baseline_ref = str(mission.get("baseline_ref", ""))
+        display = _display(mission_path_value, root)
+        target_pair = targets.get(target_ref)
+        baseline_pair = baselines.get(baseline_ref)
+        if target_ref and target_pair is None:
+            _add_blocker(
+                blockers,
+                residual_ready,
+                "mission_target_ref_unresolved",
+                f"{display}:asi_proxy_target_ref",
+                f"Mission target ref is not backed by a target object: {target_ref}",
+            )
+        if baseline_ref and baseline_pair is None:
+            _add_blocker(
+                blockers,
+                residual_ready,
+                "mission_baseline_ref_unresolved",
+                f"{display}:baseline_ref",
+                f"Mission baseline ref is not backed by a baseline object: {baseline_ref}",
+            )
+        if target_pair is None or baseline_pair is None:
+            continue
+        _, target = target_pair
+        if str(target.get("baseline_upper_envelope_ref", "")) != baseline_ref:
+            _add_blocker(
+                blockers,
+                residual_ready,
+                "target_baseline_ref_mismatch",
+                f"{_display(target_pair[0], root)}:baseline_upper_envelope_ref",
+                "Target baseline_upper_envelope_ref does not match mission baseline_ref.",
+                extensions={
+                    "mission_baseline_ref": baseline_ref,
+                    "target_baseline_upper_envelope_ref": str(
+                        target.get("baseline_upper_envelope_ref", "")
+                    ),
+                },
+            )
 
 
 def _collect_residuals(value: Any) -> list[dict[str, Any]]:
@@ -458,11 +608,7 @@ def _has_required_non_claims(data: dict[str, Any]) -> bool:
     if not isinstance(values, list):
         return False
     normalized = {str(item).strip().lower() for item in values}
-    required = {
-        "not_real_asi_proof",
-        "not_execution_authority",
-        "not_physical_outcome_proof",
-    }
+    required = {item.lower() for item in MISSION_NON_CLAIMS}
     if required.issubset(normalized):
         return True
     text = "\n".join(normalized)
@@ -470,6 +616,8 @@ def _has_required_non_claims(data: dict[str, Any]) -> bool:
         "does not detect real asi" in text
         and "does not grant execution authority" in text
         and ("not physical outcome proof" in text or "physical outcome proof" in text)
+        and "provider output is evidence only" in text
+        and "pic output is evidence only" in text
     )
 
 
@@ -498,6 +646,20 @@ def _expected_hash(holder: dict[str, Any]) -> str | None:
         if isinstance(value, str) and value:
             return value
     return None
+
+
+def _declared_files(files: Any) -> set[str]:
+    declared: set[str] = set()
+    if not isinstance(files, list):
+        return declared
+    for item in files:
+        if isinstance(item, str) and item:
+            declared.add(item.replace("\\", "/"))
+        elif isinstance(item, dict):
+            raw = item.get("path") or item.get("file")
+            if isinstance(raw, str) and raw:
+                declared.add(raw.replace("\\", "/"))
+    return declared
 
 
 def _add_blocker(

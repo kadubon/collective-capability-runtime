@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/provider-registry.schema.json",
+  "title": "CCR Provider Registry",
+  "type": "object",
+  "required": ["schema_version", "providers"],
+  "properties": {
+    "schema_version": { "const": "ccr.provider_registry.v1" },
+    "providers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["provider_id", "manifest_path"],
+        "properties": {
+          "provider_id": { "type": "string", "minLength": 1 },
+          "manifest_path": { "type": "string", "minLength": 1 },
+          "provider_class": { "type": "string" },
+          "side_effect_class": { "type": "string" },
+          "manifest_hash": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

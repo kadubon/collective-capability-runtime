@@ -3,11 +3,13 @@
   "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/mcp-tool-invocation-preflight.schema.json",
   "title": "CCR MCP Tool Invocation Preflight",
   "type": "object",
-  "required": ["schema_version", "ok", "invocation_ready", "executed", "network_call_performed", "residuals", "blockers", "non_claims", "settled"],
+  "required": ["schema_version", "ok", "invocation_ready", "executed", "external_execution", "network_call_performed", "provider_dispatch_ready", "authority_decision", "descriptor_hash", "invocation_hash", "residuals", "blockers", "non_claims", "settled"],
   "properties": {
     "schema_version": { "const": "ccr.mcp_tool_invocation_preflight.v1" },
     "executed": { "const": false },
+    "external_execution": { "const": false },
     "network_call_performed": { "const": false },
+    "provider_dispatch_ready": { "type": "boolean" },
     "settled": { "const": false }
   },
   "additionalProperties": true

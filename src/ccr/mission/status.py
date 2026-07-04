@@ -57,9 +57,10 @@ def mission_status(root: Path, *, mission_id: str) -> dict[str, Any]:
         "profile": mission.get("profile"),
         "residual_counts": mission_residual_counts(residuals),
         "residual_ready": scope["residual_ready"],
+        "runtime_task_counts": task_counts(root),
         "schema_version": "ccr.mission_status.v1",
         "settled": False,
         "state": scope["state"],
         "target_ref": mission.get("asi_proxy_target_ref"),
-        "task_counts": task_counts(root),
+        "mission_task_counts": {},
     }

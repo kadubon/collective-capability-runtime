@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- No unreleased changes.
+
+## 1.5.0 - 2026-07-04
+
 - Hardens the Mission Runtime Layer with mission-scoped packet/residual
   isolation, schema-valid failure reports, `--fail-on blocking_residual` and
   `--fail-on missing_mission` report exit policies, bounded UTF-8/JSON input
@@ -11,6 +15,9 @@
   `ccr a2a inspect-card/preflight-handoff`, `ccr ingest trace/repo`, provider
   manifest/conformance reports, provider manifest schemas, and a non-publishing
   `.github/actions/ccr-audit` helper.
+- Adds P2 runtime surfaces: residual work market/bounty/diff, static workbench
+  export, operation replay/observation verification, cross-repo CCR/PIC
+  conformance reports, and a static provider plugin registry.
 - Adds a local Mission Runtime Layer with `ccr asi quickstart`, `ccr mission
   init/status/ingest/next/report`, and `ccr workbench report` for immediate
   ASI-proxy mission setup without provider execution, network calls, settlement,

@@ -3,9 +3,13 @@
   "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/a2a-task-handoff-report.schema.json",
   "title": "CCR A2A Task Handoff Report",
   "type": "object",
-  "required": ["schema_version", "ok", "accepted", "handoff_id", "residuals", "blockers", "non_claims", "settled"],
+  "required": ["schema_version", "ok", "accepted", "handoff_id", "authority_decision", "profile", "delegated_tool_execution", "executed", "external_execution", "network_call_performed", "residuals", "blockers", "non_claims", "settled"],
   "properties": {
     "schema_version": { "const": "ccr.a2a_task_handoff_report.v1" },
+    "delegated_tool_execution": { "const": false },
+    "executed": { "const": false },
+    "external_execution": { "const": false },
+    "network_call_performed": { "const": false },
     "settled": { "const": false }
   },
   "additionalProperties": true

@@ -14,6 +14,46 @@ from ccr.schemas.validation import validate_instance
 
 SAFE_SIDE_EFFECT_POLICIES = {"none", "read_only", "read-only", "dry_run_only", "dry-run-only"}
 SAFE_NETWORK_POLICIES = {"none", "disabled", "explicit_source_only", "local_only", "local-only"}
+KNOWN_SCHEMA_KINDS = {
+    "a2a-agent-card-report",
+    "a2a-task-handoff-report",
+    "audit-report",
+    "bundle-validate-report",
+    "claim-passport",
+    "mcp-tool-descriptor-report",
+    "mcp-tool-invocation-preflight",
+    "mission-run-report",
+    "packet",
+    "provider-conformance-report",
+    "provider-manifest-report",
+    "residual",
+    "residual_ready",
+    "task",
+    "trc-operation-observation",
+    "trc-operation-plan",
+    "trc-operation-preflight",
+    "verifier-report",
+    "workbench-report",
+}
+KNOWN_EXECUTION_MODES = {
+    "candidate_only",
+    "dry_run",
+    "evidence_only",
+    "import",
+    "normalize",
+    "plan",
+    "static",
+}
+FORBIDDEN_DYNAMIC_KEYS = {
+    "dynamic_import",
+    "entrypoint",
+    "exec",
+    "execute",
+    "import_path",
+    "load_provider",
+    "module",
+    "plugin_module",
+}
 
 
 def inspect_provider_manifest(path: Path) -> dict[str, Any]:
@@ -83,7 +123,125 @@ def _manifest_residuals(manifest: dict[str, Any], *, source: str) -> list[dict[s
                 "ccr.provider.manifest",
             )
         )
+    residuals.extend(_optional_contract_residuals(manifest, source=source))
     return residuals
+
+
+def _optional_contract_residuals(manifest: dict[str, Any], *, source: str) -> list[dict[str, Any]]:
+    residuals: list[dict[str, Any]] = []
+    execution_modes = manifest.get("execution_modes")
+    if execution_modes is not None:
+        if not isinstance(execution_modes, list):
+            residuals.append(
+                residual_ready(
+                    "validation_error",
+                    source,
+                    "Provider execution_modes must be a list.",
+                    "ccr.provider.manifest",
+                )
+            )
+        else:
+            for mode in execution_modes:
+                mode_text = str(mode)
+                if mode_text not in KNOWN_EXECUTION_MODES:
+                    residuals.append(
+                        residual_ready(
+                            "authority_gap",
+                            source,
+                            f"Provider execution mode is unknown or unsafe: {mode_text}",
+                            "ccr.provider.manifest",
+                        )
+                    )
+    output_schemas = manifest.get("output_schemas")
+    if output_schemas is not None:
+        if not isinstance(output_schemas, list):
+            residuals.append(
+                residual_ready(
+                    "validation_error",
+                    source,
+                    "Provider output_schemas must be a list.",
+                    "ccr.provider.manifest",
+                )
+            )
+        else:
+            for schema in output_schemas:
+                schema_text = str(schema)
+                if schema_text not in KNOWN_SCHEMA_KINDS:
+                    residuals.append(
+                        residual_ready(
+                            "validation_error",
+                            source,
+                            f"Provider output schema is not a known CCR schema kind: {schema_text}",
+                            "ccr.provider.manifest",
+                        )
+                    )
+    safe_command_handling = manifest.get("safe_command_handling")
+    if safe_command_handling is not None:
+        safe_text = canonical_dumps(safe_command_handling).lower()
+        if "task_hint" not in safe_text and "task-hint" not in safe_text:
+            residuals.append(
+                residual_ready(
+                    "safe_command_hint",
+                    source,
+                    "Provider safe_command_handling must route safe commands as task hints only.",
+                    "ccr.provider.manifest",
+                )
+            )
+        if "execute" in safe_text or "shell" in safe_text or "subprocess" in safe_text:
+            residuals.append(
+                residual_ready(
+                    "authority_gap",
+                    source,
+                    "Provider safe_command_handling must not request shell execution.",
+                    "ccr.provider.manifest",
+                )
+            )
+    if manifest.get("network_required") is True:
+        network_policy = str(manifest.get("network_policy", "unknown")).lower()
+        if network_policy not in {"explicit_source_only"}:
+            residuals.append(
+                residual_ready(
+                    "authority_gap",
+                    source,
+                    "Provider network_required=true requires explicit_source_only network_policy.",
+                    "ccr.provider.manifest",
+                )
+            )
+    side_effect_class = manifest.get("side_effect_class")
+    if (
+        side_effect_class is not None
+        and str(side_effect_class).lower() not in SAFE_SIDE_EFFECT_POLICIES
+    ):
+        residuals.append(
+            residual_ready(
+                "authority_gap",
+                source,
+                f"Provider side_effect_class is not static-safe: {side_effect_class}",
+                "ccr.provider.manifest",
+            )
+        )
+    if _contains_forbidden_dynamic_key(manifest):
+        residuals.append(
+            residual_ready(
+                "authority_gap",
+                source,
+                "Provider manifest contains dynamic import/loading/execution fields.",
+                "ccr.provider.manifest",
+            )
+        )
+    return residuals
+
+
+def _contains_forbidden_dynamic_key(value: Any) -> bool:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if str(key).lower() in FORBIDDEN_DYNAMIC_KEYS:
+                return True
+            if _contains_forbidden_dynamic_key(item):
+                return True
+    if isinstance(value, list):
+        return any(_contains_forbidden_dynamic_key(item) for item in value)
+    return False
 
 
 def _report(
