@@ -33,10 +33,21 @@ def mission_next(root: Path, *, mission_id: str, compact: bool = False) -> dict[
         }
     mission = load_mission(root, mission_id)
     scope = mission_scope(root, mission_id)
-    safe_command = f"ccr mission next --mission {mission_id} --compact --json"
     blocking = [item for item in scope["residuals"] if item.get("blocking")] if scope["ok"] else []
     packet_count = len(scope["packets"]) if scope["ok"] else 0
     action_kind = "repair_residual" if blocking else "ingest_or_verify_packet"
+    if blocking:
+        residual_id = str(blocking[0].get("residual_id", ""))
+        safe_command = f"ccr residual market --mission {mission_id} --json"
+        follow_up_command = (
+            f"ccr residual bounty --residual {residual_id} --mission {mission_id} "
+            "--emit task --json"
+            if residual_id
+            else ""
+        )
+    else:
+        safe_command = f"ccr mission next --mission {mission_id} --compact --json"
+        follow_up_command = ""
     if compact:
         return {
             "external_execution": False,
@@ -48,6 +59,7 @@ def mission_next(root: Path, *, mission_id: str, compact: bool = False) -> dict[
             "ok": bool(scope["ok"]),
             "recommended_action": {
                 "external_execution": False,
+                "follow_up_command": follow_up_command,
                 "kind": action_kind,
                 "safe_command": safe_command,
                 "writes_runtime": False,
@@ -76,6 +88,7 @@ def mission_next(root: Path, *, mission_id: str, compact: bool = False) -> dict[
         "ok": bool(scope["ok"]),
         "recommended_action": {
             "external_execution": False,
+            "follow_up_command": follow_up_command,
             "kind": action_kind,
             "safe_command": safe_command,
             "writes_runtime": False,

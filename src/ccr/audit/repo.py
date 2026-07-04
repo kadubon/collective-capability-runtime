@@ -40,8 +40,11 @@ REQUIRED_SCHEMA_FILES = [
     "provider-conformance-report.schema.json",
     "external-ingest-report.schema.json",
     "residual-market.schema.json",
+    "residual-market-report.schema.json",
     "residual-bounty.schema.json",
+    "residual-bounty-report.schema.json",
     "residual-diff.schema.json",
+    "residual-diff-report.schema.json",
     "static-workbench-export-report.schema.json",
     "operation-replay-manifest.schema.json",
     "observation-verification-report.schema.json",
@@ -127,6 +130,7 @@ FIRST_TIME_AGENT_MARKERS = [
     "Safe boundary:",
     "Expected outputs:",
     "Failure/residual handling:",
+    "P2 safe commands:",
     "Provider import:",
     "Phase formation cycle:",
     "What not to claim:",
@@ -196,19 +200,19 @@ P1_GATE_CHECKS = [
 P2_RUNTIME_CHECKS = [
     (
         "src/ccr/residuals/market.py",
-        ["residual_market", "residual_bounty", "residual_diff", "external_execution"],
+        ["residual_market", "residual_bounty", "residual_diff", "runtime", "external_execution"],
     ),
     (
         "src/ccr/workbench/static.py",
-        ["export_static_workbench", "external_assets", "network_call_performed"],
+        ["export_static_workbench", "phase.html", "operations.html", "manifest.json"],
     ),
     (
         "src/ccr/operations/replay.py",
-        ["replay_manifest", "verify_observation", "provider_dispatch_ready"],
+        ["replay_manifest", "verify_observation", "physical_outcome_proven"],
     ),
     (
         "src/ccr/conformance/reports.py",
-        ["conformance_bundle", "conformance_parity", "pic_evidence_only"],
+        ["conformance_bundle", "conformance_parity", "pic_evidence_only", "REQUIRED_PARITY_FIELDS"],
     ),
     (
         "src/ccr/providers/registry_manifest.py",
@@ -226,7 +230,7 @@ P2_RUNTIME_CHECKS = [
     ),
     (
         "docs/p2-runtime-surfaces.md",
-        ["residual market", "operation replay", "provider registry"],
+        ["residual market", "operation replay", "provider registry", "P2 safe commands:"],
     ),
     (
         "tests/test_v170_residual_market.py",

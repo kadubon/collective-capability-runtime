@@ -65,6 +65,22 @@ finding ids, and `residual_ready` objects for every issue.
 Failure/residual handling: a failed audit is actionable protocol state; preserve
 the finding and repair it before release or settlement promotion.
 
+P2 safe commands:
+
+```bash
+ccr residual market --json
+ccr residual market --mission <mission_id> --json
+ccr residual bounty --residual <residual_id> --mission <mission_id> --emit task --json
+ccr workbench export --mission <mission_id> --format static-html --out site/ --json
+ccr operation replay-manifest --dispatch-report dispatch.json --observation observation.json --out replay.json --json
+ccr operation verify-observation --manifest replay.json --verifier verifier.json --json
+ccr conformance parity --ccr-report ccr.json --pic-report pic.json --json
+ccr provider registry-validate --file provider-registry.json --json
+```
+
+These commands are safe for audit preparation. They do not create releases,
+push tags, upload to PyPI, or dispatch providers.
+
 Provider import: audit validates the import boundary but does not import or
 execute provider reports itself.
 

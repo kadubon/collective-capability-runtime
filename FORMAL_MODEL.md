@@ -48,6 +48,22 @@ candidate artifacts expose finite metrics, blockers, reasons, and `settled=false
 Failure/residual handling: failed predicates become residual debt, failed
 components, abstention reasons, or repair tasks rather than hidden state.
 
+P2 safe commands:
+
+```bash
+ccr residual market --json
+ccr residual market --mission <mission_id> --json
+ccr residual bounty --residual <residual_id> --mission <mission_id> --emit task --json
+ccr workbench export --mission <mission_id> --format static-html --out site/ --json
+ccr operation replay-manifest --dispatch-report dispatch.json --observation observation.json --out replay.json --json
+ccr operation verify-observation --manifest replay.json --verifier verifier.json --json
+ccr conformance parity --ccr-report ccr.json --pic-report pic.json --json
+ccr provider registry-validate --file provider-registry.json --json
+```
+
+In the model these are residual-routing, static-export, evidence-replay, and
+metadata-validation relations, not execution or settlement transitions.
+
 Provider import: provider reports enter the model as external evidence
 relations and residual sources, not as direct settlement functions.
 

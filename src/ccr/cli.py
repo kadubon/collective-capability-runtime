@@ -141,6 +141,14 @@ from ccr.time import now_iso
 from ccr.workbench.static import export_static_workbench
 from ccr.workbench.summary import write_workbench_report
 
+REPORT_FAIL_POLICY_CHOICES = [
+    "blocking_residual",
+    "missing_mission",
+    "unsupported_claim",
+    "overclaim",
+    "schema_error",
+]
+
 
 def main(argv: list[str] | None = None) -> int:
     """Run the CCR CLI."""
@@ -227,7 +235,7 @@ def build_parser() -> argparse.ArgumentParser:
     mission_report_cmd.add_argument(
         "--fail-on",
         action="append",
-        choices=["blocking_residual", "missing_mission"],
+        choices=REPORT_FAIL_POLICY_CHOICES,
         default=[],
     )
     mission_report_cmd.set_defaults(func=cmd_mission_report)
@@ -241,7 +249,7 @@ def build_parser() -> argparse.ArgumentParser:
     workbench_report_cmd.add_argument(
         "--fail-on",
         action="append",
-        choices=["blocking_residual", "missing_mission"],
+        choices=REPORT_FAIL_POLICY_CHOICES,
         default=[],
     )
     workbench_report_cmd.set_defaults(func=cmd_workbench_report)
@@ -261,7 +269,9 @@ def build_parser() -> argparse.ArgumentParser:
     claim_extract_cmd.set_defaults(func=cmd_claim_extract)
     claim_audit_cmd = claim_sub.add_parser("audit", help="Audit candidate claims.")
     claim_audit_cmd.add_argument("--input", required=True)
-    claim_audit_cmd.add_argument("--fail-on", action="append", default=[])
+    claim_audit_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
     claim_audit_cmd.add_argument("--json", action="store_true", dest="json_output")
     claim_audit_cmd.set_defaults(func=cmd_claim_audit)
     claim_passport_cmd = claim_sub.add_parser("passport", help="Build a claim passport.")
@@ -275,6 +285,9 @@ def build_parser() -> argparse.ArgumentParser:
     bundle_validate_cmd = bundle_sub.add_parser("validate", help="Validate a mission bundle.")
     bundle_validate_cmd.add_argument("--bundle", required=True)
     bundle_validate_cmd.add_argument("--profile", default="development")
+    bundle_validate_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
     bundle_validate_cmd.add_argument("--json", action="store_true", dest="json_output")
     bundle_validate_cmd.set_defaults(func=cmd_bundle_validate)
 
@@ -284,11 +297,17 @@ def build_parser() -> argparse.ArgumentParser:
         "bundle", help="Check CCR bundle conformance."
     )
     conformance_bundle_cmd.add_argument("--bundle", required=True)
+    conformance_bundle_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
     conformance_bundle_cmd.add_argument("--json", action="store_true", dest="json_output")
     conformance_bundle_cmd.set_defaults(func=cmd_conformance_bundle)
     conformance_parity_cmd = conformance_sub.add_parser("parity", help="Compare CCR/PIC reports.")
     conformance_parity_cmd.add_argument("--ccr-report", required=True)
     conformance_parity_cmd.add_argument("--pic-report", required=True)
+    conformance_parity_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
     conformance_parity_cmd.add_argument("--json", action="store_true", dest="json_output")
     conformance_parity_cmd.set_defaults(func=cmd_conformance_parity)
 
@@ -299,6 +318,9 @@ def build_parser() -> argparse.ArgumentParser:
     mcp_inspect.add_argument("--policy")
     mcp_inspect.add_argument("--approved-hash")
     mcp_inspect.add_argument("--authority")
+    mcp_inspect.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
     mcp_inspect.add_argument("--json", action="store_true", dest="json_output")
     mcp_inspect.set_defaults(func=cmd_mcp_inspect_descriptor)
     mcp_preflight = mcp_sub.add_parser("preflight", help="Preflight an MCP invocation.")
@@ -308,6 +330,9 @@ def build_parser() -> argparse.ArgumentParser:
     mcp_preflight.add_argument("--approved-hash")
     mcp_preflight.add_argument("--authority")
     mcp_preflight.add_argument("--descriptor-report")
+    mcp_preflight.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
     mcp_preflight.add_argument("--json", action="store_true", dest="json_output")
     mcp_preflight.set_defaults(func=cmd_mcp_preflight)
 
@@ -319,6 +344,9 @@ def build_parser() -> argparse.ArgumentParser:
     a2a_card.add_argument("--approved-hash")
     a2a_card.add_argument("--authority")
     a2a_card.add_argument("--profile", default="development")
+    a2a_card.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
     a2a_card.add_argument("--json", action="store_true", dest="json_output")
     a2a_card.set_defaults(func=cmd_a2a_inspect_card)
     a2a_preflight = a2a_sub.add_parser("preflight-handoff", help="Preflight an A2A handoff.")
@@ -328,6 +356,9 @@ def build_parser() -> argparse.ArgumentParser:
     a2a_preflight.add_argument("--approved-hash")
     a2a_preflight.add_argument("--authority")
     a2a_preflight.add_argument("--profile", default="development")
+    a2a_preflight.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
     a2a_preflight.add_argument("--json", action="store_true", dest="json_output")
     a2a_preflight.set_defaults(func=cmd_a2a_preflight_handoff)
 
@@ -425,7 +456,7 @@ def build_parser() -> argparse.ArgumentParser:
     residual_rank_cmd.add_argument("--json", action="store_true", dest="json_output")
     residual_rank_cmd.set_defaults(func=cmd_residual_rank)
     residual_market_cmd = residual_sub.add_parser("market", help="Rank mission residual work.")
-    residual_market_cmd.add_argument("--mission", required=True, dest="mission_id")
+    residual_market_cmd.add_argument("--mission", dest="mission_id")
     residual_market_cmd.add_argument("--json", action="store_true", dest="json_output")
     residual_market_cmd.set_defaults(func=cmd_residual_market)
     residual_bounty_cmd = residual_sub.add_parser("bounty", help="Create a residual bounty.")
@@ -818,18 +849,27 @@ def build_parser() -> argparse.ArgumentParser:
     provider_list.set_defaults(func=cmd_provider_list)
     provider_manifest_cmd = provider_sub.add_parser("manifest", help="Inspect provider manifest.")
     provider_manifest_cmd.add_argument("--file", required=True)
+    provider_manifest_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
     provider_manifest_cmd.add_argument("--json", action="store_true", dest="json_output")
     provider_manifest_cmd.set_defaults(func=cmd_provider_manifest)
     provider_conformance_cmd = provider_sub.add_parser(
         "conformance", help="Check provider static conformance."
     )
     provider_conformance_cmd.add_argument("--file", required=True)
+    provider_conformance_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
     provider_conformance_cmd.add_argument("--json", action="store_true", dest="json_output")
     provider_conformance_cmd.set_defaults(func=cmd_provider_conformance)
     provider_registry_validate_cmd = provider_sub.add_parser(
         "registry-validate", help="Validate static provider registry manifest."
     )
     provider_registry_validate_cmd.add_argument("--file", required=True)
+    provider_registry_validate_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
     provider_registry_validate_cmd.add_argument("--json", action="store_true", dest="json_output")
     provider_registry_validate_cmd.set_defaults(func=cmd_provider_registry_validate)
     provider_registry_list_cmd = provider_sub.add_parser(
@@ -1141,18 +1181,21 @@ def cmd_claim_passport(args: argparse.Namespace) -> int:
 
 def cmd_bundle_validate(args: argparse.Namespace) -> int:
     report = validate_bundle(Path(args.bundle), profile=args.profile)
+    _apply_report_fail_policy(report, list(args.fail_on or []))
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_conformance_bundle(args: argparse.Namespace) -> int:
     report = conformance_bundle(Path(args.bundle))
+    _apply_report_fail_policy(report, list(args.fail_on or []))
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_conformance_parity(args: argparse.Namespace) -> int:
     report = conformance_parity(Path(args.ccr_report), Path(args.pic_report))
+    _apply_report_fail_policy(report, list(args.fail_on or []))
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
@@ -1164,6 +1207,7 @@ def cmd_mcp_inspect_descriptor(args: argparse.Namespace) -> int:
         approved_hash=args.approved_hash,
         authority=args.authority,
     )
+    _apply_report_fail_policy(report, list(args.fail_on or []))
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
@@ -1177,6 +1221,7 @@ def cmd_mcp_preflight(args: argparse.Namespace) -> int:
         authority=args.authority,
         descriptor_report_path=Path(args.descriptor_report) if args.descriptor_report else None,
     )
+    _apply_report_fail_policy(report, list(args.fail_on or []))
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
@@ -1189,6 +1234,7 @@ def cmd_a2a_inspect_card(args: argparse.Namespace) -> int:
         authority=args.authority,
         profile=args.profile,
     )
+    _apply_report_fail_policy(report, list(args.fail_on or []))
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
@@ -1203,6 +1249,7 @@ def cmd_a2a_preflight_handoff(args: argparse.Namespace) -> int:
         authority=args.authority,
         profile=args.profile,
     )
+    _apply_report_fail_policy(report, list(args.fail_on or []))
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
@@ -2207,18 +2254,21 @@ def cmd_provider_list(args: argparse.Namespace) -> int:
 
 def cmd_provider_manifest(args: argparse.Namespace) -> int:
     report = inspect_provider_manifest(Path(args.file))
+    _apply_report_fail_policy(report, list(args.fail_on or []))
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_provider_conformance(args: argparse.Namespace) -> int:
     report = provider_conformance(Path(args.file))
+    _apply_report_fail_policy(report, list(args.fail_on or []))
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
 def cmd_provider_registry_validate(args: argparse.Namespace) -> int:
     report = validate_registry_manifest(Path(args.file))
+    _apply_report_fail_policy(report, list(args.fail_on or []))
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
@@ -3323,6 +3373,12 @@ def _apply_report_fail_policy(report: dict[str, Any], fail_on: list[str]) -> Non
         failures.append("blocking_residual")
     if "missing_mission" in normalized and _report_has_missing_mission(workbench):
         failures.append("missing_mission")
+    if "unsupported_claim" in normalized and int(workbench.get("unsupported_claim_count", 0)) > 0:
+        failures.append("unsupported_claim")
+    if "overclaim" in normalized and int(workbench.get("overclaim_count", 0)) > 0:
+        failures.append("overclaim")
+    if "schema_error" in normalized and _report_has_schema_error(workbench):
+        failures.append("schema_error")
     report["fail_on"] = sorted(normalized)
     report["policy_failures"] = sorted(set(failures))
     if failures:
@@ -3342,6 +3398,39 @@ def _report_has_missing_mission(report: dict[str, Any]) -> bool:
         description = str(residual.get("description", "")).lower()
         if "mission not found" in description:
             return True
+    return False
+
+
+def _report_has_schema_error(report: dict[str, Any]) -> bool:
+    if report.get("schema_error_count"):
+        return True
+    if isinstance(report.get("errors"), list) and report["errors"]:
+        return True
+    if _residuals_contain_schema_error(report.get("residual_ready")):
+        return True
+    if _residuals_contain_schema_error(report.get("residuals")):
+        return True
+    embedded = report.get("validation")
+    if isinstance(embedded, dict) and _report_has_schema_error(embedded):
+        return True
+    bundle = report.get("bundle_report")
+    return isinstance(bundle, dict) and _report_has_schema_error(bundle)
+
+
+def _residuals_contain_schema_error(value: Any) -> bool:
+    if isinstance(value, dict):
+        kind = str(value.get("kind", ""))
+        extensions = value.get("extensions")
+        finding = str(extensions.get("finding_kind", "")) if isinstance(extensions, dict) else ""
+        return kind == "validation_error" or finding in {
+            "input_decode_error",
+            "json_not_object",
+            "malformed_json",
+            "schema_error",
+            "validation_error",
+        }
+    if isinstance(value, list):
+        return any(_residuals_contain_schema_error(item) for item in value)
     return False
 
 

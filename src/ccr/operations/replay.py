@@ -24,12 +24,14 @@ def replay_manifest(
     residuals = [*dispatch_read["residuals"], *observation_read["residuals"]]
     residuals.extend(_replay_residuals(dispatch, observed))
     blockers = _blocker_kinds(residuals)
+    source_dispatch_executed = dispatch.get("executed") is True
+    source_provider_dispatch_ready = dispatch.get("provider_dispatch_ready") is True
     manifest = {
         "accepted": not blockers,
         "blockers": blockers,
         "dispatch_ref": dispatch_report.name,
         "dispatch_report_hash": _object_hash(dispatch),
-        "executed": False,
+        "executed": source_dispatch_executed,
         "external_execution": False,
         "manifest_id": stable_id("operation-replay", dispatch, observed),
         "network_call_performed": False,
@@ -37,6 +39,7 @@ def replay_manifest(
         "observation_hash": _object_hash(observed),
         "observation_ref": observation.name,
         "ok": not blockers,
+        "physical_outcome_proven": False,
         "provider_dispatch_ready": False,
         "replay_steps": [
             "Load dispatch report as evidence.",
@@ -46,6 +49,8 @@ def replay_manifest(
         "residual_ready": residuals,
         "schema_version": "ccr.operation_replay_manifest.v1",
         "settled": False,
+        "source_dispatch_executed": source_dispatch_executed,
+        "source_provider_dispatch_ready": source_provider_dispatch_ready,
     }
     if out is not None:
         write_json_atomic(out, manifest, overwrite=True)
@@ -60,6 +65,7 @@ def verify_observation(manifest_path: Path, verifier_path: Path) -> dict[str, An
     manifest = manifest_read["data"]
     verifier = verifier_read["data"]
     residuals = [*manifest_read["residuals"], *verifier_read["residuals"]]
+    residuals.extend(_static_verifier_residuals(verifier, verifier_path=verifier_path))
     if (
         verifier.get("accepted") is not True
         and verifier.get("verifier_accepts_observation") is not True
@@ -110,6 +116,7 @@ def verify_observation(manifest_path: Path, verifier_path: Path) -> dict[str, An
         "network_call_performed": False,
         "non_claims": list(MISSION_NON_CLAIMS),
         "ok": not blockers,
+        "physical_outcome_proven": False,
         "provider_dispatch_ready": False,
         "residual_ready": residuals,
         "schema_version": "ccr.observation_verification_report.v1",
@@ -122,15 +129,6 @@ def _replay_residuals(
     dispatch: dict[str, Any], observation: dict[str, Any]
 ) -> list[dict[str, Any]]:
     residuals: list[dict[str, Any]] = []
-    if dispatch.get("executed") is True or dispatch.get("provider_dispatch_ready") is True:
-        residuals.append(
-            residual_ready(
-                "authority_gap",
-                "dispatch_report",
-                "Replay manifest cannot treat prior dispatch as current execution authority.",
-                "ccr.operation.replay_manifest",
-            )
-        )
     if observation.get("accepted") is not True and observation.get("verified") is not True:
         residuals.append(
             residual_ready(
@@ -167,6 +165,32 @@ def _replay_residuals(
                 "observation",
                 "Observation records an unresolved incident.",
                 "ccr.operation.replay_manifest",
+            )
+        )
+    return residuals
+
+
+def _static_verifier_residuals(
+    verifier: dict[str, Any], *, verifier_path: Path
+) -> list[dict[str, Any]]:
+    residuals: list[dict[str, Any]] = []
+    dynamic_keys = [
+        "callable",
+        "command",
+        "dynamic_import",
+        "entrypoint",
+        "module",
+        "script",
+    ]
+    present = [key for key in dynamic_keys if key in verifier]
+    if present:
+        residuals.append(
+            residual_ready(
+                "authority_gap",
+                verifier_path.name,
+                "Observation verifier profile must be static JSON and cannot specify dynamic code.",
+                "ccr.operation.verify_observation",
+                extensions={"dynamic_keys": present},
             )
         )
     return residuals

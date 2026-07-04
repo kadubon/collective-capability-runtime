@@ -3,7 +3,7 @@
   "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/static-workbench-export-report.schema.json",
   "title": "CCR Static Workbench Export Report",
   "type": "object",
-  "required": ["schema_version", "ok", "mission_id", "html_files", "data_files", "external_assets", "mutated_runtime", "external_execution", "network_call_performed", "settled", "non_claims"],
+  "required": ["schema_version", "ok", "mission_id", "html_files", "data_files", "file_hashes", "external_assets", "mutated_runtime", "external_execution", "network_call_performed", "settled", "non_claims"],
   "properties": {
     "schema_version": { "const": "ccr.static_workbench_export_report.v1" },
     "external_assets": { "const": false },

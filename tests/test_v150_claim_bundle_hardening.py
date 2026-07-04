@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
+from typing import Any
 
 from ccr.bundles.validate import validate_bundle
 from ccr.claims.audit import audit_claim_file
+from ccr.cli import main
 from ccr.io import read_json, write_json_atomic
 from ccr.schemas.validation import validate_instance
 from ccr.workbench.markdown import render_markdown_report
@@ -28,7 +31,14 @@ def test_claim_overclaim_matrix(tmp_path: Path) -> None:
                 "CCR cache hit is proof.",
                 "CCR index hit is proof.",
                 "CCR safe command means authority.",
+                "CCR MCP descriptor grants authority.",
+                "CCR A2A handoff grants delegated authority.",
+                "CCR conformance report proves settlement.",
+                "CCR observation verifier proves physical outcome.",
+                "CCR provider registry grants authority.",
                 "CCR does not detect real ASI.",
+                "CCR conformance report is evidence only and not settlement.",
+                "CCR observation verifier must not be physical outcome proof.",
             ]
         ),
         encoding="utf-8",
@@ -37,8 +47,10 @@ def test_claim_overclaim_matrix(tmp_path: Path) -> None:
     report = audit_claim_file(source)
 
     assert report["ok"] is False
-    assert report["overclaim_count"] == 12
+    assert report["overclaim_count"] == 17
     assert "CCR does not detect real ASI." in report["non_claims"]
+    assert "CCR conformance report is evidence only and not settlement." in report["non_claims"]
+    assert "CCR observation verifier must not be physical outcome proof." in report["non_claims"]
 
 
 def test_claim_invalid_inputs_return_residual_ready(tmp_path: Path) -> None:
@@ -54,6 +66,47 @@ def test_claim_invalid_inputs_return_residual_ready(tmp_path: Path) -> None:
     assert binary_report["residual_ready"][0]["extensions"]["finding_kind"] == "input_binary"
     assert invalid_report["ok"] is False
     assert invalid_report["residual_ready"][0]["extensions"]["finding_kind"] == "input_decode_error"
+
+
+def test_claim_audit_fail_on_policies(tmp_path: Path, capsys: Any) -> None:
+    source = tmp_path / "claims.md"
+    source.write_text("CCR coordinates packets.\n", encoding="utf-8")
+
+    assert (
+        main(
+            [
+                "claim",
+                "audit",
+                "--input",
+                str(source),
+                "--fail-on",
+                "unsupported_claim",
+                "--json",
+            ]
+        )
+        != 0
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert "unsupported_claim" in report["policy_failures"]
+
+    broken = tmp_path / "broken.md"
+    broken.write_bytes(b"\x00\x01")
+    assert (
+        main(
+            [
+                "claim",
+                "audit",
+                "--input",
+                str(broken),
+                "--fail-on",
+                "schema_error",
+                "--json",
+            ]
+        )
+        != 0
+    )
+    broken_report = json.loads(capsys.readouterr().out)
+    assert "schema_error" in broken_report["policy_failures"]
 
 
 def test_bundle_validate_rejects_path_traversal_ref(tmp_path: Path) -> None:

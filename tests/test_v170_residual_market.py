@@ -33,6 +33,29 @@ def test_residual_market_bounty_and_diff(runtime_root: Path, tmp_path: Path, cap
             [
                 "--root",
                 str(runtime_root),
+                "mission",
+                "next",
+                "--mission",
+                mission_id,
+                "--compact",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    next_payload = json.loads(capsys.readouterr().out)
+    assert next_payload["recommended_action"]["safe_command"] == (
+        f"ccr residual market --mission {mission_id} --json"
+    )
+    assert (
+        "ccr residual bounty --residual" in next_payload["recommended_action"]["follow_up_command"]
+    )
+
+    assert (
+        main(
+            [
+                "--root",
+                str(runtime_root),
                 "residual",
                 "market",
                 "--mission",
@@ -44,7 +67,19 @@ def test_residual_market_bounty_and_diff(runtime_root: Path, tmp_path: Path, cap
     )
     before = json.loads(capsys.readouterr().out)
     assert before["market"][0]["recommended_role"] == "librarian"
+    assert before["market"][0]["recommended_roles"] == ["librarian", "verifier"]
+    assert before["market"][0]["rank_components"]["blocking"] == 1
+    assert before["scope"] == "mission"
     assert validate_instance("residual-market", before).ok is True
+    assert validate_instance("residual-market-report", before).ok is True
+
+    assert main(["--root", str(runtime_root), "residual", "market", "--json"]) == 0
+    runtime_market = json.loads(capsys.readouterr().out)
+    assert runtime_market["scope"] == "runtime"
+    assert runtime_market["mission_id"] == ""
+    assert str(residual["residual_id"]) in [
+        str(item["residual_id"]) for item in runtime_market["market"]
+    ]
 
     assert (
         main(
@@ -68,12 +103,26 @@ def test_residual_market_bounty_and_diff(runtime_root: Path, tmp_path: Path, cap
     assert bounty["mutated_runtime"] is True
     assert bounty["emitted_task_id"]
     assert validate_instance("residual-bounty", bounty).ok is True
+    assert validate_instance("residual-bounty-report", bounty).ok is True
 
     before_path = tmp_path / "before.json"
     after_path = tmp_path / "after.json"
     before_path.write_text(json.dumps(before), encoding="utf-8")
-    after_report: dict[str, Any] = {**before, "market": []}
-    after_path.write_text(json.dumps(after_report), encoding="utf-8")
+    after_report: dict[str, Any] = {
+        **before,
+        "market": [
+            {
+                **before["market"][0],
+                "blocking": False,
+                "residual_id": "residual:new",
+                "severity": "low",
+            }
+        ],
+    }
+    after_path.write_text(
+        "\n".join(json.dumps(item) for item in after_report["market"]),
+        encoding="utf-8",
+    )
     assert (
         main(
             [
@@ -90,4 +139,9 @@ def test_residual_market_bounty_and_diff(runtime_root: Path, tmp_path: Path, cap
     )
     diff = json.loads(capsys.readouterr().out)
     assert str(residual["residual_id"]) in diff["removed_residual_ids"]
+    assert "residual:new" in diff["opened"]
+    assert str(residual["residual_id"]) in diff["resolved"]
+    assert diff["by_kind_delta"]
+    assert isinstance(diff["residual_debt_delta"], int)
     assert validate_instance("residual-diff", diff).ok is True
+    assert validate_instance("residual-diff-report", diff).ok is True

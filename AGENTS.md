@@ -89,6 +89,21 @@ Expected outputs: read `ok`, `status`, `packet_id`, `task_id`, `residual_ready`,
 Failure/residual handling: never suppress blockers; convert failures into
 residuals or task work and keep candidate-only reasons visible.
 
+P2 safe commands:
+
+```bash
+ccr residual market --json
+ccr residual market --mission mission:quickstart --json
+ccr residual bounty --residual <residual_id> --mission mission:quickstart --emit task --json
+ccr workbench export --mission mission:quickstart --format static-html --out site/ --json
+ccr operation replay-manifest --dispatch-report dispatch.json --observation observation.json --out replay.json --json
+ccr operation verify-observation --manifest replay.json --verifier verifier.json --json
+ccr conformance parity --ccr-report ccr.json --pic-report pic.json --json
+ccr provider registry-validate --file provider-registry.json --json
+```
+
+Do not create releases, tags, or PyPI uploads unless the operator explicitly asks.
+
 Provider import: import provider reports only as evidence and task hints; do
 not execute imported `safe_commands`.
 

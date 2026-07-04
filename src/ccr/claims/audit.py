@@ -79,8 +79,52 @@ OVERCLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         "safe_command_as_authority",
         re.compile(r"\bsafe\s+command\b.{0,80}\b(?:is|means|implies)\b.{0,40}\bauthority\b"),
     ),
+    (
+        "mcp_descriptor_as_authority",
+        re.compile(
+            r"\b(?:mcp\s+)?descriptor\b.{0,80}\b(?:grants?|is|means|implies)\b"
+            r".{0,40}\bauthority\b"
+        ),
+    ),
+    (
+        "a2a_handoff_as_authority",
+        re.compile(
+            r"\b(?:a2a\s+)?handoff\b.{0,80}\b(?:grants?|is|means|implies)\b"
+            r".{0,40}\b(?:delegated\s+)?authority\b"
+        ),
+    ),
+    (
+        "conformance_as_settlement",
+        re.compile(
+            r"\bconformance\b.{0,80}\b(?:is|means|implies|proves?|grants?)\b"
+            r".{0,40}\bsettle(?:s|ment|d)?\b"
+        ),
+    ),
+    (
+        "observation_as_physical_proof",
+        re.compile(
+            r"\bobservation(?:\s+verifier)?\b.{0,80}\b(?:is|means|implies|proves?)\b"
+            r".{0,40}\bphysical\s+outcome\b"
+        ),
+    ),
+    (
+        "provider_registry_as_authority",
+        re.compile(
+            r"\bprovider\s+registry\b.{0,80}\b(?:grants?|is|means|implies)\b"
+            r".{0,40}\bauthority\b"
+        ),
+    ),
 )
 NEGATION_TOKENS = {"not", "never", "cannot", "cant"}
+NON_CLAIM_BOUNDARY_PATTERNS = (
+    re.compile(r"\bmust\s+not\b"),
+    re.compile(r"\bevidence\s+only\b"),
+    re.compile(r"\bnot\s+(?:a\s+)?proof\b"),
+    re.compile(r"\bnot\s+settlement\b"),
+    re.compile(r"\bnot\s+(?:execution\s+)?authority\b"),
+    re.compile(r"\bis\s+not\s+execution\b"),
+    re.compile(r"\bis\s+not\s+physical\s+outcome\s+proof\b"),
+)
 
 
 def audit_claim_file(path: Path, *, fail_on: list[str] | None = None) -> dict[str, Any]:
@@ -94,19 +138,29 @@ def audit_claim_file(path: Path, *, fail_on: list[str] | None = None) -> dict[st
             "claim_count": 0,
             "claims": [],
             "external_execution": False,
+            "fail_on": sorted(set(fail_on or [])),
             "non_claims": list(MISSION_NON_CLAIMS),
             "ok": False,
             "overclaim_count": 0,
+            "policy_failures": ["schema_error"]
+            if "schema_error" in {item.strip().lower() for item in fail_on or []}
+            else [],
             "residual_ready": residual_ready,
             "schema_version": "ccr.claim_audit.v1",
             "settled": False,
             "source": str(extracted.get("source", path.name)),
+            "schema_error_count": 1,
             "unsupported_claim_count": 0,
         }
     claims = extracted.get("claims", [])
     if not isinstance(claims, list):
         claims = []
-    return audit_claims(claims, source=path.name, fail_on=fail_on or [])
+    report = audit_claims(claims, source=path.name, fail_on=fail_on or [])
+    report["fail_on"] = sorted(set(fail_on or []))
+    report["policy_failures"] = _policy_failures(report, fail_on or [])
+    if report["policy_failures"]:
+        report["ok"] = False
+    return report
 
 
 def audit_claims(
@@ -165,19 +219,25 @@ def audit_claims(
             }
         )
     blocking = [item for item in residual_ready if item.get("blocking")]
-    return {
+    report = {
         "claim_count": len(normalized_claims),
         "claims": audited_claims,
         "external_execution": False,
+        "fail_on": sorted(fail_set),
         "non_claims": sorted(set([*non_claims, *MISSION_NON_CLAIMS])),
         "ok": not blocking,
         "overclaim_count": overclaim_count,
+        "policy_failures": [],
         "residual_ready": residual_ready,
         "schema_version": "ccr.claim_audit.v1",
         "settled": False,
         "source": source,
         "unsupported_claim_count": unsupported_count,
     }
+    report["policy_failures"] = _policy_failures(report, sorted(fail_set))
+    if report["policy_failures"]:
+        report["ok"] = False
+    return report
 
 
 def _overclaim_kinds(text: str) -> list[str]:
@@ -192,9 +252,12 @@ def _overclaim_kinds(text: str) -> list[str]:
 
 def _is_explicit_non_claim(text: str) -> bool:
     normalized = _normalize_for_audit(text)
+    has_boundary_phrase = any(pattern.search(normalized) for pattern in NON_CLAIM_BOUNDARY_PATTERNS)
     for _kind, pattern in OVERCLAIM_PATTERNS:
         match = pattern.search(normalized)
         if match and _has_negative_context(normalized, match):
+            return True
+        if match and has_boundary_phrase:
             return True
     return False
 
@@ -216,6 +279,18 @@ def _has_negative_context(text: str, match: re.Match[str]) -> bool:
         return True
     before = [token.group(0) for token in tokens if token.end() <= match.start()]
     return any(token in NEGATION_TOKENS for token in before[-5:])
+
+
+def _policy_failures(report: dict[str, Any], fail_on: list[str]) -> list[str]:
+    failures: list[str] = []
+    normalized = {item.strip().lower() for item in fail_on if item.strip()}
+    if "overclaim" in normalized and int(report.get("overclaim_count", 0)) > 0:
+        failures.append("overclaim")
+    if "unsupported_claim" in normalized and int(report.get("unsupported_claim_count", 0)) > 0:
+        failures.append("unsupported_claim")
+    if "schema_error" in normalized and report.get("schema_error_count", 0):
+        failures.append("schema_error")
+    return sorted(set(failures))
 
 
 def _claim_residual(

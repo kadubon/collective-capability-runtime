@@ -3,10 +3,11 @@
   "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/observation-verification-report.schema.json",
   "title": "CCR Observation Verification Report",
   "type": "object",
-  "required": ["schema_version", "ok", "accepted", "executed", "external_execution", "network_call_performed", "provider_dispatch_ready", "settled", "non_claims", "residual_ready"],
+  "required": ["schema_version", "ok", "accepted", "executed", "physical_outcome_proven", "external_execution", "network_call_performed", "provider_dispatch_ready", "settled", "non_claims", "residual_ready"],
   "properties": {
     "schema_version": { "const": "ccr.observation_verification_report.v1" },
     "executed": { "const": false },
+    "physical_outcome_proven": { "const": false },
     "external_execution": { "const": false },
     "network_call_performed": { "const": false },
     "provider_dispatch_ready": { "const": false },

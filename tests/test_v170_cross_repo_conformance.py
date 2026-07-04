@@ -48,5 +48,8 @@ def test_cross_repo_parity_blocks_pic_settlement(tmp_path: Path, capsys: Any) ->
     report = json.loads(capsys.readouterr().out)
 
     assert "settlement_blocker" in report["blockers"]
+    assert "accepted" in report["missing_by_report"]["ccr"]
+    assert "residual_kinds" in report["missing_by_report"]["pic"]
+    assert "hashes" in report["parity_fields"]
     assert report["pic_evidence_only"] is True
     assert validate_instance("parity-report", report).ok is True

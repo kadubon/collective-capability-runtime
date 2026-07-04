@@ -224,6 +224,23 @@ Failure/residual handling: validation failures, provider gaps, baseline
 mismatches, candidate-only reasons, and settlement blockers must be preserved as
 residuals or `residual_ready` objects, not discarded.
 
+P2 safe commands:
+
+```bash
+ccr residual market --json
+ccr residual market --mission mission:quickstart --json
+ccr residual bounty --residual <residual_id> --mission mission:quickstart --emit task --json
+ccr workbench export --mission mission:quickstart --format static-html --out site/ --json
+ccr operation replay-manifest --dispatch-report dispatch.json --observation observation.json --out replay.json --json
+ccr operation verify-observation --manifest replay.json --verifier verifier.json --json
+ccr conformance parity --ccr-report ccr.json --pic-report pic.json --json
+ccr provider registry-validate --file provider-registry.json --json
+```
+
+These commands are local report or local task-routing surfaces. They do not
+release packages, push tags, upload to PyPI, dispatch providers, or prove
+physical outcomes.
+
 Provider import: imported reports can update packet status to checked or
 provisional and create task hints, but imported `safe_commands` are never run.
 

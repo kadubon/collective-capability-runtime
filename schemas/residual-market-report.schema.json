@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/residual-market.schema.json",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/residual-market-report.schema.json",
   "title": "CCR Residual Market Report",
   "type": "object",
   "required": ["schema_version", "ok", "scope", "mission_id", "market", "residual_count", "external_execution", "network_call_performed", "settled", "non_claims"],

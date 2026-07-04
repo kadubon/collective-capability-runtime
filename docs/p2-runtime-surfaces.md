@@ -3,7 +3,10 @@
 These commands help first-time agents move from residual review to local repair
 work without expanding authority.
 
+P2 safe commands:
+
 ```bash
+ccr residual market --json
 ccr residual market --mission <mission_id> --json
 ccr residual bounty --residual <residual_id> --mission <mission_id> --emit task --json
 ccr residual diff --before before.json --after after.json --json
@@ -18,9 +21,14 @@ ccr provider registry-list --file provider-registry.json --json
 
 Safety boundary:
 
-- residual market ranks local residuals; only `--emit task` writes a local task
+- residual market ranks mission-scoped or runtime-wide local residuals; only
+  `--emit task` writes a local task
 - static workbench export writes HTML/JSON with no external assets
 - replay and verification read evidence only and never dispatch providers
 - conformance treats PIC reports as evidence only, not CCR settlement
 - provider registry validation reads metadata and manifests only; it does not
   import plugin modules or execute provider code
+- operation replay preserves source `executed=true` evidence when present, but
+  the replay itself keeps `external_execution=false`,
+  `provider_dispatch_ready=false`, and `physical_outcome_proven=false`
+- current source-preparation work allows commit/push only; no release, tag, PyPI upload, or provider dispatch is part of these commands

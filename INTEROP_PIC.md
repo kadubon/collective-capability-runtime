@@ -60,6 +60,22 @@ safe command hints.
 Failure/residual handling: missing PIC package or CLI is a provider-missing
 residual-ready state, not an internal CCR failure.
 
+P2 safe commands:
+
+```bash
+ccr residual market --json
+ccr residual market --mission <mission_id> --json
+ccr residual bounty --residual <residual_id> --mission <mission_id> --emit task --json
+ccr workbench export --mission <mission_id> --format static-html --out site/ --json
+ccr operation replay-manifest --dispatch-report dispatch.json --observation observation.json --out replay.json --json
+ccr operation verify-observation --manifest replay.json --verifier verifier.json --json
+ccr conformance parity --ccr-report ccr.json --pic-report pic.json --json
+ccr provider registry-validate --file provider-registry.json --json
+```
+
+PIC/PIC-TS reports are evidence-only in these routes. They do not settle CCR,
+grant authority, dispatch providers, or prove physical outcomes.
+
 Provider import: use `ccr provider import --provider pic --report <file> --json`
 or legacy `ccr integrate --report <file> --json`; neither path executes
 safe commands.

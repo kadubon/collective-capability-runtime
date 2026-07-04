@@ -36,9 +36,26 @@ def test_static_workbench_export_has_local_assets_only(
     report = json.loads(capsys.readouterr().out)
 
     assert report["external_assets"] is False
+    assert sorted(report["html_files"]) == sorted(
+        ["index.html", "packets.html", "residuals.html", "phase.html", "operations.html"]
+    )
+    assert "data/manifest.json" in report["data_files"]
+    assert "data/residual-market.json" in report["data_files"]
+    assert report["file_hashes"]["index.html"].startswith("sha256:")
     assert (out / "index.html").exists()
+    assert (out / "phase.html").exists()
+    assert (out / "operations.html").exists()
+    assert (out / "data" / "mission.json").exists()
+    assert (out / "data" / "manifest.json").exists()
     html = (out / "index.html").read_text(encoding="utf-8")
     assert "http://" not in html
     assert "https://" not in html
     assert "<script" not in html.lower()
+    manifest = json.loads((out / "data" / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["file_hashes"]["index.html"].startswith("sha256:")
+    for path in report["html_files"]:
+        page = (out / path).read_text(encoding="utf-8")
+        assert "http://" not in page
+        assert "https://" not in page
+        assert "<script" not in page.lower()
     assert validate_instance("static-workbench-export-report", report).ok is True
