@@ -1064,9 +1064,70 @@ def cmd_agent_explain(args: argparse.Namespace) -> int:
     manifest = load_agent_manifest(root=root)
     payload = {
         "agent_manifest": manifest,
+        "docs": {
+            "command_map": "docs/command-map.md",
+            "docs_index": "docs/README.md",
+            "getting_started": "docs/getting-started.md",
+            "operation_gate": "docs/operation-gate.md",
+            "p2_runtime_surfaces": "docs/p2-runtime-surfaces.md",
+            "security": "SECURITY.md",
+        },
         "default_mode": "dry_run",
+        "first_use_sequence": [
+            "ccr agent explain --json",
+            "ccr asi quickstart --profile development --json",
+            "ccr mission next --mission mission:quickstart --compact --json",
+            "ccr workbench report --mission mission:quickstart "
+            "--format markdown --out CCR_WORKBENCH.md",
+            "ccr residual market --mission mission:quickstart --json",
+        ],
+        "local_mutation_boundary": {
+            "explicit_local_writes": [
+                "ccr asi quickstart",
+                "ccr mission init",
+                "ccr mission ingest",
+                "ccr ingest trace --write-candidates",
+                "ccr ingest repo --write-candidates",
+                "ccr residual bounty --emit task",
+                "ccr workbench report --out",
+                "ccr workbench export --out",
+                "ccr operation replay-manifest --out",
+                "ccr task lease",
+                "ccr packet submit",
+                "ccr provider import",
+            ],
+            "external_execution_requires": [
+                "an explicit operator request",
+                "an execution-capable CCR command",
+                "required config or authority envelope",
+                "an explicit --execute flag where the command supports execution",
+            ],
+        },
         "non_claims": list(NON_CLAIMS),
         "ok": True,
+        "p0_p1_p2": {
+            "p0_mission_core": [
+                "asi quickstart",
+                "mission init/status/ingest/next/report",
+                "workbench report",
+                "claim extract/audit/passport",
+                "bundle validate",
+            ],
+            "p1_gate_and_ingest": [
+                "mcp inspect-descriptor/preflight",
+                "a2a inspect-card/preflight-handoff",
+                "ingest trace/repo",
+                "provider manifest/conformance",
+                "checked-out-source GitHub Action audit",
+            ],
+            "p2_usability_layer": [
+                "residual market/bounty/diff",
+                "static workbench export",
+                "operation replay and observation verification",
+                "conformance bundle/parity",
+                "provider registry validate/list",
+            ],
+        },
         "runtime_paths": {
             "blackboard": str(root / "blackboard" / "events.jsonl"),
             "packets": str(root / "packets"),
@@ -1075,7 +1136,29 @@ def cmd_agent_explain(args: argparse.Namespace) -> int:
             "root": str(root),
             "tasks": str(root / "tasks"),
         },
+        "safe_boundaries": {
+            "cache_index_hit_is_not_proof": True,
+            "mcp_a2a_descriptor_is_not_authority": True,
+            "operation_replay_is_not_dispatch": True,
+            "pic_provider_output_is_evidence_only": True,
+            "provider_registry_is_not_authority": True,
+            "residual_market_does_not_waive_residuals": True,
+            "static_workbench_is_not_proof": True,
+        },
         "safe_next_commands": list(SAFE_NEXT_COMMANDS),
+        "search_terms": [
+            "AI agent runtime",
+            "agent coordination",
+            "capability packets",
+            "residual ledger",
+            "ASI-proxy mission",
+            "MCP preflight",
+            "A2A handoff",
+            "operation replay",
+            "provider registry",
+            "static workbench",
+            "PIC interop",
+        ],
     }
     _emit_json(payload)
     return EXIT_SUCCESS

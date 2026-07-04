@@ -160,12 +160,20 @@ NON_CLAIMS = (
 SAFE_NEXT_COMMANDS = (
     "ccr asi quickstart --profile development --json",
     "ccr mission next --mission mission:quickstart --compact --json",
+    "ccr workbench report --mission mission:quickstart --format markdown --out CCR_WORKBENCH.md",
+    "ccr residual market --mission mission:quickstart --json",
     "ccr agent explain --json",
     "ccr init",
     "ccr schema validate --kind packet --file examples/minimal/packet.json",
     "ccr schema validate --kind task --file examples/minimal/task.json",
     "ccr task next --role generator --json",
     "ccr phase report --json",
+    "ccr mcp inspect-descriptor "
+    "--file examples/asi_proxy_acceleration_bundle/mcp_descriptor.good.json --json",
+    "ccr a2a inspect-card "
+    "--file examples/asi_proxy_acceleration_bundle/a2a_agent_card.good.json --json",
+    "ccr provider registry-validate "
+    "--file examples/asi_proxy_acceleration_bundle/provider_registry.good.json --json",
 )
 
 DEFAULT_ACTOR = "ccr"

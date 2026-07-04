@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any
 
+from ccr.cli import main
 from tests.conftest import REPO_ROOT
 
 FIRST_TIME_DOCS = [
     "README.md",
+    "docs/README.md",
+    "docs/getting-started.md",
+    "docs/command-map.md",
     "AGENTS.md",
     "SPEC.md",
     "SECURITY.md",
@@ -39,6 +45,8 @@ def test_first_time_agent_docs_include_p2_safe_commands() -> None:
 def test_p2_docs_name_runtime_surfaces_and_non_claims() -> None:
     text = _read("docs/p2-runtime-surfaces.md")
     for marker in [
+        "Getting Started",
+        "Command Map",
         "residual market",
         "runtime-wide",
         "static workbench",
@@ -46,8 +54,57 @@ def test_p2_docs_name_runtime_surfaces_and_non_claims() -> None:
         "provider registry",
         "physical_outcome_proven=false",
         "no release, tag, PyPI upload, or provider dispatch",
+        "residual market ranks work; it does not waive residuals",
+        "static workbench is presentation, not proof",
     ]:
         assert marker in text
+
+
+def test_docs_index_and_command_map_cover_first_use_navigation() -> None:
+    docs_index = _read("docs/README.md")
+    for marker in [
+        "What should I run first?",
+        "What mutates local CCR state?",
+        "Operation replay is not dispatch",
+        "Provider registry is static metadata, not authority",
+        "Release is not performed by audit commands",
+    ]:
+        assert marker in docs_index
+
+    getting_started = _read("docs/getting-started.md")
+    for marker in [
+        "shortest safe path",
+        "ccr agent explain --json",
+        "ccr residual market --mission mission:quickstart --json",
+        "external_execution=false",
+        "Next Documents",
+    ]:
+        assert marker in getting_started
+
+    command_map = _read("docs/command-map.md")
+    for marker in [
+        "P0 Mission Core",
+        "P1 Gate and Ingest Layer",
+        "P2 Usability Layer",
+        "Commands Requiring Extra Authority",
+        "provider/PIC evidence alone",
+    ]:
+        assert marker in command_map
+
+
+def test_agent_explain_returns_first_time_navigation(tmp_path: Path, capsys: Any) -> None:
+    assert main(["--root", str(tmp_path), "agent", "explain", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["docs"]["getting_started"] == "docs/getting-started.md"
+    assert (
+        "ccr residual market --mission mission:quickstart --json" in payload["safe_next_commands"]
+    )
+    assert "p2_usability_layer" in payload["p0_p1_p2"]
+    assert payload["safe_boundaries"]["operation_replay_is_not_dispatch"] is True
+    assert (
+        "ccr workbench export --out" in payload["local_mutation_boundary"]["explicit_local_writes"]
+    )
 
 
 def test_p2_extended_docs_explain_safe_boundaries() -> None:

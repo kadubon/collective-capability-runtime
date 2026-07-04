@@ -56,6 +56,9 @@ REQUIRED_SCHEMA_FILES = [
 
 DOC_ROUTE_FILES = [
     "README.md",
+    "docs/README.md",
+    "docs/getting-started.md",
+    "docs/command-map.md",
     "SPEC.md",
     "FORMAL_MODEL.md",
     "INTEROP_PIC.md",
@@ -114,6 +117,9 @@ PIC_COMPAT_DOCS = [
 ]
 FIRST_TIME_AGENT_DOC_FILES = [
     "README.md",
+    "docs/README.md",
+    "docs/getting-started.md",
+    "docs/command-map.md",
     "AGENTS.md",
     "SPEC.md",
     "SECURITY.md",
@@ -232,7 +238,23 @@ P2_RUNTIME_CHECKS = [
             "operation_replay_cmd = operation_sub.add_parser",
             'conformance_sub.add_parser("parity"',
             "provider_registry_validate_cmd = provider_sub.add_parser",
+            "first_use_sequence",
+            "local_mutation_boundary",
+            "safe_boundaries",
+            "p0_p1_p2",
         ],
+    ),
+    (
+        "docs/README.md",
+        ["Getting Started", "Command Map", "Safety Statements", "Release is not performed"],
+    ),
+    (
+        "docs/getting-started.md",
+        ["shortest safe path", "residual market", "external_execution=false", "Next Documents"],
+    ),
+    (
+        "docs/command-map.md",
+        ["P0 Mission Core", "P1 Gate and Ingest Layer", "P2 Usability Layer"],
     ),
     (
         "docs/p2-runtime-surfaces.md",

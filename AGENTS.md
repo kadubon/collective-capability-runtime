@@ -10,6 +10,14 @@ python -m pip install percolation-inversion-compiler
 Use CCR as a local, JSON-first coordination runtime for capability packets,
 tasks, residuals, provider reports, and protocol-relative phase formation.
 
+For first-time navigation, read:
+
+- `README.md`
+- `docs/README.md`
+- `docs/getting-started.md`
+- `docs/command-map.md`
+- `docs/p2-runtime-surfaces.md`
+
 ## Safe First Commands
 
 ```bash
@@ -177,3 +185,6 @@ write a static HTML view for humans or agents. Use operation replay and
 observation verification only as evidence review; they are not dispatch. Use
 provider registry validation for metadata only; CCR must not import plugin code
 from a registry manifest.
+
+For command choice, use `docs/command-map.md`. For the first safe run, use
+`docs/getting-started.md`. For broad documentation search, use `docs/README.md`.

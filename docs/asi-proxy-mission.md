@@ -5,10 +5,14 @@ Runtime. It groups the local target, baseline upper envelope, authority
 envelope, hazard envelope, resource envelope, packet workspace, residual ledger,
 loop policy, provider policy, and report policy into one inspectable workflow.
 
+For the shortest path, read [Getting Started](getting-started.md) and then use
+[Command Map](command-map.md) to choose the next P0/P1/P2 command.
+
 ```bash
 ccr asi quickstart --profile development --json
 ccr mission next --mission mission:quickstart --compact --json
 ccr workbench report --mission mission:quickstart --format markdown --out CCR_WORKBENCH.md
+ccr residual market --mission mission:quickstart --json
 ```
 
 Mission is not a replacement for phase semantics. Packet promotion, residual
@@ -64,3 +68,8 @@ Input hardening:
 - P2 runtime surfaces are local report generators. Only `--write-candidates`
   and `--emit task` create local CCR artifacts, and neither promotes, settles,
   dispatches providers, or performs physical actions.
+- Residual market ranks repair work; it does not waive residuals.
+- Static workbench is presentation, not proof.
+- Operation replay is not dispatch.
+- Observation verification is not physical outcome proof.
+- Provider registry is static metadata, not authority.

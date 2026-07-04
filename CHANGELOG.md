@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- No unreleased changes.
+- Improves first-time-agent readiness with a clearer README, a docs index,
+  getting-started guide, P0/P1/P2 command map, richer `ccr agent explain`
+  navigation output, and repository audit/test coverage for those routes.
 
 ## 1.5.0 - 2026-07-04
 
