@@ -54,6 +54,23 @@ DEFAULT_SCHEMA_VERSIONS = {
     "claim-passport": "ccr.claim_passport.v1",
     "mission-bundle": "ccr.mission_bundle.v1",
     "bundle-validate-report": "ccr.bundle_validate.v1",
+    "provider-manifest": "ccr.provider_manifest.v1",
+    "provider-manifest-report": "ccr.provider_manifest_report.v1",
+    "provider-conformance-report": "ccr.provider_conformance_report.v1",
+    "external-ingest-report": "ccr.external_ingest_report.v1",
+    "residual-market": "ccr.residual_market.v1",
+    "residual-market-report": "ccr.residual_market.v1",
+    "residual-bounty": "ccr.residual_bounty.v1",
+    "residual-bounty-report": "ccr.residual_bounty.v1",
+    "residual-diff": "ccr.residual_diff.v1",
+    "residual-diff-report": "ccr.residual_diff.v1",
+    "static-workbench-export-report": "ccr.static_workbench_export_report.v1",
+    "operation-replay-manifest": "ccr.operation_replay_manifest.v1",
+    "observation-verification-report": "ccr.observation_verification_report.v1",
+    "cross-repo-conformance-report": "ccr.cross_repo_conformance_report.v1",
+    "parity-report": "ccr.parity_report.v1",
+    "provider-registry": "ccr.provider_registry.v1",
+    "provider-registry-report": "ccr.provider_registry_report.v1",
 }
 
 PACKET_STATUSES = (

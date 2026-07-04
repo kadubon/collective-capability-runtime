@@ -10,31 +10,12 @@ from typing import Any
 from ccr.io import canonical_dumps
 from ccr.mission.model import MISSION_NON_CLAIMS
 from ccr.safe_io import read_json_bounded, residual_ready
+from ccr.schemas.loader import SCHEMA_FILENAMES
 from ccr.schemas.validation import validate_instance
 
 SAFE_SIDE_EFFECT_POLICIES = {"none", "read_only", "read-only", "dry_run_only", "dry-run-only"}
 SAFE_NETWORK_POLICIES = {"none", "disabled", "explicit_source_only", "local_only", "local-only"}
-KNOWN_SCHEMA_KINDS = {
-    "a2a-agent-card-report",
-    "a2a-task-handoff-report",
-    "audit-report",
-    "bundle-validate-report",
-    "claim-passport",
-    "mcp-tool-descriptor-report",
-    "mcp-tool-invocation-preflight",
-    "mission-run-report",
-    "packet",
-    "provider-conformance-report",
-    "provider-manifest-report",
-    "residual",
-    "residual_ready",
-    "task",
-    "trc-operation-observation",
-    "trc-operation-plan",
-    "trc-operation-preflight",
-    "verifier-report",
-    "workbench-report",
-}
+KNOWN_SCHEMA_KINDS = {*SCHEMA_FILENAMES, "residual_ready"}
 KNOWN_EXECUTION_MODES = {
     "candidate_only",
     "dry_run",

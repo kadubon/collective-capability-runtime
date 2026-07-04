@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from ccr.ids import stable_id
-from ccr.mission.model import MISSION_NON_CLAIMS, mission_scope
+from ccr.mission.model import MISSION_NON_CLAIMS, mission_path, mission_scope
 from ccr.residuals.store import iter_residuals
 from ccr.safe_io import read_text_bounded, residual_ready
 from ccr.tasks.store import submit_task, validate_task
@@ -37,18 +37,18 @@ ROLE_BY_KIND = {
     "authority_gap": ["security_reviewer", "verifier"],
     "candidate_only_reason": ["verifier", "integrator"],
     "dependency_gap": ["integrator", "maintainer"],
-    "hazard": ["safety_reviewer", "security_reviewer"],
-    "identity_gap": ["verifier", "security_reviewer"],
+    "hazard": ["security_reviewer", "safety_reviewer"],
+    "identity_gap": ["security_reviewer", "verifier"],
     "missing_evidence": ["librarian", "verifier"],
-    "negative_liquidity": ["optimizer", "scheduler"],
+    "negative_liquidity": ["benchmark_runner", "optimizer"],
     "provider_missing": ["pic_adapter", "integrator"],
     "queue_overload": ["scheduler", "integrator"],
     "safe_command_hint": ["implementer", "reviewer"],
     "scope_gap": ["mission_scoper", "verifier"],
-    "settlement_blocker": ["verifier", "skeptic"],
+    "settlement_blocker": ["skeptic", "integrator"],
     "stale_source": ["librarian", "verifier"],
-    "unverified_claim": ["skeptic", "verifier"],
-    "validation_error": ["verifier", "implementer"],
+    "unverified_claim": ["verifier", "skeptic"],
+    "validation_error": ["implementer", "verifier"],
 }
 DEFAULT_ROLES = ["integrator", "verifier"]
 
@@ -60,6 +60,20 @@ def residual_market(root: Path, *, mission_id: str | None = None) -> dict[str, A
     output remains backward compatible by preserving the ``mission_id`` field.
     """
 
+    if mission_id and not mission_path(root, mission_id).exists():
+        residual = residual_ready(
+            "missing_mission",
+            mission_id,
+            f"Mission not found: {mission_id}",
+            "ccr.residual.market",
+        )
+        return _market_failure_report(mission_id=mission_id, residuals=[residual])
+    if mission_id:
+        scope = mission_scope(root, mission_id)
+        if not scope.get("ok"):
+            scope_residual = scope.get("residual_ready")
+            residuals = [scope_residual] if isinstance(scope_residual, dict) else []
+            return _market_failure_report(mission_id=mission_id, residuals=residuals)
     residuals = _residuals_for_scope(root, mission_id=mission_id)
     object_counts = _object_counts(residuals)
     ranked = sorted(
@@ -79,6 +93,24 @@ def residual_market(root: Path, *, mission_id: str | None = None) -> dict[str, A
         "ok": True,
         "residual_count": len(ranked),
         "scope": "mission" if mission_id else "runtime",
+        "schema_version": "ccr.residual_market.v1",
+        "settled": False,
+    }
+
+
+def _market_failure_report(*, mission_id: str, residuals: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "blockers": _blocker_kinds(residuals),
+        "external_execution": False,
+        "market": [],
+        "mission_id": mission_id,
+        "mutated_runtime": False,
+        "network_call_performed": False,
+        "non_claims": list(MISSION_NON_CLAIMS),
+        "ok": False,
+        "residual_count": 0,
+        "residual_ready": residuals,
+        "scope": "mission",
         "schema_version": "ccr.residual_market.v1",
         "settled": False,
     }

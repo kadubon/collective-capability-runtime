@@ -20,3 +20,11 @@ and repair tasks.
 
 Search terms: Typed Reality Compilation, TRC, operation profile, physical
 provider, rollback escrow, incident ledger, observation verifier.
+
+## v1.5 P2 Safe Review
+
+First-time agents should use operation replay and observation verification only
+to inspect local JSON evidence. Replay is not dispatch, verification is not physical outcome proof, and static workbench pages are presentation only. Use
+the residual market to rank repair work; it does not waive residuals. Use
+provider registry validation as static metadata review; registry metadata is
+not authority.

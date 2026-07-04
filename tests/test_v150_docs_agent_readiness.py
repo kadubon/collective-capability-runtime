@@ -50,5 +50,52 @@ def test_p2_docs_name_runtime_surfaces_and_non_claims() -> None:
         assert marker in text
 
 
+def test_p2_extended_docs_explain_safe_boundaries() -> None:
+    docs = {
+        "docs/operation-gate.md": [
+            "Operation replay is not dispatch",
+            "Observation verification is not physical outcome proof",
+            "physical_outcome_proven=false",
+        ],
+        "docs/real-world-impact.md": [
+            "Replay is not dispatch",
+            "verification is not physical outcome proof",
+            "provider registry validation as static metadata review",
+        ],
+        "docs/cross-repo-loop-conformance.md": [
+            "Missing parity fields become residual-ready evidence",
+            "parity is evidence, not settlement",
+        ],
+        "docs/performance.md": [
+            "bounded local operations",
+            "cache/index proof claims",
+            "JSON artifacts remain source of truth",
+        ],
+    }
+    for relative, markers in docs.items():
+        text = _read(relative)
+        for marker in markers:
+            assert marker in text, f"{relative} missing {marker}"
+
+
+def test_ccr_audit_action_uses_checkout_and_does_not_publish() -> None:
+    action = _read(".github/actions/ccr-audit/action.yml")
+    assert "uv sync --all-extras" in action
+    assert "uv run ccr audit repo --json" in action
+    assert "python -m pip install -e ." in action
+    assert (
+        "workbench report --mission mission:quickstart --format json "
+        "--out .tmp/ccr-action-smoke/workbench.json --json" not in action
+    )
+    for forbidden in [
+        "twine upload",
+        "git tag",
+        "gh release",
+        "pip install collective-capability-runtime",
+        "pypa/gh-action-pypi-publish",
+    ]:
+        assert forbidden not in action
+
+
 def _read(relative: str) -> str:
     return (Path(REPO_ROOT) / relative).read_text(encoding="utf-8")

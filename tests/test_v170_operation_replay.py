@@ -6,6 +6,7 @@ from typing import Any
 
 from ccr.cli import main
 from ccr.schemas.validation import validate_instance
+from tests.conftest import REPO_ROOT
 
 
 def test_operation_replay_manifest_and_verifier(tmp_path: Path, capsys: Any) -> None:
@@ -129,3 +130,46 @@ def test_operation_verifier_rejects_dynamic_code(tmp_path: Path, capsys: Any) ->
     assert "authority_gap" in verification["blockers"]
     assert verification["physical_outcome_proven"] is False
     assert validate_instance("observation-verification-report", verification).ok is True
+
+
+def test_operation_replay_example_fixtures_smoke(tmp_path: Path, capsys: Any) -> None:
+    fixture_root = REPO_ROOT / "examples" / "asi_proxy_acceleration_bundle"
+    manifest = tmp_path / "replay-manifest.json"
+
+    assert (
+        main(
+            [
+                "operation",
+                "replay-manifest",
+                "--dispatch-report",
+                str(fixture_root / "dispatch_report.example.json"),
+                "--observation",
+                str(fixture_root / "observation.example.json"),
+                "--out",
+                str(manifest),
+                "--json",
+            ]
+        )
+        == 0
+    )
+    replay = json.loads(capsys.readouterr().out)
+    assert replay["executed"] is True
+    assert replay["physical_outcome_proven"] is False
+
+    assert (
+        main(
+            [
+                "operation",
+                "verify-observation",
+                "--manifest",
+                str(manifest),
+                "--verifier",
+                str(fixture_root / "observation_verifier.good.json"),
+                "--json",
+            ]
+        )
+        == 0
+    )
+    verification = json.loads(capsys.readouterr().out)
+    assert verification["ok"] is True
+    assert verification["physical_outcome_proven"] is False

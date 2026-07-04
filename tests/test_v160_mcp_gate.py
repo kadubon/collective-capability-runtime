@@ -29,6 +29,7 @@ def test_mcp_gate_blocks_approved_hash_mismatch(tmp_path: Path) -> None:
 
     assert report["ok"] is False
     assert "stale_source" in report["blockers"]
+    assert report["executed"] is False
     assert report["external_execution"] is False
     assert report["provider_dispatch_ready"] is False
     assert validate_instance("mcp-tool-descriptor-report", report).ok is True

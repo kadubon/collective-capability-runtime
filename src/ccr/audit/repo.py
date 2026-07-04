@@ -190,7 +190,13 @@ P1_GATE_CHECKS = [
     ),
     (
         ".github/actions/ccr-audit/action.yml",
-        ["pip install -e .", "ccr audit repo --json", "ccr audit release --dist"],
+        [
+            "uv sync --all-extras",
+            "uv run ccr audit repo --json",
+            "python -m pip install -e .",
+            "ccr audit release --dist",
+            "run-release-audit",
+        ],
     ),
     (
         "tests/test_v160_p1_gates.py",
@@ -319,6 +325,7 @@ def audit_repository(root: Path) -> dict[str, Any]:
     _check_public_release_hygiene(root, findings)
     _check_publish_workflow_secrets(root, findings)
     _check_publish_workflow_order(root, findings)
+    _check_ccr_audit_action_safety(root, findings)
     _check_generated_example_artifacts(root, findings)
     _check_non_claims(root, findings)
     _check_spdx(root, findings)
@@ -509,6 +516,32 @@ def _check_publish_workflow_order(root: Path, findings: list[dict[str, Any]]) ->
                 "contaminate the source-tree hygiene scan.",
             )
         )
+
+
+def _check_ccr_audit_action_safety(root: Path, findings: list[dict[str, Any]]) -> None:
+    path = root / ".github" / "actions" / "ccr-audit" / "action.yml"
+    if not path.exists():
+        return
+    text = path.read_text(encoding="utf-8")
+    forbidden = [
+        "twine upload",
+        "git tag",
+        "gh release",
+        "python -m pip install collective-capability-runtime",
+        "pip install collective-capability-runtime",
+        "pypa/gh-action-pypi-publish",
+    ]
+    for needle in forbidden:
+        if needle in text:
+            findings.append(
+                _finding(
+                    "ccr-audit-action-unsafe-command",
+                    ".github/actions/ccr-audit/action.yml",
+                    "high",
+                    True,
+                    f"CCR audit action must inspect checked-out source and not run: {needle}",
+                )
+            )
 
 
 def _check_generated_example_artifacts(root: Path, findings: list[dict[str, Any]]) -> None:

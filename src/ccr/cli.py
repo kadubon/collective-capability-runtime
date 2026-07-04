@@ -457,6 +457,9 @@ def build_parser() -> argparse.ArgumentParser:
     residual_rank_cmd.set_defaults(func=cmd_residual_rank)
     residual_market_cmd = residual_sub.add_parser("market", help="Rank mission residual work.")
     residual_market_cmd.add_argument("--mission", dest="mission_id")
+    residual_market_cmd.add_argument(
+        "--fail-on", action="append", choices=REPORT_FAIL_POLICY_CHOICES, default=[]
+    )
     residual_market_cmd.add_argument("--json", action="store_true", dest="json_output")
     residual_market_cmd.set_defaults(func=cmd_residual_market)
     residual_bounty_cmd = residual_sub.add_parser("bounty", help="Create a residual bounty.")
@@ -1492,6 +1495,7 @@ def cmd_residual_rank(args: argparse.Namespace) -> int:
 def cmd_residual_market(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     report = residual_market(root, mission_id=args.mission_id)
+    _apply_report_fail_policy(report, list(args.fail_on or []))
     _emit_json(report)
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
@@ -3369,7 +3373,7 @@ def _apply_report_fail_policy(report: dict[str, Any], fail_on: list[str]) -> Non
     embedded = report.get("report")
     workbench = embedded if isinstance(embedded, dict) else report
     failures: list[str] = []
-    if "blocking_residual" in normalized and int(workbench.get("blocking_residual_count", 0)) > 0:
+    if "blocking_residual" in normalized and _report_has_blocking_residual(workbench):
         failures.append("blocking_residual")
     if "missing_mission" in normalized and _report_has_missing_mission(workbench):
         failures.append("missing_mission")
@@ -3387,6 +3391,11 @@ def _apply_report_fail_policy(report: dict[str, Any], fail_on: list[str]) -> Non
 
 
 def _report_has_missing_mission(report: dict[str, Any]) -> bool:
+    blockers = report.get("blockers")
+    if isinstance(blockers, list) and "missing_mission" in {str(item) for item in blockers}:
+        return True
+    if _residuals_contain_finding(report.get("residual_ready"), {"missing_mission"}):
+        return True
     residuals = report.get("top_residuals")
     if not isinstance(residuals, list):
         return False
@@ -3399,6 +3408,19 @@ def _report_has_missing_mission(report: dict[str, Any]) -> bool:
         if "mission not found" in description:
             return True
     return False
+
+
+def _report_has_blocking_residual(report: dict[str, Any]) -> bool:
+    if int(report.get("blocking_residual_count", 0)) > 0:
+        return True
+    market = report.get("market")
+    if isinstance(market, list) and any(
+        isinstance(item, dict) and item.get("blocking") is True for item in market
+    ):
+        return True
+    return _residuals_contain_blocking(report.get("residual_ready")) or _residuals_contain_blocking(
+        report.get("residuals")
+    )
 
 
 def _report_has_schema_error(report: dict[str, Any]) -> bool:
@@ -3415,6 +3437,24 @@ def _report_has_schema_error(report: dict[str, Any]) -> bool:
         return True
     bundle = report.get("bundle_report")
     return isinstance(bundle, dict) and _report_has_schema_error(bundle)
+
+
+def _residuals_contain_blocking(value: Any) -> bool:
+    if isinstance(value, dict):
+        return bool(value.get("blocking"))
+    if isinstance(value, list):
+        return any(_residuals_contain_blocking(item) for item in value)
+    return False
+
+
+def _residuals_contain_finding(value: Any, findings: set[str]) -> bool:
+    if isinstance(value, dict):
+        extensions = value.get("extensions")
+        finding = str(extensions.get("finding_kind", "")) if isinstance(extensions, dict) else ""
+        return finding in findings or str(value.get("kind", "")) in findings
+    if isinstance(value, list):
+        return any(_residuals_contain_finding(item, findings) for item in value)
+    return False
 
 
 def _residuals_contain_schema_error(value: Any) -> bool:

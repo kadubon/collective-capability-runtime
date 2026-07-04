@@ -27,6 +27,19 @@ def test_residual_market_bounty_and_diff(runtime_root: Path, tmp_path: Path, cap
         extensions={"x_ccr_mission_id": mission_id},
     )
     save_residual(runtime_root, residual)
+    negative_liquidity = build_residual(
+        kind="negative_liquidity",
+        description="Benchmark needs resource-matched comparison.",
+        blocking=True,
+        object_type="runtime",
+        object_id=mission_id,
+        severity="medium",
+        refs=[mission_id],
+        source="test",
+        repair_hint="Run benchmark comparison.",
+        extensions={"x_ccr_mission_id": mission_id},
+    )
+    save_residual(runtime_root, negative_liquidity)
 
     assert (
         main(
@@ -69,9 +82,49 @@ def test_residual_market_bounty_and_diff(runtime_root: Path, tmp_path: Path, cap
     assert before["market"][0]["recommended_role"] == "librarian"
     assert before["market"][0]["recommended_roles"] == ["librarian", "verifier"]
     assert before["market"][0]["rank_components"]["blocking"] == 1
+    role_by_id = {item["residual_id"]: item["recommended_role"] for item in before["market"]}
+    assert role_by_id[str(negative_liquidity["residual_id"])] == "benchmark_runner"
     assert before["scope"] == "mission"
     assert validate_instance("residual-market", before).ok is True
     assert validate_instance("residual-market-report", before).ok is True
+
+    assert (
+        main(
+            [
+                "--root",
+                str(runtime_root),
+                "residual",
+                "market",
+                "--mission",
+                mission_id,
+                "--fail-on",
+                "blocking_residual",
+                "--json",
+            ]
+        )
+        != 0
+    )
+    fail_on = json.loads(capsys.readouterr().out)
+    assert "blocking_residual" in fail_on["policy_failures"]
+    assert validate_instance("residual-market-report", fail_on).ok is True
+
+    assert (
+        main(
+            [
+                "--root",
+                str(runtime_root),
+                "residual",
+                "market",
+                "--mission",
+                "mission:missing",
+                "--json",
+            ]
+        )
+        != 0
+    )
+    missing = json.loads(capsys.readouterr().out)
+    assert missing["blockers"] == ["missing_mission"]
+    assert validate_instance("residual-market-report", missing).ok is True
 
     assert main(["--root", str(runtime_root), "residual", "market", "--json"]) == 0
     runtime_market = json.loads(capsys.readouterr().out)

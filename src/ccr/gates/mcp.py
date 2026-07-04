@@ -148,6 +148,7 @@ def _descriptor_report(
         "blockers": blockers,
         "canonical_tool_name": _canonical_tool_name(descriptor),
         "descriptor_hash": _hash_json(descriptor) if descriptor else "",
+        "executed": False,
         "external_execution": False,
         "network_call_performed": False,
         "non_claims": list(MISSION_NON_CLAIMS),

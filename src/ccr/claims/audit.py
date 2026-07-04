@@ -15,15 +15,18 @@ OVERCLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("real_asi_claim", re.compile(r"\bccr\s+(?:is|as)\s+(?:a\s+)?real\s+asi\b")),
     (
         "real_asi_detection",
-        re.compile(r"\b(?:detects?|identif(?:y|ies))\b.{0,80}\breal\s+asi\b"),
+        re.compile(r"\b(?:detects?|identif(?:y|ies))\b.{0,80}\breal\s+asi\b(?!\s+proxy)"),
     ),
     (
         "real_asi_proof",
-        re.compile(r"\b(?:proof\s+of\s+real\s+asi|proves?\s+(?:real\s+)?asi)\b"),
+        re.compile(
+            r"\b(?:proof\s+of\s+real\s+asi(?!\s+proxy)|"
+            r"proves?\s+(?:real\s+)?asi\b(?!\s+proxy))"
+        ),
     ),
     (
         "real_asi_creation",
-        re.compile(r"\b(?:creates?|builds?|forms?)\b.{0,80}\b(?:real\s+)?asi\b"),
+        re.compile(r"\b(?:creates?|builds?|forms?)\b.{0,80}\b(?:real\s+)?asi\b(?!\s+proxy)"),
     ),
     (
         "model_self_rewrite",

@@ -148,6 +148,8 @@ def _card_report(
         "agent_id": agent_id,
         "authority_decision": _authority_decision(residuals, authority=authority),
         "blockers": blockers,
+        "delegated_tool_execution": False,
+        "executed": False,
         "external_execution": False,
         "network_call_performed": False,
         "non_claims": list(MISSION_NON_CLAIMS),

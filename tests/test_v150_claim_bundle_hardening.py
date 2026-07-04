@@ -39,6 +39,7 @@ def test_claim_overclaim_matrix(tmp_path: Path) -> None:
                 "CCR does not detect real ASI.",
                 "CCR conformance report is evidence only and not settlement.",
                 "CCR observation verifier must not be physical outcome proof.",
+                "CCR creates an ASI-proxy mission fixture.",
             ]
         ),
         encoding="utf-8",

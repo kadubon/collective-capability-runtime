@@ -64,3 +64,37 @@ def test_bundle_validate_keeps_path_law_refs_conceptual(tmp_path: Path) -> None:
 
     assert "unresolved_reference" not in report["blockers"]
     assert report["ok"] is True
+
+
+def test_bundle_validate_accepts_registered_p2_report_schema(tmp_path: Path) -> None:
+    bundle = _copy_bundle(tmp_path)
+    (bundle / "residual_market.json").write_text(
+        json.dumps(
+            {
+                "blockers": [],
+                "external_execution": False,
+                "market": [],
+                "mission_id": "mission:quickstart",
+                "mutated_runtime": False,
+                "network_call_performed": False,
+                "non_claims": [
+                    "not_real_asi_proof",
+                    "not_execution_authority",
+                    "not_physical_outcome_proof",
+                    "provider_output_is_evidence_only",
+                    "pic_output_is_evidence_only",
+                ],
+                "ok": True,
+                "residual_count": 0,
+                "schema_version": "ccr.residual_market.v1",
+                "scope": "mission",
+                "settled": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = validate_bundle(bundle)
+
+    assert "unknown_schema_version" not in report["blockers"]
+    assert report["ok"] is True

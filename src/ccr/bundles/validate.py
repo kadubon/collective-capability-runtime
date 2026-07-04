@@ -17,6 +17,7 @@ from ccr.safe_io import (
 from ccr.safe_io import (
     residual_ready as make_residual_ready,
 )
+from ccr.schemas.loader import SCHEMA_FILENAMES, expected_schema_version
 from ccr.schemas.validation import validate_instance
 
 MAX_BUNDLE_FILES = 500
@@ -40,22 +41,17 @@ KNOWN_RESIDUAL_KINDS = {
     "validation_error",
 }
 SCHEMA_KIND_BY_VERSION = {
-    "ccr.asi_proxy_target.v1": "asi-proxy-target",
-    "ccr.baseline_upper_envelope.v1": "baseline-upper-envelope",
-    "ccr.bundle_validate.v1": "bundle-validate-report",
-    "ccr.claim_passport.v1": "claim-passport",
-    "ccr.mission.v1": "mission",
-    "ccr.mission_bundle.v1": "mission-bundle",
+    **{
+        version: kind
+        for kind in SCHEMA_FILENAMES
+        for version in [expected_schema_version(kind)]
+        if version
+    },
+    "ccr.asi_quickstart.v1": "mission-run-report",
+    "ccr.mission_ingest.v1": "mission-run-report",
+    "ccr.mission_next.compact.v1": "mission-run-report",
+    "ccr.mission_next.v1": "mission-run-report",
     "ccr.mission_status.v1": "mission-run-report",
-    "ccr.mission_state.v1": "mission-state",
-    "ccr.packet.v0.1": "packet",
-    "ccr.provider_conformance_report.v1": "provider-conformance-report",
-    "ccr.provider_manifest.v1": "provider-manifest",
-    "ccr.provider_manifest_report.v1": "provider-manifest-report",
-    "ccr.residual.v0.1": "residual",
-    "ccr.task.v0.1": "task",
-    "ccr.trc_operation_plan.v1": "trc-operation-plan",
-    "ccr.workbench_report.v1": "workbench-report",
 }
 OBJECT_ID_KEYS = (
     "baseline_id",

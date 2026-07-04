@@ -1,0 +1,11 @@
+{
+  "providers": [
+    {
+      "manifest_path": "provider_manifest.good.json",
+      "provider_class": "static",
+      "provider_id": "provider:fixture",
+      "side_effect_class": "read_only"
+    }
+  ],
+  "schema_version": "ccr.provider_registry.v1"
+}

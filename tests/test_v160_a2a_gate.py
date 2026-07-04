@@ -28,6 +28,8 @@ def test_a2a_gate_blocks_endpoint_without_provenance(tmp_path: Path) -> None:
 
     assert report["ok"] is False
     assert "missing_evidence" in report["blockers"]
+    assert report["delegated_tool_execution"] is False
+    assert report["executed"] is False
     assert report["external_execution"] is False
     assert validate_instance("a2a-agent-card-report", report).ok is True
 

@@ -6,6 +6,7 @@ from typing import Any
 
 from ccr.cli import main
 from ccr.schemas.validation import validate_instance
+from tests.conftest import REPO_ROOT
 
 
 def _manifest() -> dict[str, Any]:
@@ -90,3 +91,15 @@ def test_provider_registry_blocks_duplicate_and_unsafe_side_effect(
 
     assert "authority_gap" in report["blockers"]
     assert "validation_error" in report["blockers"]
+
+
+def test_provider_registry_good_fixture_smoke(capsys: Any) -> None:
+    registry = (
+        REPO_ROOT / "examples" / "asi_proxy_acceleration_bundle" / "provider_registry.good.json"
+    )
+
+    assert main(["provider", "registry-validate", "--file", str(registry), "--json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+
+    assert report["providers"][0]["provider_id"] == "provider:fixture"
+    assert validate_instance("provider-registry-report", report).ok is True
