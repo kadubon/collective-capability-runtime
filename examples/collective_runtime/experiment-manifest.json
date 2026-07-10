@@ -1,0 +1,22 @@
+{
+  "evaluation_design": {
+    "alpha": 0.05,
+    "horizon": 100,
+    "mode": "fixed_horizon",
+    "pre_registered": true
+  },
+  "evaluator_plugin": "user-supplied:evaluate",
+  "outcome_schema": {
+    "maximum": 1,
+    "minimum": 0,
+    "type": "number"
+  },
+  "pre_registered": true,
+  "resource_envelope": {
+    "budget": 100,
+    "time": 100
+  },
+  "task_manifest": {
+    "task_family": "mechanics-fixture"
+  }
+}

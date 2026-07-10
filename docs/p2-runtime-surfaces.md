@@ -1,6 +1,6 @@
-# CCR v1.5 P2 Runtime Surfaces
+# P2 Runtime Surfaces
 
-These commands help first-time agents move from residual review to local repair
+Introduced in CCR v1.5.0, these compatibility commands help agents move from residual review to local repair
 work without expanding authority.
 
 Start with [Getting Started](getting-started.md) for the first run and

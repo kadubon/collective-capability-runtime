@@ -4,7 +4,7 @@ The v0.9/v1.4 performance surface is local-only and deterministic. It reports CL
 
 Optimizations must not weaken fail-closed semantics. Cache hits are valid only under schema, dependency, profile, authority, and hazard hashes; a cache hit is not proof. Optional fast JSON or hash dependencies remain optional.
 
-## v1.5 P2 Performance Boundary
+## Runtime Performance Boundary
 
 Residual market ranking, static workbench export, operation replay, conformance
 checks, and provider registry validation remain bounded local operations. They

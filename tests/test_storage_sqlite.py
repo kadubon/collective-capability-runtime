@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 
 from ccr.packets.store import submit_packet
 from ccr.storage.sqlite import database_path, index_runtime
@@ -16,7 +17,7 @@ def test_sqlite_init_and_index_preserves_json_runtime(runtime_root):
 
     assert result["objects_indexed"] >= 1
     assert (runtime_root / "packets" / "candidate" / "packet.minimal.json").exists()
-    with sqlite3.connect(database_path(runtime_root)) as connection:
+    with closing(sqlite3.connect(database_path(runtime_root))) as connection:
         row = connection.execute(
             "SELECT status, path FROM objects WHERE object_type = ? AND object_id = ?",
             ("packet", "packet.minimal"),

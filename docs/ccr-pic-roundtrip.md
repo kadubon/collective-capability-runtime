@@ -1,6 +1,6 @@
 # CCR/PIC Roundtrip
 
-v1.3.0 adds a v0.8 roundtrip: PIC or PIC-TS can emit target checks, baseline
+CCR supports PIC 1.0 while retaining older v0.8 report compatibility. PIC or PIC-TS can emit target checks, baseline
 checks, runtime capital witnesses, MCP/A2A reports, SQOT protocol diagnostics,
 BIT MEC frontier reports, and TRC operation-gate reports; CCR imports them as
 candidate evidence and residual work. No import implies settlement or provider

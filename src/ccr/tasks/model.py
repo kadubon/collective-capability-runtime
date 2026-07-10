@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ccr.io import json_file_name
+from ccr.safe_io import require_path_within_root
 
 STATUS_TO_DIR = {
     "open": "open",
@@ -36,4 +37,5 @@ def task_status(task: dict[str, Any]) -> str:
 def task_path(root: Path, task_id_value: str, status: str) -> Path:
     """Return task path by status."""
 
-    return root / "tasks" / STATUS_TO_DIR.get(status, status) / json_file_name(task_id_value)
+    path = root / "tasks" / STATUS_TO_DIR.get(status, status) / json_file_name(task_id_value)
+    return require_path_within_root(path, root, field="task path")

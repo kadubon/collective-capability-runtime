@@ -3,15 +3,19 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
+import socket
 from contextlib import suppress
 from pathlib import Path
 from typing import Any, ClassVar
-from urllib.error import URLError
-from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from ccr.ids import stable_id
 from ccr.providers.base import Provider
+from ccr.strict import strict_bool
 from ccr.time import now_iso
 
 
@@ -61,7 +65,13 @@ class HttpProvider(Provider):
         root: Path,
         config: dict[str, Any],
     ) -> dict[str, Any]:
-        if not config.get("allow_execute"):
+        try:
+            allow_execute = strict_bool(
+                config.get("allow_execute"), field="allow_execute", default=False
+            )
+        except ValueError as exc:
+            return _failure(str(exc))
+        if not allow_execute:
             return {
                 "error": "HTTP provider execution requires allow_execute=true in config.",
                 "network_call_performed": False,
@@ -70,15 +80,32 @@ class HttpProvider(Provider):
             }
         endpoint = str(config.get("endpoint", ""))
         method = str(config.get("method", "POST")).upper()
-        timeout_seconds = int(config.get("timeout_seconds", 30))
-        byte_limit = int(config.get("byte_limit", 1048576))
-        if not endpoint.startswith(("https://", "http://")):
-            return {
-                "error": "HTTP provider endpoint must be http or https.",
-                "network_call_performed": False,
-                "ok": False,
-                "provider": self.provider_name,
-            }
+        timeout_seconds = config.get("timeout_seconds", 30)
+        byte_limit = config.get("byte_limit", 1048576)
+        if (
+            isinstance(timeout_seconds, bool)
+            or not isinstance(timeout_seconds, int)
+            or not 1 <= timeout_seconds <= 60
+        ):
+            return _failure("timeout_seconds must be an integer from 1 through 60")
+        if (
+            isinstance(byte_limit, bool)
+            or not isinstance(byte_limit, int)
+            or not 1 <= byte_limit <= 10_000_000
+        ):
+            return _failure("byte_limit must be an integer from 1 through 10000000")
+        parsed_endpoint = urlsplit(endpoint)
+        if parsed_endpoint.scheme != "https" or not parsed_endpoint.hostname:
+            return _failure("HTTP provider endpoint must use HTTPS.")
+        allowed_hosts = config.get("allowed_hosts")
+        if not isinstance(allowed_hosts, list) or parsed_endpoint.hostname not in {
+            str(item).lower() for item in allowed_hosts
+        }:
+            return _failure("HTTP provider hostname is not in allowed_hosts.")
+        try:
+            _validate_public_hostname(parsed_endpoint.hostname, parsed_endpoint.port or 443)
+        except (OSError, ValueError) as exc:
+            return _failure(f"HTTP provider endpoint rejected: {exc}")
         if method not in self.allowed_methods:
             return {
                 "error": f"HTTP method not allowed: {method}",
@@ -96,8 +123,9 @@ class HttpProvider(Provider):
             body = json.dumps(payload, sort_keys=True).encode("utf-8")
             headers.setdefault("Content-Type", "application/json")
         request = Request(endpoint, data=body, headers=headers, method=method)
+        opener = build_opener(_NoRedirect())
         try:
-            with urlopen(request, timeout=timeout_seconds) as response:  # nosec B310
+            with opener.open(request, timeout=timeout_seconds) as response:  # nosec B310
                 raw = response.read(byte_limit + 1)
                 truncated = len(raw) > byte_limit
                 raw = raw[:byte_limit]
@@ -116,11 +144,11 @@ class HttpProvider(Provider):
                     "response_text": text if parsed is None else "",
                     "truncated": truncated,
                 }
-        except URLError as exc:
+        except (HTTPError, URLError) as exc:
             return {
                 "action": action,
                 "created_at": now_iso(),
-                "error": str(exc),
+                "error": _redact_error(str(exc)),
                 "network_call_performed": True,
                 "ok": False,
                 "provider": self.provider_name,
@@ -129,8 +157,12 @@ class HttpProvider(Provider):
     def normalize(self, report: dict[str, Any]) -> dict[str, Any]:
         response_json = report.get("response_json")
         source: dict[str, Any] = response_json if isinstance(response_json, dict) else report
-        accepted = bool(source.get("accepted", report.get("ok", False)))
-        settled = bool(source.get("settled", False))
+        accepted = strict_bool(
+            source.get("accepted"),
+            field="accepted",
+            default=strict_bool(report.get("ok"), field="ok", default=False),
+        )
+        settled = strict_bool(source.get("settled"), field="settled", default=False)
         ccr_status = "checked" if accepted else "rejected"
         return {
             "accepted": accepted,
@@ -152,3 +184,33 @@ def _as_list(value: Any) -> list[Any]:
     if isinstance(value, list):
         return value
     return [value]
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(
+        self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str
+    ) -> None:
+        return None
+
+
+def _validate_public_hostname(hostname: str, port: int) -> None:
+    addresses = {item[4][0] for item in socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)}
+    if not addresses:
+        raise ValueError("hostname did not resolve")
+    for address in addresses:
+        ip = ipaddress.ip_address(address)
+        if not ip.is_global:
+            raise ValueError("hostname resolves to a non-public address")
+
+
+def _failure(error: str) -> dict[str, Any]:
+    return {
+        "error": error,
+        "network_call_performed": False,
+        "ok": False,
+        "provider": "http",
+    }
+
+
+def _redact_error(message: str) -> str:
+    return message.split("?", 1)[0][:500]

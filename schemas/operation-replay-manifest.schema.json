@@ -8,6 +8,7 @@
     "schema_version": { "const": "ccr.operation_replay_manifest.v1" },
     "executed": { "type": "boolean" },
     "physical_outcome_proven": { "const": false },
+    "physical_outcome_verified": { "const": false },
     "external_execution": { "const": false },
     "network_call_performed": { "const": false },
     "provider_dispatch_ready": { "const": false },

@@ -1,59 +1,28 @@
 # Collective Capability Runtime
 
-Collective Capability Runtime (CCR) is a local, JSON-first command-line
-runtime for coordinating AI-agent work. It helps agents turn scattered work into
-auditable capability packets, tasks, residuals, verification reports, mission
-reports, and static workbench pages.
+Collective Capability Runtime (CCR) is a JSON-first runtime for coordinating
+work across AI agents. It keeps tasks, evidence, disagreements, verification,
+and remaining work visible so that several agents can build reusable capability
+without treating repeated answers or raw agent count as proof.
 
-In simpler terms: CCR is a shared evidence and task layer for agent teams. It
-does not run an LLM for you. It records what agents propose, what was checked,
-what is still blocked, and what the next safe local action should be.
+CCR does not run an LLM. Agents and tools use its CLI, JSON schemas, SQLite or
+PostgreSQL state, and optional HTTP API to exchange auditable work.
 
-CCR is built for protocol-relative ASI-proxy phase formation. That phrase means
-a bounded, reproducible state where checked capability packets, preserved
-residuals, explicit baselines, and authority limits show improved problem
-solving relative to a resource-matched baseline. It is not a claim of real ASI.
+## Vision And Measurement
 
-CCR does not replace Percolation Inversion Compiler (PIC)
-([kadubon/percolation-inversion-compiler](https://github.com/kadubon/percolation-inversion-compiler)).
-CCR coordinates runtime state and local evidence. PIC remains the optional
-checker layer for packet-level and phase-proxy checks when available.
+CCR supports protocol-relative ASI-proxy phase formation. In ordinary terms,
+this means improving the rate at which a bounded team produces checked,
+reusable results under declared authority and resource limits.
 
-## What CCR Helps With
+Progress is measured against a resource-matched baseline. Relevant measures
+include time to checked status, residual half-life, verification yield,
+effective independent contributors, error correlation, and communication or
+verification cost. More agents or more candidate text alone do not count as
+progress.
 
-- AI agent coordination and task routing
-- local capability packet storage
-- residual ledger preservation
-- mission-scoped workbench reports
-- MCP descriptor and A2A handoff safety review
-- provider manifest and provider registry validation
-- operation replay and observation verification without dispatch
-- CCR/PIC conformance checks
-- static HTML review pages with no external assets
-- public-release audits without publishing
-
-## Non-Claims
-
-CCR does not:
-
-- detect real ASI
-- create real ASI
-- self-modify models
-- update model weights
-- grant execution authority
-- bypass safety
-- treat PIC or provider output as CCR settlement
-- treat MCP/A2A descriptors or handoffs as delegated authority
-- treat `execution_available`, `operation_ready`, or `provider_dispatch_ready`
-  as executed work
-- treat observation verification as physical outcome proof
-- treat cache, SQLite, or static workbench output as proof
-- release packages, push tags, or upload to PyPI from audit commands
-
-Residuals are expected runtime state. `settled=false` is a normal diagnostic
-result, not a command crash.
-
-CCR certificate candidates are not real ASI proof.
+This protocol-relative state is not real ASI. CCR does not claim consciousness,
+model-weight updates, legal authority, or a physical outcome merely because a
+report was accepted.
 
 ## Install
 
@@ -71,163 +40,168 @@ uv sync --all-extras
 uv run ccr agent explain --json
 ```
 
-Optional PIC route:
+Optional PostgreSQL, API, authentication, and worker support:
+
+```bash
+python -m pip install "collective-capability-runtime[distributed]"
+```
+
+Optional telemetry:
+
+```bash
+python -m pip install "collective-capability-runtime[telemetry]"
+```
+
+PIC is an optional finite checker and planning provider:
 
 ```bash
 python -m pip install percolation-inversion-compiler
 ccr provider health --provider pic --json
 ```
 
-`<PIC_ROOT>` in docs means a local checkout of
-[kadubon/percolation-inversion-compiler](https://github.com/kadubon/percolation-inversion-compiler),
-for example `../percolation-inversion-compiler`. Public docs should use the
-placeholder and not a user-specific local path.
+## Five-Minute Start
 
-## Fastest First Run
-
-The safest first run creates a local ASI-proxy mission fixture and a markdown
-workbench report. It performs no provider execution, network call, shell command,
-physical actuation, release, tag, or package upload.
+These commands work after installation. They create a local mission and a
+human-readable workbench without calling a provider or network endpoint:
 
 ```bash
-ccr asi quickstart --profile development --json
-ccr mission next --mission mission:quickstart --compact --json
-ccr workbench report --mission mission:quickstart --format markdown --out CCR_WORKBENCH.md
+ccr --root ccr-runtime asi quickstart --profile development --json
+ccr --root ccr-runtime mission next --mission mission:quickstart --compact --json
+ccr --root ccr-runtime workbench report --mission mission:quickstart --format markdown --out CCR_WORKBENCH.md
+ccr --root ccr-runtime residual market --mission mission:quickstart --json
 ```
 
-Read `CCR_WORKBENCH.md` next. If it shows blocking residuals, route them through
-the residual market:
+Read `CCR_WORKBENCH.md`, then select a blocking residual or verification task.
+`settled=false` is a normal report state: it means required work remains.
 
-```bash
-ccr residual market --mission mission:quickstart --json
-```
+For a source-checkout example of independent proposals and a resource-matched
+experiment, follow
+[examples/collective_runtime/README.md](examples/collective_runtime/README.md).
 
-To export a browser-readable local view:
+## Choose A Workflow
 
-```bash
-ccr workbench export --mission mission:quickstart --format static-html --out site/ --json
-```
-
-The generated static site is presentation only. It is not proof, settlement,
-authority, dispatch, or physical outcome evidence.
-
-## P0, P1, and P2 Surface Map
-
-P0 is the mission and local evidence core:
-
-```bash
-ccr asi quickstart --profile development --json
-ccr mission status --mission mission:quickstart --json
-ccr mission next --mission mission:quickstart --compact --json
-ccr mission report --mission mission:quickstart --format json --out report.json --fail-on blocking_residual
-ccr workbench report --mission mission:quickstart --format json --out report.json --fail-on missing_mission
-ccr claim audit --input README.md --json
-ccr bundle validate --bundle examples/asi_proxy_mission_bundle --profile development --json
-```
-
-P1 is the local gate and ingest layer:
-
-```bash
-ccr mcp inspect-descriptor --file examples/asi_proxy_acceleration_bundle/mcp_descriptor.good.json --json
-ccr mcp preflight --descriptor examples/asi_proxy_acceleration_bundle/mcp_descriptor.good.json --invocation examples/asi_proxy_acceleration_bundle/mcp_invocation.good.json --json
-ccr a2a inspect-card --file examples/asi_proxy_acceleration_bundle/a2a_agent_card.good.json --json
-ccr a2a preflight-handoff --handoff examples/asi_proxy_acceleration_bundle/a2a_handoff.good.json --card examples/asi_proxy_acceleration_bundle/a2a_agent_card.good.json --json
-ccr ingest trace --input README.md --mission mission:quickstart --write-candidates --json
-ccr ingest repo --path . --mission mission:quickstart --json
-ccr provider manifest --file examples/asi_proxy_acceleration_bundle/provider_manifest.good.json --json
-ccr provider conformance --file examples/asi_proxy_acceleration_bundle/provider_manifest.good.json --json
-```
-
-P2 is the first-time-agent usability layer:
-
-```bash
-ccr residual market --mission mission:quickstart --json
-ccr residual bounty --residual <residual_id> --mission mission:quickstart --emit task --json
-ccr residual diff --before before.json --after after.json --json
-ccr workbench export --mission mission:quickstart --format static-html --out site/ --json
-ccr operation replay-manifest --dispatch-report examples/asi_proxy_acceleration_bundle/dispatch_report.example.json --observation examples/asi_proxy_acceleration_bundle/observation.example.json --out replay.json --json
-ccr operation verify-observation --manifest replay.json --verifier examples/asi_proxy_acceleration_bundle/observation_verifier.good.json --json
-ccr conformance bundle --bundle examples/asi_proxy_mission_bundle --json
-ccr conformance parity --ccr-report ccr.json --pic-report pic.json --json
-ccr provider registry-validate --file examples/asi_proxy_acceleration_bundle/provider_registry.good.json --json
-ccr provider registry-list --file examples/asi_proxy_acceleration_bundle/provider_registry.good.json --json
-```
-
-These commands are local-first. They do not execute providers, import provider
-code, call networks, dispatch MCP/A2A tools, waive residuals, or settle CCR.
-
-## What Mutates Local State
-
-Most inspection commands only read files and print JSON. Commands below can
-write local CCR artifacts when their required flags are present:
-
-| Command | Local write | External effect |
+| Goal | Start with | Guide |
 |---|---|---|
-| `ccr asi quickstart` | mission, target, baseline, candidate packet, reports | none |
-| `ccr mission init` | mission files | none |
-| `ccr mission ingest` | mission-scoped candidate packet or residual | none |
-| `ccr ingest trace --write-candidates` | candidate packets and residuals | none |
-| `ccr ingest repo --write-candidates` | candidate packets and residuals | none |
-| `ccr residual bounty --emit task` | one local repair task | none |
-| `ccr workbench report --out ...` | one report file | none |
-| `ccr workbench export --out ...` | static HTML and JSON files | none |
-| `ccr operation replay-manifest --out ...` | one replay manifest | none |
-| `ccr task lease` | local lease metadata | none |
-| `ccr packet submit` | local packet file | none |
-| `ccr provider import` | local reports, residuals, task hints | none |
-| `ccr provider execute --execute` | provider report plus possible provider side effect | explicit operator authority required |
+| Create a local mission | `ccr asi quickstart` | [Getting Started](docs/getting-started.md) |
+| Coordinate independent proposals | `ccr workcell create` | [Collective Workcells](docs/collective-workcells.md) |
+| Recover and complete leased work | `ccr task lease` | [Collective Workcells](docs/collective-workcells.md) |
+| Resolve a residual with independent evidence | `ccr residual resolve` | [Command Map](docs/command-map.md) |
+| Run several workers | `ccr server run`, `ccr worker run` | [Distributed Runtime](docs/distributed-runtime.md) |
+| Compare collective and baseline results | `ccr experiment register` | [Measurement Protocol](docs/measurement-protocol.md) |
+| Review a possible external operation | `ccr operation preflight` | [Operation Gate](docs/operation-gate.md) |
+| Check PIC compatibility | `ccr audit pic` | [PIC Interoperability](INTEROP_PIC.md) |
+| Audit a public release | `ccr audit repo` | [Release Audit](AUDIT.md) |
 
-SQLite (`ccr.sqlite`) is a repairable index. JSON artifacts remain the source of
-truth.
+## Core Concepts
 
-## Expected Outputs
+- **Task:** a unit of work with dependencies, role, lease, heartbeat, and
+  fencing token.
+- **Capability packet:** a candidate or checked result with scope, evidence,
+  provenance, and residual references.
+- **Residual:** explicit unresolved work. Resolution requires a repair artifact
+  and independent verifier evidence.
+- **Workcell:** independent proposal, reveal, critique, revision, verification,
+  and integration stages. Correlated sources count once.
+- **Mission:** a target, baseline, packets, tasks, residuals, and reports under
+  one declared scope.
+- **Experiment:** a preregistered comparison with a task manifest, evaluator,
+  resource envelope, seed, and outcome schema.
+- **Operation approval:** a time-limited authorization bound to a plan,
+  provider, arguments, resources, scope, nonce, and use count.
 
-CCR commands return deterministic JSON where possible. Important fields are:
+## Important Output Fields
 
-- `ok`: command-level success or failure
-- `accepted`: local gate acceptance, not settlement
-- `settled`: final CCR settlement status, often `false`
-- `external_execution`: whether this command performed external execution
-- `network_call_performed`: whether this command made a network call
-- `executed`: whether the source evidence says execution happened
-- `physical_outcome_proven`: physical outcome proof status, normally `false`
-- `residual_ready` or `residuals`: preserved blockers or follow-up work
-- `non_claims`: boundaries the output does not assert
+CCR emits deterministic JSON where possible. Inspect these fields before
+choosing the next action:
 
-Failure is protocol data. Malformed input, unknown authority, stale evidence,
-schema mismatch, hash mismatch, missing mission, unsupported claim, and path
-traversal should become explicit JSON failures or residuals.
+| Field | Meaning |
+|---|---|
+| `ok` | The command completed its finite validation or transition. |
+| `accepted` | A local checker accepted the supplied evidence. It is not settlement. |
+| `settled` | All declared settlement requirements passed. It is usually `false`. |
+| `blockers` / `residuals` | Work that must remain visible. |
+| `external_execution` | The command performed an external action. |
+| `network_call_performed` | The command made a network request. |
+| `physical_outcome_proven` | Deprecated compatibility field; always `false`. |
+| `physical_outcome_verified` | A trusted signed observation passed scope and time checks. |
+| `non_claims` | Statements the report explicitly does not assert. |
 
-## Documentation Map
+Unknown measurements remain unknown. CCR does not replace missing reuse,
+hazard, queue, cost, or verifier values with favorable defaults.
 
-- [docs/README.md](docs/README.md): documentation index for agents and humans
-- [docs/getting-started.md](docs/getting-started.md): first-use sequence
-- [docs/command-map.md](docs/command-map.md): P0/P1/P2 command map and local writes
-- [docs/asi-proxy-mission.md](docs/asi-proxy-mission.md): mission runtime facade
-- [docs/p2-runtime-surfaces.md](docs/p2-runtime-surfaces.md): residual market, static workbench, replay, conformance, registry
-- [docs/mcp-a2a-safety.md](docs/mcp-a2a-safety.md): MCP/A2A safety boundary
-- [docs/operation-gate.md](docs/operation-gate.md): operation gate and replay boundary
-- [docs/real-world-impact.md](docs/real-world-impact.md): operation evidence and non-claim boundary
-- [docs/cross-repo-loop-conformance.md](docs/cross-repo-loop-conformance.md): CCR/PIC/PIC-TS parity
-- [docs/github-action.md](docs/github-action.md): checked-out-source CI audit action
-- [AUDIT.md](AUDIT.md): repository and release audit commands
-- [SECURITY.md](SECURITY.md): threat model and provider execution boundary
-- [INTEROP_PIC.md](INTEROP_PIC.md): CCR/PIC compatibility
+## State And External Effects
 
-Search terms: AI agent runtime, agent coordination, local-first runtime, JSON
-schema, residual ledger, capability packet, ASI-proxy mission, phase formation,
-MCP preflight, A2A handoff, provider registry, operation replay, static
-workbench, PIC interop, release audit.
+Local inspection, schema validation, planning, and reporting do not perform
+external effects. The following commands intentionally mutate local runtime
+state:
+
+| Command family | Local change |
+|---|---|
+| `asi`, `mission`, `workbench --out` | mission and report artifacts |
+| `task lease|heartbeat|complete|fail|cancel|retry` | transactional task state |
+| `residual assign|review|resolve|reopen` | residual workflow and evidence |
+| `workcell create|submit|advance|integrate` | staged collective work |
+| `experiment register|ingest` | preregistration and result artifacts |
+| `storage migrate --apply` | additive local database migration |
+| `provider import` | candidate evidence, residuals, and task hints |
+| `operation approve` | parameter-bound approval artifact |
+
+`ccr operation dispatch --execute` is the external-effect boundary. Network
+providers require HTTPS, an exact host allowlist, public-address DNS checks,
+redirect denial, byte/time limits, a current preflight, and an unexpired bound
+approval. Physical or irreversible operations require distinct approvers,
+rollback and hazard controls, and independent verification.
+
+Generic `ccr provider execute` cannot bypass this operation gate. Imported
+`safe_commands` are task hints and are never run automatically.
+
+## Storage Profiles
+
+SQLite is the default profile for one machine. Connections close after each
+operation, state changes use immediate transactions, and task leases use
+monotonic fencing tokens.
+
+PostgreSQL 16+ is the distributed authoritative store. Workers claim tasks
+with `FOR UPDATE SKIP LOCKED`, use database time, heartbeat leases, and commit
+idempotently. Delivery is at least once; CCR does not claim exactly-once
+execution. JSON files are content-addressed exports in this profile.
+
+```bash
+ccr --root ccr-runtime storage doctor --json
+ccr --root ccr-runtime storage migrate --json
+ccr --root ccr-runtime storage reconcile --json
+```
+
+## Documentation
+
+- [Documentation Index](docs/README.md): task-oriented navigation
+- [Getting Started](docs/getting-started.md): shortest local workflow
+- [Command Map](docs/command-map.md): commands, writes, and authority needs
+- [Collective Workcells](docs/collective-workcells.md): independent proposals and residual-preserving integration
+- [Distributed Runtime](docs/distributed-runtime.md): PostgreSQL, OIDC + DPoP API, and workers
+- [Measurement Protocol](docs/measurement-protocol.md): resource-matched experiments
+- [Operation Gate](docs/operation-gate.md): approval, dispatch, and observation boundaries
+- [Security Audit Checklist](docs/security-audit-checklist.md): NIST AI RMF and OWASP agent controls
+- [PIC Interoperability](INTEROP_PIC.md): PIC 1.0 compatibility and non-settlement boundary
+- [Security Policy](SECURITY.md): threat model and disclosure process
+
+Search terms: collective intelligence runtime, multi-agent coordination,
+distributed AI agents, PostgreSQL task queue, capability packet, residual
+ledger, independent verification, ASI-proxy measurement, PIC interoperability,
+OIDC DPoP agent API, operation approval, and provenance.
 
 ## Public Release Audit
 
-Before publishing, audit the repository and built distributions without
-releasing:
+Run the complete local gate before creating a tag or GitHub release:
 
 ```bash
 uv sync --all-extras
+uv run ruff format --check .
 uv run ruff check .
+uv run mypy src
+uv run python -m compileall -q src tests
 uv run pytest
+uv run python scripts/check_schema_registry.py
 uv run ccr audit repo --json
 uv run ccr audit pic --pic-root <PIC_ROOT> --json
 uv build
@@ -235,152 +209,14 @@ uv run ccr audit release --dist dist --json
 uvx twine check dist/*
 ```
 
-These commands do not create a GitHub release, push a tag, upload to PyPI, or
-dispatch providers.
+`<PIC_ROOT>` is a trusted local checkout of
+[kadubon/percolation-inversion-compiler](https://github.com/kadubon/percolation-inversion-compiler).
+These audit commands do not push, tag, publish, dispatch providers, or prove a
+physical outcome.
 
-## Provider API
+## Compatibility
 
-Providers expose `capabilities`, `health`, `plan`, `execute`, and `normalize`.
-Built-in providers are:
-
-- `pic`: optional local PIC verifier/phase provider
-- `http`: explicit HTTP report/webhook provider
-
-Provider planning is dry-run:
-
-```bash
-ccr provider list --json
-ccr provider health --provider pic --json
-ccr provider plan --provider http --action webhook --file payload.json --json
-```
-
-HTTP execution requires an explicit config file, `allow_execute=true`, and an
-explicit `--execute` flag. Imported provider `safe_commands` become task hints
-only and are never run automatically.
-
-## First-time agent guide
-
-Purpose: use CCR to coordinate capability packets, tasks, residuals, provider
-reports, and protocol-relative ASI-proxy phase diagnostics without executing
-external commands by default.
-
-First commands:
-
-```bash
-ccr agent explain --json
-ccr asi quickstart --profile development --json
-ccr mission next --mission mission:quickstart --compact --json
-ccr workbench report --mission mission:quickstart --format markdown --out CCR_WORKBENCH.md
-ccr residual market --mission mission:quickstart --json
-```
-
-Safe boundary: audit, report, schema validation, mission next, claim audit,
-MCP/A2A inspect and preflight, provider manifest review, provider conformance,
-external ingest without `--write-candidates`, residual market, static workbench
-export, operation replay, conformance, and provider registry validation are
-safe starting surfaces. They do not grant authority or execute providers.
-
-Expected outputs: read `ok`, `accepted`, `settled`, `external_execution`,
-`network_call_performed`, `residual_ready`, `residuals`, `blockers`,
-`non_claims`, and local output paths before choosing the next command.
-
-Failure/residual handling: preserve validation failures, provider gaps, missing
-evidence, authority gaps, baseline mismatches, stale sources, and settlement
-blockers as residuals. Use the residual market to rank work; it does not waive
-residuals.
-
-P2 safe commands:
-
-```bash
-ccr residual market --json
-ccr residual market --mission mission:quickstart --json
-ccr residual bounty --residual <residual_id> --mission mission:quickstart --emit task --json
-ccr residual diff --before before.json --after after.json --json
-ccr workbench export --mission mission:quickstart --format static-html --out site/ --json
-ccr operation replay-manifest --dispatch-report dispatch.json --observation observation.json --out replay.json --json
-ccr operation verify-observation --manifest replay.json --verifier verifier.json --json
-ccr conformance bundle --bundle examples/asi_proxy_mission_bundle --json
-ccr conformance parity --ccr-report ccr.json --pic-report pic.json --json
-ccr provider registry-validate --file provider-registry.json --json
-ccr provider registry-list --file provider-registry.json --json
-```
-
-Provider import: imported reports can update packet status to checked or
-provisional and create task hints, but imported `safe_commands` are never run.
-
-Phase formation cycle: agents create or repair packets, preserve residuals,
-import verifier evidence, run `ccr phase form --profile development --json`,
-inspect threshold and baseline blockers, then route the next residual through
-tasks or residual market.
-
-What not to claim: do not claim real ASI, model-weight updates, self-rewrite,
-execution authority, physical truth, oracle truth, or CCR settlement from PIC
-or provider output alone.
-
-## Phase Formation
-
-CCR can build local phase diagnostics:
-
-```bash
-ccr phase graph --json
-ccr phase observe --json
-ccr phase threshold --file examples/phase_formation/threshold.json --json
-ccr phase compare --baseline baseline.json --candidate observation.json --json
-ccr phase form --profile development --json
-ccr phase certify --json
-```
-
-The effective graph counts checked or settled packets without blocking
-residual, authority, or negative-liquidity blockers as positive contribution.
-Raw, candidate-only, rejected, quarantined, duplicate, and speculative volume is
-diagnostic only. Execution availability is recorded as a path witness and never
-as executed work.
-
-## Minimal Agent Loop
-
-```bash
-ccr agent explain --json
-ccr task next --role generator --json
-ccr task lease <task_id> --ttl 30m --agent agent.example --json
-ccr packet submit --file examples/minimal/packet.json --json
-ccr verify --provider pic --packet packet.minimal --profile development --json
-ccr integrate --report reports/pic/<report>.json --json
-ccr phase form --profile development --json
-```
-
-CCR does not include an LLM executor. Agents use the CLI to lease work, submit
-packets, route verification, preserve residuals, and form phase diagnostics.
-
-## Schema Validation
-
-Local `schemas/` files are authoritative. Packaged schemas are used only if
-local schemas are absent.
-
-```bash
-ccr schema validate --kind packet --file packet.json
-ccr schema validate --kind task --file task.json
-ccr schema validate --kind phase-observation --file observation.json
-ccr schema validate --kind baseline --file baseline.json
-```
-
-Stable v1 public interfaces are CLI commands and JSON schemas. The Python API is
-semi-stable.
-
-## Safety Boundary
-
-CCR distinguishes:
-
-```text
-execution_available != executed
-safe_command != authority
-candidate_path != settled capability
-accepted_by_pic != settled_by_ccr
-operation_replay != dispatch
-observation_verification != physical_outcome_proof
-static_workbench != proof
-provider_registry != authority
-cache_index_hit != proof
-```
-
-External content remains candidate-only until verifier reports and CCR promotion
-policy accept it. Blocking residuals prevent settlement.
+The v1 CLI and JSON interfaces remain compatible. New fields are additive.
+The safety exception is deliberate: side-effecting provider execution must use
+the TRC operation approval and dispatch path. The Python API remains
+semi-stable; CLI commands and registered JSON schemas are the public contract.

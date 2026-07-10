@@ -7,8 +7,10 @@ source artifacts for packets, tasks, residuals, reports, and phase outputs.
 
 from __future__ import annotations
 
+import json
 import sqlite3
-from contextlib import suppress
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +20,7 @@ from ccr.paths import blackboard_events_path
 from ccr.time import now_iso
 
 DB_FILENAME = "ccr.sqlite"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 5
 
 
 def database_path(root: Path) -> Path:
@@ -27,8 +29,9 @@ def database_path(root: Path) -> Path:
     return root / DB_FILENAME
 
 
-def connect(root: Path) -> sqlite3.Connection:
-    """Open a SQLite connection with conservative local settings."""
+@contextmanager
+def connect(root: Path) -> Iterator[sqlite3.Connection]:
+    """Yield a SQLite connection and always close its file handle."""
 
     path = database_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -38,7 +41,30 @@ def connect(root: Path) -> sqlite3.Connection:
     connection.execute("PRAGMA busy_timeout = 5000")
     with suppress(sqlite3.DatabaseError):
         connection.execute("PRAGMA journal_mode = WAL")
-    return connection
+    try:
+        yield connection
+    except Exception:
+        if connection.in_transaction:
+            connection.rollback()
+        raise
+    finally:
+        connection.close()
+
+
+@contextmanager
+def immediate_transaction(root: Path) -> Iterator[sqlite3.Connection]:
+    """Serialize a local state transition using SQLite's write lock."""
+
+    init_database(root)
+    with connect(root) as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            yield connection
+        except Exception:
+            connection.rollback()
+            raise
+        else:
+            connection.commit()
 
 
 def init_database(root: Path) -> dict[str, Any]:
@@ -80,8 +106,38 @@ def init_database(root: Path) -> dict[str, Any]:
               leased_by TEXT,
               leased_at TEXT,
               ttl_minutes INTEGER,
+              fencing_token INTEGER NOT NULL DEFAULT 0,
+              heartbeat_at TEXT,
+              idempotency_key TEXT,
               status TEXT NOT NULL,
               updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS outbox (
+              event_id TEXT PRIMARY KEY,
+              event_type TEXT NOT NULL,
+              aggregate_type TEXT NOT NULL,
+              aggregate_id TEXT NOT NULL,
+              payload TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              published_at TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS operation_approvals (
+              approval_id TEXT PRIMARY KEY,
+              approval_digest TEXT NOT NULL,
+              plan_digest TEXT NOT NULL,
+              provider TEXT NOT NULL,
+              use_count INTEGER NOT NULL DEFAULT 0,
+              max_uses INTEGER NOT NULL,
+              expires_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS dpop_replay (
+              jti TEXT PRIMARY KEY,
+              expires_at TEXT NOT NULL,
+              created_at TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS provider_runs (
@@ -186,6 +242,14 @@ def init_database(root: Path) -> dict[str, Any]:
         ).fetchone()
         migrated = applied is None
         if migrated:
+            lease_columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(leases)")}
+            for column, definition in (
+                ("fencing_token", "INTEGER NOT NULL DEFAULT 0"),
+                ("heartbeat_at", "TEXT"),
+                ("idempotency_key", "TEXT"),
+            ):
+                if column not in lease_columns:
+                    connection.execute(f"ALTER TABLE leases ADD COLUMN {column} {definition}")
             connection.execute(
                 "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
                 (SCHEMA_VERSION, now_iso()),
@@ -250,6 +314,21 @@ def record_event(root: Path, event: dict[str, Any]) -> None:
                 event.get("status_after"),
                 1 if event.get("dry_run") else 0,
                 event.get("note", ""),
+            ),
+        )
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO outbox(
+              event_id, event_type, aggregate_type, aggregate_id, payload, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                event.get("event_id"),
+                event.get("action", "ccr.event"),
+                event.get("object_type", "other"),
+                event.get("object_id", "unknown"),
+                json.dumps(event, sort_keys=True),
+                event.get("timestamp", now_iso()),
             ),
         )
         connection.commit()

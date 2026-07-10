@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/generic-report.schema.json",
+  "title": "CCR Versioned Public Report Envelope",
+  "type": "object",
+  "required": ["schema_version"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^(ccr|pic)\\.[A-Za-z0-9_.-]+\\.v[0-9]+(?:\\.[0-9]+)?$"
+    },
+    "accepted": {"type": "boolean"},
+    "ok": {"type": "boolean"},
+    "settled": {"type": "boolean"},
+    "residuals": {"type": "array"},
+    "non_claims": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}

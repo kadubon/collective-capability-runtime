@@ -131,6 +131,32 @@ not be silently promoted into packet, graph, or phase evidence.
 
 ## Provider Imports
 
+Network-capable providers cannot execute through the generic provider command.
+They must pass through the TRC operation preflight, parameter-bound approval,
+and dispatch path. The built-in HTTP provider requires HTTPS, an exact hostname
+allowlist, public-address DNS resolution, redirect denial, strict boolean and
+numeric configuration, bounded response bytes, and a bounded timeout.
+
+Operation approvals bind the exact plan digest, provider, dispatch config,
+scope, resource limits, expiry, nonce, and maximum use count. Dispatch validates
+authority against current system time and atomically consumes one approval use.
+Network effects require one approver. Physical or irreversible policies require
+two distinct approver identities and a separate physical gate.
+
+`physical_outcome_proven` is a deprecated compatibility field and remains
+`false`. Only signed, scoped verifier evidence inside its observation window
+can set `physical_outcome_verified=true`.
+
+Runtime-local schemas cannot replace packaged normative schemas. JSON and
+JSONL reads have byte, line, and nesting limits. IDs used in paths reject
+traversal, absolute paths, separators, control characters, and Windows reserved
+names.
+
+The distributed API requires OIDC plus DPoP on write endpoints. DPoP replay IDs
+are stored in SQLite or PostgreSQL, and human approval identities are distinct
+from worker identities. Optional telemetry excludes prompts, credentials,
+cookies, secrets, and PII-like fields.
+
 Provider reports may contain unsafe command suggestions. CCR maps:
 
 - `candidate_only_reasons` to residuals

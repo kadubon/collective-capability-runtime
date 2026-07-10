@@ -32,6 +32,9 @@
     "physical_outcome_proven": {
       "const": false
     },
+    "physical_outcome_verified": {
+      "type": "boolean"
+    },
     "observation": {
       "type": "object"
     },

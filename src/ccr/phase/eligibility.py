@@ -53,23 +53,29 @@ def packet_eligibility(root: Path, packet: dict[str, Any]) -> dict[str, Any]:
         in {"none", "dry_run_only", "sandbox_only", "operator_approval_required"}
     )
     metrics = packet.get("metrics", {}) if isinstance(packet.get("metrics"), dict) else {}
-    reuse_score = _number(
-        metrics.get("reuse_score"),
-        default=1.0 if status in CONTRIBUTING_STATUSES else 0.0,
-    )
-    residual_load = _number(metrics.get("residual_load"), default=float(len(blockers)))
-    hazard_load = _number(
-        metrics.get("hazard_load"),
-        default=0.0 if risk.get("hazard_level") in {"none", "low"} else 1.0,
-    )
-    queue_load = _number(metrics.get("queue_load"), default=0.0)
-    liquidity_lower_bound = reuse_score - residual_load - hazard_load - queue_load
+    coordinates = {
+        "reuse_score": _coordinate(metrics.get("reuse_score"), unit="ratio"),
+        "residual_load": _coordinate(metrics.get("residual_load"), unit="load"),
+        "hazard_load": _coordinate(metrics.get("hazard_load"), unit="load"),
+        "queue_load": _coordinate(metrics.get("queue_load"), unit="load"),
+    }
+    coordinates_known = all(item["status"] == "known" for item in coordinates.values())
+    liquidity_lower_bound = None
+    if coordinates_known:
+        liquidity_lower_bound = (
+            float(coordinates["reuse_score"]["value"])
+            - float(coordinates["residual_load"]["value"])
+            - float(coordinates["hazard_load"]["value"])
+            - float(coordinates["queue_load"]["value"])
+        )
     accepted_or_certificate_admissible = status in EFFECTIVE_GRAPH_STATUSES
     candidate_only = status in DIAGNOSTIC_ONLY_STATUSES or status == "provisional"
     positive_contribution = (
         status in CONTRIBUTING_STATUSES
         and not blockers
         and authority_valid
+        and coordinates_known
+        and liquidity_lower_bound is not None
         and liquidity_lower_bound >= 0
     )
     reasons: list[str] = []
@@ -81,7 +87,10 @@ def packet_eligibility(root: Path, packet: dict[str, Any]) -> dict[str, Any]:
         reasons.append("blocking residuals prevent positive phase contribution")
     if not authority_valid:
         reasons.append("authority or side-effect policy is outside the phase envelope")
-    if liquidity_lower_bound < 0:
+    for name, coordinate in coordinates.items():
+        if coordinate["status"] == "unknown":
+            reasons.append(f"missing explicit phase coordinate: {name}")
+    if liquidity_lower_bound is not None and liquidity_lower_bound < 0:
         reasons.append("liquidity lower bound is negative after residual and hazard charges")
     return {
         "accepted_or_certificate_admissible": accepted_or_certificate_admissible,
@@ -90,6 +99,7 @@ def packet_eligibility(root: Path, packet: dict[str, Any]) -> dict[str, Any]:
         "authority_valid": authority_valid,
         "blocking_residual_ids": [str(item.get("residual_id", "")) for item in blockers],
         "candidate_only": candidate_only,
+        "coordinates": coordinates,
         "execution_available": execution_available,
         "executed": False,
         "liquidity_lower_bound": liquidity_lower_bound,
@@ -100,7 +110,15 @@ def packet_eligibility(root: Path, packet: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _number(value: Any, *, default: float) -> float:
-    if isinstance(value, int | float):
-        return float(value)
-    return default
+def _coordinate(value: Any, *, unit: str) -> dict[str, Any]:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return {"status": "unknown", "unit": unit, "validity_domain": None, "value": None}
+    number = float(value)
+    if number < 0:
+        return {"status": "unknown", "unit": unit, "validity_domain": None, "value": None}
+    return {
+        "status": "known",
+        "unit": unit,
+        "validity_domain": "declared-packet-metrics",
+        "value": number,
+    }

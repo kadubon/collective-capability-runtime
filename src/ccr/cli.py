@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from contextlib import suppress
 from pathlib import Path
@@ -29,6 +30,7 @@ from ccr.errors import (
     CCRException,
     CCRMissingError,
 )
+from ccr.experiments.protocol import ingest_experiment_result, register_experiment
 from ccr.extensions import (
     availability_degrade,
     availability_recover,
@@ -96,6 +98,7 @@ from ccr.extensions import (
     token_distill,
     token_import,
     token_next,
+    workcell_advance,
     workcell_create,
     workcell_integrate,
     workcell_next,
@@ -105,12 +108,13 @@ from ccr.gates.a2a import inspect_agent_card, preflight_handoff
 from ccr.gates.mcp import inspect_descriptor, preflight_invocation
 from ccr.ids import stable_id
 from ccr.ingest.facade import ingest_repo, ingest_trace
-from ccr.io import json_file_name, pretty_dumps, read_json, write_json_atomic
+from ccr.io import json_file_name, pretty_dumps, read_json, read_jsonl, write_json_atomic
 from ccr.mission.ingest import ingest_mission
 from ccr.mission.init import asi_quickstart, initialize_mission
 from ccr.mission.next import mission_next
 from ccr.mission.report import write_mission_report
 from ccr.mission.status import mission_status
+from ccr.operations.approval import create_operation_approval
 from ccr.operations.replay import replay_manifest, verify_observation
 from ccr.packets.promotion import promote_packet
 from ccr.packets.store import load_packet, save_packet_at_status, submit_packet, validate_packet
@@ -127,14 +131,29 @@ from ccr.providers.registry import get_provider, list_providers
 from ccr.providers.registry_manifest import list_registry, validate_registry_manifest
 from ccr.reports.json_report import phase_report
 from ccr.reports.markdown import render_markdown_report
+from ccr.residuals.lifecycle import (
+    assign_residual,
+    reopen_residual,
+    resolve_residual,
+    review_residual,
+)
 from ccr.residuals.market import residual_bounty, residual_diff, residual_market
 from ccr.residuals.model import build_residual
 from ccr.residuals.store import save_residual
 from ccr.runtime.init import init_runtime
 from ccr.schemas.loader import load_agent_manifest
 from ccr.schemas.validation import validate_instance
+from ccr.storage.admin import storage_doctor, storage_migrate, storage_reconcile
+from ccr.storage.factory import create_store
 from ccr.storage.sqlite import record_object, record_phase_observation, record_provider_run
 from ccr.tasks.lease import lease_task, release_task
+from ccr.tasks.lifecycle import (
+    cancel_task,
+    complete_task,
+    fail_task,
+    heartbeat_task,
+    retry_task,
+)
 from ccr.tasks.scheduler import next_task
 from ccr.tasks.store import submit_task, validate_task
 from ccr.time import now_iso
@@ -399,6 +418,43 @@ def build_parser() -> argparse.ArgumentParser:
     audit_release_cmd.add_argument("--json", action="store_true", dest="json_output")
     audit_release_cmd.set_defaults(func=cmd_audit_release)
 
+    storage = sub.add_parser("storage", help="Storage diagnostics and migration commands.")
+    storage_sub = storage.add_subparsers(dest="storage_command", required=True)
+    storage_doctor_cmd = storage_sub.add_parser("doctor", help="Check storage integrity.")
+    storage_doctor_cmd.add_argument("--json", action="store_true", dest="json_output")
+    storage_doctor_cmd.set_defaults(func=cmd_storage_doctor)
+    storage_migrate_cmd = storage_sub.add_parser(
+        "migrate", help="Preview or apply additive SQLite indexing."
+    )
+    storage_migrate_cmd.add_argument("--apply", action="store_true")
+    storage_migrate_cmd.add_argument("--json", action="store_true", dest="json_output")
+    storage_migrate_cmd.set_defaults(func=cmd_storage_migrate)
+    storage_reconcile_cmd = storage_sub.add_parser(
+        "reconcile", help="Report artifact/index disagreement without repair."
+    )
+    storage_reconcile_cmd.add_argument("--json", action="store_true", dest="json_output")
+    storage_reconcile_cmd.set_defaults(func=cmd_storage_reconcile)
+
+    server = sub.add_parser("server", help="Optional authenticated distributed API.")
+    server_sub = server.add_subparsers(dest="server_command", required=True)
+    server_run = server_sub.add_parser("run", help="Run the versioned /v1 API.")
+    server_run.add_argument("--auth-config", required=True)
+    server_run.add_argument("--database-url-env", default="CCR_DATABASE_URL")
+    server_run.add_argument("--host", default="127.0.0.1")
+    server_run.add_argument("--port", default=8787, type=int)
+    server_run.set_defaults(func=cmd_server_run)
+
+    worker = sub.add_parser("worker", help="Optional fenced distributed worker.")
+    worker_sub = worker.add_subparsers(dest="worker_command", required=True)
+    worker_run = worker_sub.add_parser("run", help="Run a task worker.")
+    worker_run.add_argument("--database-url-env", default="CCR_DATABASE_URL")
+    worker_run.add_argument("--role", required=True)
+    worker_run.add_argument("--worker-id", required=True)
+    worker_run.add_argument("--handler")
+    worker_run.add_argument("--once", action="store_true")
+    worker_run.add_argument("--poll-seconds", default=2.0, type=float)
+    worker_run.set_defaults(func=cmd_worker_run)
+
     task = sub.add_parser("task", help="Task queue commands.")
     task_sub = task.add_subparsers(dest="task_command", required=True)
     task_submit = task_sub.add_parser("submit", help="Submit a task.")
@@ -417,8 +473,45 @@ def build_parser() -> argparse.ArgumentParser:
     task_release = task_sub.add_parser("release", help="Release a leased task.")
     task_release.add_argument("task_id")
     task_release.add_argument("--reason", required=True)
+    task_release.add_argument("--agent")
+    task_release.add_argument("--fencing-token", type=int)
     task_release.add_argument("--json", action="store_true", dest="json_output")
     task_release.set_defaults(func=cmd_task_release)
+    task_heartbeat = task_sub.add_parser("heartbeat", help="Renew a fenced task lease.")
+    task_heartbeat.add_argument("task_id")
+    task_heartbeat.add_argument("--agent", required=True)
+    task_heartbeat.add_argument("--fencing-token", required=True, type=int)
+    task_heartbeat.add_argument("--ttl")
+    task_heartbeat.add_argument("--json", action="store_true", dest="json_output")
+    task_heartbeat.set_defaults(func=cmd_task_heartbeat)
+    task_complete = task_sub.add_parser("complete", help="Submit fenced task output.")
+    task_complete.add_argument("task_id")
+    task_complete.add_argument("--agent", required=True)
+    task_complete.add_argument("--fencing-token", required=True, type=int)
+    task_complete.add_argument("--output", action="append", default=[])
+    task_complete.add_argument("--summary", required=True)
+    task_complete.add_argument("--idempotency-key", required=True)
+    task_complete.add_argument("--json", action="store_true", dest="json_output")
+    task_complete.set_defaults(func=cmd_task_complete)
+    task_fail = task_sub.add_parser("fail", help="Fail fenced task work.")
+    task_fail.add_argument("task_id")
+    task_fail.add_argument("--agent", required=True)
+    task_fail.add_argument("--fencing-token", required=True, type=int)
+    task_fail.add_argument("--reason", required=True)
+    task_fail.add_argument("--json", action="store_true", dest="json_output")
+    task_fail.set_defaults(func=cmd_task_fail)
+    task_cancel = task_sub.add_parser("cancel", help="Cancel open or owned leased work.")
+    task_cancel.add_argument("task_id")
+    task_cancel.add_argument("--agent", required=True)
+    task_cancel.add_argument("--fencing-token", type=int)
+    task_cancel.add_argument("--reason", required=True)
+    task_cancel.add_argument("--json", action="store_true", dest="json_output")
+    task_cancel.set_defaults(func=cmd_task_cancel)
+    task_retry = task_sub.add_parser("retry", help="Return blocked work to the open queue.")
+    task_retry.add_argument("task_id")
+    task_retry.add_argument("--reason", required=True)
+    task_retry.add_argument("--json", action="store_true", dest="json_output")
+    task_retry.set_defaults(func=cmd_task_retry)
     task_import_cmd = task_sub.add_parser("import", help="Import task JSONL.")
     task_import_cmd.add_argument("--file", required=True)
     task_import_cmd.add_argument("--provider", required=True)
@@ -481,6 +574,29 @@ def build_parser() -> argparse.ArgumentParser:
     residual_plan_cmd.add_argument("--residual", required=True, dest="residual_id")
     residual_plan_cmd.add_argument("--json", action="store_true", dest="json_output")
     residual_plan_cmd.set_defaults(func=cmd_residual_repair_plan)
+    residual_assign_cmd = residual_sub.add_parser("assign", help="Assign an open residual.")
+    residual_assign_cmd.add_argument("--residual", required=True, dest="residual_id")
+    residual_assign_cmd.add_argument("--agent", required=True)
+    residual_assign_cmd.add_argument("--json", action="store_true", dest="json_output")
+    residual_assign_cmd.set_defaults(func=cmd_residual_assign)
+    residual_review_cmd = residual_sub.add_parser("review", help="Mark a residual under review.")
+    residual_review_cmd.add_argument("--residual", required=True, dest="residual_id")
+    residual_review_cmd.add_argument("--reviewer", required=True)
+    residual_review_cmd.add_argument("--json", action="store_true", dest="json_output")
+    residual_review_cmd.set_defaults(func=cmd_residual_review)
+    residual_resolve_cmd = residual_sub.add_parser(
+        "resolve", help="Resolve a residual with artifact and verifier evidence."
+    )
+    residual_resolve_cmd.add_argument("--residual", required=True, dest="residual_id")
+    residual_resolve_cmd.add_argument("--artifact", required=True)
+    residual_resolve_cmd.add_argument("--verifier", required=True)
+    residual_resolve_cmd.add_argument("--json", action="store_true", dest="json_output")
+    residual_resolve_cmd.set_defaults(func=cmd_residual_resolve)
+    residual_reopen_cmd = residual_sub.add_parser("reopen", help="Reopen a resolved residual.")
+    residual_reopen_cmd.add_argument("--residual", required=True, dest="residual_id")
+    residual_reopen_cmd.add_argument("--reason", required=True)
+    residual_reopen_cmd.add_argument("--json", action="store_true", dest="json_output")
+    residual_reopen_cmd.set_defaults(func=cmd_residual_reopen)
 
     workcell = sub.add_parser("workcell", help="Thin multi-role workcell commands.")
     workcell_sub = workcell.add_subparsers(dest="workcell_command", required=True)
@@ -489,6 +605,24 @@ def build_parser() -> argparse.ArgumentParser:
     workcell_create_cmd.add_argument("--name", required=True)
     workcell_create_cmd.add_argument("--json", action="store_true", dest="json_output")
     workcell_create_cmd.set_defaults(func=cmd_workcell_create)
+    workcell_advance_cmd = workcell_sub.add_parser(
+        "advance", help="Advance one staged workcell transition."
+    )
+    workcell_advance_cmd.add_argument("--workcell", required=True)
+    workcell_advance_cmd.add_argument(
+        "--to",
+        required=True,
+        choices=[
+            "reveal",
+            "critique",
+            "revision",
+            "verification",
+            "integration",
+        ],
+        dest="target_stage",
+    )
+    workcell_advance_cmd.add_argument("--json", action="store_true", dest="json_output")
+    workcell_advance_cmd.set_defaults(func=cmd_workcell_advance)
     workcell_next_cmd = workcell_sub.add_parser("next", help="Return next role task.")
     workcell_next_cmd.add_argument("--role", required=True)
     workcell_next_cmd.add_argument("--json", action="store_true", dest="json_output")
@@ -691,6 +825,21 @@ def build_parser() -> argparse.ArgumentParser:
     experiment_init_cmd.add_argument("--suite", required=True)
     experiment_init_cmd.add_argument("--json", action="store_true", dest="json_output")
     experiment_init_cmd.set_defaults(func=cmd_experiment_init)
+    experiment_register_cmd = experiment_sub.add_parser(
+        "register", help="Register a preregistered generic experiment manifest."
+    )
+    experiment_register_cmd.add_argument("--suite", required=True)
+    experiment_register_cmd.add_argument("--manifest", required=True)
+    experiment_register_cmd.add_argument("--json", action="store_true", dest="json_output")
+    experiment_register_cmd.set_defaults(func=cmd_experiment_register)
+    experiment_ingest_cmd = experiment_sub.add_parser(
+        "ingest", help="Ingest a static baseline or collective result."
+    )
+    experiment_ingest_cmd.add_argument("--suite", required=True)
+    experiment_ingest_cmd.add_argument("--label", required=True, choices=["baseline", "collective"])
+    experiment_ingest_cmd.add_argument("--file", required=True)
+    experiment_ingest_cmd.add_argument("--json", action="store_true", dest="json_output")
+    experiment_ingest_cmd.set_defaults(func=cmd_experiment_ingest)
     experiment_baseline_cmd = experiment_sub.add_parser("run-baseline", help="Import baseline.")
     experiment_baseline_cmd.add_argument("--suite", required=True)
     experiment_baseline_cmd.add_argument("--solver", required=True)
@@ -753,6 +902,19 @@ def build_parser() -> argparse.ArgumentParser:
     operation_plan_cmd.add_argument("--trace", required=True)
     operation_plan_cmd.add_argument("--json", action="store_true", dest="json_output")
     operation_plan_cmd.set_defaults(func=cmd_operation_plan)
+    operation_approve_cmd = operation_sub.add_parser(
+        "approve",
+        help="Create a parameter-bound operation approval artifact.",
+    )
+    operation_approve_cmd.add_argument("--plan", required=True)
+    operation_approve_cmd.add_argument("--provider", required=True)
+    operation_approve_cmd.add_argument("--config", required=True)
+    operation_approve_cmd.add_argument("--approver", action="append", required=True)
+    operation_approve_cmd.add_argument("--expires-at", required=True)
+    operation_approve_cmd.add_argument("--nonce", required=True)
+    operation_approve_cmd.add_argument("--max-uses", type=int, default=1)
+    operation_approve_cmd.add_argument("--json", action="store_true", dest="json_output")
+    operation_approve_cmd.set_defaults(func=cmd_operation_approve)
     operation_profile_cmd = operation_sub.add_parser(
         "profile-check",
         help="Check an operation profile ladder.",
@@ -1065,11 +1227,14 @@ def cmd_agent_explain(args: argparse.Namespace) -> int:
     payload = {
         "agent_manifest": manifest,
         "docs": {
+            "collective_workcells": "docs/collective-workcells.md",
             "command_map": "docs/command-map.md",
             "docs_index": "docs/README.md",
+            "distributed_runtime": "docs/distributed-runtime.md",
             "getting_started": "docs/getting-started.md",
+            "measurement_protocol": "docs/measurement-protocol.md",
             "operation_gate": "docs/operation-gate.md",
-            "p2_runtime_surfaces": "docs/p2-runtime-surfaces.md",
+            "security_audit_checklist": "docs/security-audit-checklist.md",
             "security": "SECURITY.md",
         },
         "default_mode": "dry_run",
@@ -1092,9 +1257,15 @@ def cmd_agent_explain(args: argparse.Namespace) -> int:
                 "ccr workbench report --out",
                 "ccr workbench export --out",
                 "ccr operation replay-manifest --out",
+                "ccr operation approve",
                 "ccr task lease",
+                "ccr task heartbeat/complete/fail/cancel/retry",
                 "ccr packet submit",
                 "ccr provider import",
+                "ccr residual assign/review/resolve/reopen",
+                "ccr workcell create/submit/advance/integrate",
+                "ccr experiment register/ingest",
+                "ccr storage migrate --apply",
             ],
             "external_execution_requires": [
                 "an explicit operator request",
@@ -1128,6 +1299,23 @@ def cmd_agent_explain(args: argparse.Namespace) -> int:
                 "provider registry validate/list",
             ],
         },
+        "v1_6_runtime": {
+            "collective_coordination": [
+                "staged workcells",
+                "correlation-aware support",
+                "independently verified residual resolution",
+            ],
+            "distributed_execution": [
+                "transactional SQLite",
+                "PostgreSQL 16+ workers",
+                "OIDC + DPoP API",
+            ],
+            "measurement": [
+                "preregistered experiments",
+                "resource-matched baselines",
+                "confidence-controlled uplift",
+            ],
+        },
         "runtime_paths": {
             "blackboard": str(root / "blackboard" / "events.jsonl"),
             "packets": str(root / "packets"),
@@ -1140,15 +1328,23 @@ def cmd_agent_explain(args: argparse.Namespace) -> int:
             "cache_index_hit_is_not_proof": True,
             "mcp_a2a_descriptor_is_not_authority": True,
             "operation_replay_is_not_dispatch": True,
+            "operation_approval_is_parameter_bound": True,
+            "physical_outcome_proven_is_always_false": True,
+            "physical_outcome_verified_requires_signed_scoped_observation": True,
             "pic_provider_output_is_evidence_only": True,
             "provider_registry_is_not_authority": True,
             "residual_market_does_not_waive_residuals": True,
             "static_workbench_is_not_proof": True,
+            "unknown_coordinates_do_not_contribute_progress": True,
         },
         "safe_next_commands": list(SAFE_NEXT_COMMANDS),
         "search_terms": [
             "AI agent runtime",
             "agent coordination",
+            "collective intelligence",
+            "multi-agent workcell",
+            "distributed AI agents",
+            "PostgreSQL task queue",
             "capability packets",
             "residual ledger",
             "ASI-proxy mission",
@@ -1158,6 +1354,8 @@ def cmd_agent_explain(args: argparse.Namespace) -> int:
             "provider registry",
             "static workbench",
             "PIC interop",
+            "OIDC DPoP",
+            "resource-matched evaluation",
         ],
     }
     _emit_json(payload)
@@ -1402,6 +1600,58 @@ def cmd_audit_release(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS if report.get("ok") else EXIT_POLICY_FAILURE
 
 
+def cmd_storage_doctor(args: argparse.Namespace) -> int:
+    result = storage_doctor(runtime_root(args.root))
+    _emit_json(result)
+    return EXIT_SUCCESS if result.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_storage_migrate(args: argparse.Namespace) -> int:
+    result = storage_migrate(runtime_root(args.root), apply=bool(args.apply))
+    _emit_json(result)
+    return EXIT_SUCCESS if result.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_storage_reconcile(args: argparse.Namespace) -> int:
+    result = storage_reconcile(runtime_root(args.root))
+    _emit_json(result)
+    return EXIT_SUCCESS if result.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_server_run(args: argparse.Namespace) -> int:
+    from ccr.distributed.server import run_server
+
+    root = runtime_root(args.root)
+    database_url = os.environ.get(args.database_url_env)
+    store = create_store(root=root, database_url=database_url)
+    store.initialize()
+    run_server(
+        root=root,
+        store=store,
+        auth_config=_read_object(Path(args.auth_config)),
+        host=args.host,
+        port=args.port,
+    )
+    return EXIT_SUCCESS
+
+
+def cmd_worker_run(args: argparse.Namespace) -> int:
+    from ccr.distributed.worker import run_worker
+
+    root = runtime_root(args.root)
+    store = create_store(root=root, database_url=os.environ.get(args.database_url_env))
+    store.initialize()
+    run_worker(
+        store=store,
+        role=args.role,
+        worker_id=args.worker_id,
+        handler_ref=args.handler,
+        once=bool(args.once),
+        poll_seconds=args.poll_seconds,
+    )
+    return EXIT_SUCCESS
+
+
 def cmd_task_submit(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     path = Path(args.file)
@@ -1457,7 +1707,13 @@ def cmd_task_lease(args: argparse.Namespace) -> int:
 
 def cmd_task_release(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
-    result = release_task(root, args.task_id, reason=args.reason)
+    result = release_task(
+        root,
+        args.task_id,
+        reason=args.reason,
+        agent=getattr(args, "agent", None),
+        fencing_token=getattr(args, "fencing_token", None),
+    )
     residual_ids: list[str] = []
     residual = result.get("residual")
     if isinstance(residual, dict):
@@ -1488,6 +1744,66 @@ def cmd_task_release(args: argparse.Namespace) -> int:
         ),
     )
     result["residuals"] = residual_ids
+    _emit_json(result)
+    return EXIT_SUCCESS
+
+
+def cmd_task_heartbeat(args: argparse.Namespace) -> int:
+    result = heartbeat_task(
+        runtime_root(args.root),
+        args.task_id,
+        agent=args.agent,
+        fencing_token=args.fencing_token,
+        ttl=args.ttl,
+    )
+    _emit_json(result)
+    return EXIT_SUCCESS
+
+
+def cmd_task_complete(args: argparse.Namespace) -> int:
+    result = complete_task(
+        runtime_root(args.root),
+        args.task_id,
+        agent=args.agent,
+        fencing_token=args.fencing_token,
+        output_refs=list(args.output),
+        summary=args.summary,
+        idempotency_key=args.idempotency_key,
+    )
+    _emit_json(result)
+    return EXIT_SUCCESS
+
+
+def cmd_task_fail(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    result = fail_task(
+        root,
+        args.task_id,
+        agent=args.agent,
+        fencing_token=args.fencing_token,
+        reason=args.reason,
+    )
+    residual = result.get("residual_ready")
+    if isinstance(residual, dict):
+        save_residual(root, residual)
+    _emit_json(result)
+    return EXIT_SUCCESS
+
+
+def cmd_task_cancel(args: argparse.Namespace) -> int:
+    result = cancel_task(
+        runtime_root(args.root),
+        args.task_id,
+        agent=args.agent,
+        reason=args.reason,
+        fencing_token=args.fencing_token,
+    )
+    _emit_json(result)
+    return EXIT_SUCCESS
+
+
+def cmd_task_retry(args: argparse.Namespace) -> int:
+    result = retry_task(runtime_root(args.root), args.task_id, reason=args.reason)
     _emit_json(result)
     return EXIT_SUCCESS
 
@@ -1613,9 +1929,46 @@ def cmd_residual_repair_plan(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def cmd_residual_assign(args: argparse.Namespace) -> int:
+    result = assign_residual(runtime_root(args.root), args.residual_id, agent=args.agent)
+    _emit_json(result)
+    return EXIT_SUCCESS
+
+
+def cmd_residual_review(args: argparse.Namespace) -> int:
+    result = review_residual(runtime_root(args.root), args.residual_id, reviewer=args.reviewer)
+    _emit_json(result)
+    return EXIT_SUCCESS
+
+
+def cmd_residual_resolve(args: argparse.Namespace) -> int:
+    result = resolve_residual(
+        runtime_root(args.root),
+        args.residual_id,
+        artifact=Path(args.artifact),
+        verifier=Path(args.verifier),
+    )
+    _emit_json(result)
+    return EXIT_SUCCESS
+
+
+def cmd_residual_reopen(args: argparse.Namespace) -> int:
+    result = reopen_residual(runtime_root(args.root), args.residual_id, reason=args.reason)
+    _emit_json(result)
+    return EXIT_SUCCESS
+
+
 def cmd_workcell_create(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     _emit_json(workcell_create(root, template=args.template, name=args.name))
+    return EXIT_SUCCESS
+
+
+def cmd_workcell_advance(args: argparse.Namespace) -> int:
+    result = workcell_advance(
+        runtime_root(args.root), workcell=args.workcell, target_stage=args.target_stage
+    )
+    _emit_json(result)
     return EXIT_SUCCESS
 
 
@@ -1875,6 +2228,25 @@ def cmd_experiment_init(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def cmd_experiment_register(args: argparse.Namespace) -> int:
+    result = register_experiment(
+        runtime_root(args.root), suite=args.suite, manifest_path=Path(args.manifest)
+    )
+    _emit_json(result)
+    return EXIT_SUCCESS
+
+
+def cmd_experiment_ingest(args: argparse.Namespace) -> int:
+    result = ingest_experiment_result(
+        runtime_root(args.root),
+        suite=args.suite,
+        label=args.label,
+        result_path=Path(args.file),
+    )
+    _emit_json(result)
+    return EXIT_SUCCESS
+
+
 def cmd_experiment_run_baseline(args: argparse.Namespace) -> int:
     root = runtime_root(args.root)
     _emit_json(experiment_run_baseline(root, suite=args.suite, solver=Path(args.solver)))
@@ -2010,6 +2382,22 @@ def cmd_operation_execute(args: argparse.Namespace) -> int:
     )
     _emit_json(compact_report(result) if getattr(args, "compact", False) else result)
     return EXIT_SUCCESS if result.get("ok") else EXIT_POLICY_FAILURE
+
+
+def cmd_operation_approve(args: argparse.Namespace) -> int:
+    root = runtime_root(args.root)
+    result = create_operation_approval(
+        root,
+        plan=_read_object(Path(args.plan)),
+        provider=args.provider,
+        config=_read_object(Path(args.config)),
+        approvers=list(args.approver),
+        expires_at=args.expires_at,
+        nonce=args.nonce,
+        max_uses=args.max_uses,
+    )
+    _emit_json(result)
+    return EXIT_SUCCESS
 
 
 def cmd_operation_observe(args: argparse.Namespace) -> int:
@@ -2426,13 +2814,35 @@ def cmd_provider_execute(args: argparse.Namespace) -> int:
             }
         )
         return EXIT_POLICY_FAILURE
+    if provider.capabilities().get("executes_network"):
+        residual = build_residual(
+            kind="authority_gap",
+            description="Side-effect provider execution must use the TRC operation dispatch gate.",
+            blocking=True,
+            object_type="runtime",
+            object_id=provider.provider_name,
+            refs=[str(args.config)],
+            source="ccr.provider",
+            repair_hint=(
+                "Use ccr operation preflight and ccr operation dispatch with a bound approval."
+            ),
+        )
+        _emit_json(
+            {
+                "error": "side-effect provider requires TRC operation dispatch",
+                "ok": False,
+                "provider": provider.provider_name,
+                "residual_ready": residual,
+            }
+        )
+        return EXIT_POLICY_FAILURE
     report = provider.execute(action=args.action, payload=payload, root=root, config=config)
     run_id = stable_id("provider-run", provider.provider_name, args.action, payload, report)
     report_payload = {
         "action": args.action,
         "config_digest": stable_id("provider-config", config),
         "dry_run": False,
-        "ok": bool(report.get("ok")),
+        "ok": report.get("ok") is True,
         "provider": provider.provider_name,
         "report": report,
         "run_id": run_id,
@@ -3026,9 +3436,7 @@ def _apply_pic_packet_update(
     }
     packet.setdefault("verifier_reports", [])
     packet["verifier_reports"].append(report_ref)
-    target_status = str(normalized["ccr_status"])
-    if target_status == "settled":
-        target_status = "checked"
+    target_status = status_before
     packet["updated_at"] = now_iso()
     save_packet_at_status(root, packet, status=target_status, old_path=old_path)
     append_event(
@@ -3041,7 +3449,7 @@ def _apply_pic_packet_update(
             status_after=target_status,
             refs=[str(normalized_path)],
             residuals=residual_ids,
-            note="PIC import never grants final CCR settlement.",
+            note="PIC import attaches evidence; normal promotion evaluates status separately.",
         ),
     )
     return {"packet_id": packet_id, "status_after": target_status, "status_before": status_before}
@@ -3352,11 +3760,7 @@ def _apply_provider_packet_update(
             "settled": bool(normalized.get("settled")),
         }
     )
-    target_status = str(normalized.get("ccr_status", "provisional"))
-    if target_status == "settled":
-        target_status = "checked"
-    if target_status not in {"checked", "provisional", "rejected", "quarantined"}:
-        target_status = "provisional"
+    target_status = status_before
     packet["updated_at"] = now_iso()
     save_packet_at_status(root, packet, status=target_status, old_path=old_path)
     append_event(
@@ -3369,7 +3773,7 @@ def _apply_provider_packet_update(
             status_after=target_status,
             refs=[str(normalized_path)],
             residuals=residual_ids,
-            note="Provider import never grants final CCR settlement.",
+            note="Provider import attaches evidence; normal promotion evaluates status separately.",
         ),
     )
     return {"packet_id": packet_id, "status_after": target_status, "status_before": status_before}
@@ -3391,11 +3795,7 @@ def _read_jsonl_objects(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         raise FileNotFoundError(path)
     rows: list[dict[str, Any]] = []
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-        stripped = line.strip()
-        if not stripped:
-            continue
-        data = read_json_from_text(stripped, path, line_number)
+    for line_number, data in enumerate(read_jsonl(path), start=1):
         if not isinstance(data, dict):
             raise CCRMissingError(
                 f"{path}:{line_number} must contain a JSON object",

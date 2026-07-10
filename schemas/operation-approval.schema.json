@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kadubon.github.io/collective-capability-runtime/schemas/operation-approval.schema.json",
+  "title": "CCR Parameter-Bound Operation Approval",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "approval_id",
+    "approvers",
+    "config_digest",
+    "created_at",
+    "expires_at",
+    "max_uses",
+    "nonce",
+    "plan_digest",
+    "plan_id",
+    "provider",
+    "resource_limits_digest",
+    "scope_digest",
+    "side_effect_policy"
+  ],
+  "properties": {
+    "schema_version": {"const": "ccr.operation_approval.v1"},
+    "approval_id": {"type": "string", "minLength": 3},
+    "approvers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["identity", "attested"],
+        "properties": {
+          "identity": {"type": "string", "minLength": 1},
+          "attested": {"const": true}
+        }
+      }
+    },
+    "config_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "max_uses": {"type": "integer", "minimum": 1},
+    "nonce": {"type": "string", "minLength": 1},
+    "plan_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "plan_id": {"type": ["string", "null"]},
+    "provider": {"type": "string", "minLength": 1},
+    "resource_limits_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "scope_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "side_effect_policy": {"type": ["string", "null"]}
+  }
+}

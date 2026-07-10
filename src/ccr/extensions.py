@@ -18,19 +18,39 @@ from ccr.adapters.pic import PicVerifierProvider
 from ccr.blackboard.events import make_event
 from ccr.blackboard.store import append_event
 from ccr.constants import CONFIG_FILENAME, NON_CLAIMS, RUNTIME_DIRECTORIES
-from ccr.ids import stable_id
-from ccr.io import canonical_dumps, json_file_name, read_json, write_json_atomic
+from ccr.distillation.pipeline import analyze_seed
+from ccr.experiments.protocol import compare_experiment_results
+from ccr.ids import stable_id, validate_identifier
+from ccr.io import (
+    DEFAULT_MAX_JSON_BYTES,
+    DEFAULT_MAX_JSONL_LINES,
+    canonical_dumps,
+    json_file_name,
+    read_json,
+    validate_json_depth,
+    write_json_atomic,
+)
+from ccr.operations.approval import validate_and_consume_approval
+from ccr.operations.verifier import verify_physical_observation
 from ccr.packets.store import iter_packets, submit_packet
 from ccr.reports.json_report import phase_report
 from ccr.residuals.model import build_residual
 from ccr.residuals.store import iter_residuals, save_residual
 from ccr.runtime.init import init_runtime
 from ccr.runtime.state import packet_counts, task_counts
+from ccr.safe_io import require_path_within_root
 from ccr.schemas.validation import validate_instance
 from ccr.storage.sqlite import index_runtime, init_database
+from ccr.strict import strict_bool
 from ccr.tasks.scheduler import next_task
 from ccr.tasks.store import iter_tasks, submit_task, validate_task
 from ccr.time import now_iso
+from ccr.workcells.protocol import (
+    advance_workcell,
+    create_workcell,
+    integrate_workcell,
+    submit_workcell,
+)
 
 FIXED_CREATED_AT = "1970-01-01T00:00:00Z"
 WORKCELL_ROLES = (
@@ -118,58 +138,7 @@ def workcell_create(root: Path, *, template: str, name: str) -> dict[str, Any]:
 
     if template not in WORKCELL_TEMPLATES:
         raise ValueError(f"unknown workcell template: {template}")
-    init_runtime(root)
-    workcell_dir = root / "workcells" / name
-    workcell_dir.mkdir(parents=True, exist_ok=True)
-    workcell_path = workcell_dir / "workcell.json"
-    created_tasks: list[str] = []
-    existing_tasks: list[str] = []
-    for role in WORKCELL_ROLES:
-        task = make_task(
-            kind=template.replace("-", "_"),
-            title=f"{name} {role} work",
-            objective=f"{role} contribution for {template} workcell {name}.",
-            role=role,
-            source=f"workcell:{name}:{role}",
-            extensions={"x_workcell": name, "x_workcell_template": template},
-        )
-        with suppress(FileExistsError):
-            submit_task(root, task)
-            created_tasks.append(task["task_id"])
-            continue
-        existing_tasks.append(task["task_id"])
-    if not workcell_path.exists():
-        write_json_atomic(
-            workcell_path,
-            {
-                "created_at": FIXED_CREATED_AT,
-                "name": name,
-                "roles": list(WORKCELL_ROLES),
-                "schema_version": "ccr.workcell.v1",
-                "template": template,
-            },
-            overwrite=False,
-        )
-    append_event(
-        root,
-        make_event(
-            action="workcell.create",
-            object_type="task",
-            object_id=name,
-            status_before=None,
-            status_after="open",
-            refs=[str(workcell_path)],
-        ),
-    )
-    return {
-        "created_tasks": sorted(created_tasks),
-        "existing_tasks": sorted(existing_tasks),
-        "name": name,
-        "ok": True,
-        "path": str(workcell_path),
-        "schema_version": "ccr.workcell_create.v1",
-        "template": template,
-    }
+    return create_workcell(root, template=template, name=name)
 
 
 def workcell_next(root: Path, *, role: str) -> dict[str, Any]:
@@ -178,97 +147,77 @@ def workcell_next(root: Path, *, role: str) -> dict[str, Any]:
     return {"ok": True, "role": role, "task": next_task(root, role=role)}
 
 
+def workcell_advance(root: Path, *, workcell: str, target_stage: str) -> dict[str, Any]:
+    """Advance one staged workcell transition."""
+
+    return advance_workcell(root, workcell=workcell, target_stage=target_stage)
+
+
 def workcell_submit(root: Path, *, workcell: str, file: Path) -> dict[str, Any]:
     """Store a workcell output and preserve residuals if present."""
 
-    init_runtime(root)
-    data = read_json(file)
-    if not isinstance(data, dict):
-        raise ValueError("workcell output must be a JSON object")
-    submission_id = stable_id("workcell-submission", workcell, data)
-    destination = root / "workcells" / workcell / "submissions" / json_file_name(submission_id)
-    write_json_atomic(destination, data, overwrite=True)
-    residual_ids: list[str] = []
-    for residual_data in data.get("residuals", []):
-        if isinstance(residual_data, dict):
-            residual = build_residual(
-                kind=str(residual_data.get("kind", "other")),
-                description=str(residual_data.get("description", "workcell residual")),
-                blocking=bool(residual_data.get("blocking", False)),
-                object_type="task",
-                object_id=workcell,
-                refs=[str(destination)],
-                source="ccr.workcell",
-                extensions={"raw": residual_data},
-            )
-            save_residual(root, residual, overwrite=True)
-            residual_ids.append(str(residual["residual_id"]))
-    append_event(
-        root,
-        make_event(
-            action="workcell.submit",
-            object_type="task",
-            object_id=workcell,
-            status_before=None,
-            status_after="submitted",
-            refs=[str(destination)],
-            residuals=residual_ids,
-        ),
-    )
-    return {
-        "ok": True,
-        "path": str(destination),
-        "residuals": residual_ids,
-        "submission_id": submission_id,
-        "workcell": workcell,
-    }
+    return submit_workcell(root, workcell=workcell, file=file)
 
 
 def workcell_integrate(root: Path, *, workcell: str, strategy: str) -> dict[str, Any]:
     """Integrate workcell submissions without dropping residuals."""
 
-    if strategy != "residual-preserving":
-        raise ValueError("only residual-preserving strategy is supported")
-    submission_dir = root / "workcells" / workcell / "submissions"
-    submissions = sorted(submission_dir.glob("*.json")) if submission_dir.exists() else []
-    open_residuals = [
-        item for item in iter_residuals(root, status="open") if item.get("object_id") == workcell
-    ]
-    return {
-        "integrated_submissions": [str(path) for path in submissions],
-        "ok": True,
-        "open_residuals_preserved": [item["residual_id"] for item in open_residuals],
-        "schema_version": "ccr.workcell_integrate.v1",
-        "settled": False,
-        "strategy": strategy,
-        "workcell": workcell,
-    }
+    return integrate_workcell(root, workcell=workcell, strategy=strategy)
 
 
 def distill_seed(input_path: Path, output_dir: Path) -> dict[str, Any]:
     """Distill a seed document into a candidate packet."""
 
     text = input_path.read_text(encoding="utf-8")
-    claim = _first_nonempty_line(text) or "Candidate claim from seed."
-    packet = make_packet(
-        packet_id=f"packet:distill:{_hash_text(claim)}",
-        summary=f"Distilled candidate from {input_path.name}.",
-        claim_text=claim,
-        packet_type="claim",
-    )
-    residuals = []
-    if "evidence:" not in text.lower():
-        residuals.append(_report_residual("missing_evidence", "Seed lacks explicit evidence."))
-    if len(claim.split()) < 4 or claim.endswith("?"):
-        residuals.append(_report_residual("unverified_claim", "Seed claim is ambiguous."))
+    analysis = analyze_seed(input_path, text)
     output_dir.mkdir(parents=True, exist_ok=True)
-    packet_path = output_dir / "packet.candidate.json"
-    write_json_atomic(packet_path, packet, overwrite=True)
+    packet_paths: list[str] = []
+    claims_created: list[dict[str, Any]] = []
+    residuals: list[dict[str, Any]] = []
+    candidates = analysis["candidates"]
+    if not candidates:
+        residuals.append(_report_residual("unverified_claim", "Seed contains no claim segment."))
+    for index, candidate in enumerate(candidates):
+        claim = str(candidate["claim_text"])
+        packet = make_packet(
+            packet_id=f"packet:distill:{_hash_text(claim)}",
+            summary=f"Distilled candidate from {input_path.name}.",
+            claim_text=claim,
+            packet_type="claim",
+        )
+        packet["provenance"]["content_sha256"] = analysis["source_sha256"]
+        packet["provenance"]["source_refs"] = [input_path.name]
+        packet_path = output_dir / (
+            "packet.candidate.json" if len(candidates) == 1 else f"packet.{index}.candidate.json"
+        )
+        write_json_atomic(packet_path, packet, overwrite=True)
+        packet_paths.append(str(packet_path))
+        claims_created.append(candidate)
+        if not candidate["evidence"]:
+            residuals.append(
+                _report_residual(
+                    "missing_evidence", f"Claim {candidate['claim_id']} lacks evidence."
+                )
+            )
+    if analysis["contamination_markers"]:
+        residuals.append(
+            _report_residual(
+                "hazard",
+                "Seed contains instruction-like contamination markers requiring review.",
+            )
+        )
     report = _distillation_report(
         str(input_path),
-        [str(packet_path)],
-        [packet["claims"][0]],
+        packet_paths,
+        claims_created,
         residuals,
+    )
+    report.update(
+        {
+            "contamination_markers": analysis["contamination_markers"],
+            "dependency_graph": analysis["dependencies"],
+            "source_sha256": analysis["source_sha256"],
+        }
     )
     write_json_atomic(output_dir / "distillation_report.json", report, overwrite=True)
     return report
@@ -1404,7 +1353,7 @@ def loop_import_jsonl(root: Path, *, kind: str, file: Path, provider: str) -> di
         "import_report": report,
         "kind": kind,
         "mutated_runtime": True,
-        "ok": bool(report.get("ok", False)),
+        "ok": report.get("ok") is True,
         "provider": provider,
         "schema_version": "ccr.loop_import_jsonl.v1",
         "settled": False,
@@ -2067,8 +2016,11 @@ def residual_repair_plan(root: Path, *, residual_id: str) -> dict[str, Any]:
 def experiment_init(root: Path, *, suite: str) -> dict[str, Any]:
     """Initialize a dry-run experiment suite."""
 
+    validate_identifier(suite, field="experiment suite")
     init_runtime(root)
-    suite_dir = root / "experiments" / suite
+    suite_dir = require_path_within_root(
+        root / "experiments" / suite, root, field="experiment suite path"
+    )
     suite_dir.mkdir(parents=True, exist_ok=True)
     path = suite_dir / "suite.json"
     payload = {
@@ -2082,16 +2034,16 @@ def experiment_init(root: Path, *, suite: str) -> dict[str, Any]:
 
 
 def experiment_run_baseline(root: Path, *, suite: str, solver: Path) -> dict[str, Any]:
-    """Import or synthesize a baseline solver result; do not execute solvers."""
+    """Import a baseline solver result; do not execute solvers."""
 
-    result = _load_result_or_synthetic(solver, label="baseline")
+    result = _load_experiment_result(solver, label="baseline")
     return _store_experiment_result(root, suite=suite, label="baseline", result=result)
 
 
 def experiment_run_collective(root: Path, *, suite: str, workcell: Path) -> dict[str, Any]:
-    """Import or synthesize a collective result; do not execute workcells."""
+    """Import a collective result; do not execute workcells."""
 
-    result = _load_result_or_synthetic(workcell, label="collective")
+    result = _load_experiment_result(workcell, label="collective")
     return _store_experiment_result(root, suite=suite, label="collective", result=result)
 
 
@@ -2102,12 +2054,9 @@ def experiment_compare(baseline_path: Path, candidate_path: Path) -> dict[str, A
     candidate = read_json(candidate_path)
     if not isinstance(baseline, dict) or not isinstance(candidate, dict):
         raise ValueError("comparison inputs must be JSON objects")
-    base_env = baseline.get("resource_envelope", {})
-    candidate_env = candidate.get("resource_envelope", {})
-    matched = base_env == candidate_env
-    residual_ready = None
-    if not matched:
-        residual_ready = build_residual(
+    result = compare_experiment_results(baseline, candidate)
+    if not result["resource_matched"]:
+        result["residual_ready"] = build_residual(
             kind="settlement_blocker",
             description="Baseline and candidate resource envelopes do not match.",
             blocking=True,
@@ -2116,26 +2065,16 @@ def experiment_compare(baseline_path: Path, candidate_path: Path) -> dict[str, A
             refs=[str(baseline_path), str(candidate_path)],
             source="ccr.experiment",
         )
-    delta = None
-    if matched:
-        delta = float(candidate.get("success_score", 0.0)) - float(
-            baseline.get("success_score", 0.0)
-        )
+    else:
+        result["residual_ready"] = None
     return {
-        "accepted": matched,
+        **result,
         "baseline_solver": baseline.get("solver", "baseline"),
         "candidate_solver": candidate.get("solver", "collective"),
         "cost": {
             "baseline": baseline.get("cost"),
             "candidate": candidate.get("cost"),
         },
-        "delta": delta,
-        "limitations": ["comparison is resource-envelope-relative and not real ASI proof"],
-        "ok": True,
-        "residual_ready": residual_ready,
-        "resource_matched": matched,
-        "schema_version": "ccr.experiment_compare.v1",
-        "settled": False,
         "verifier_calls": {
             "baseline": baseline.get("verifier_calls", 0),
             "candidate": candidate.get("verifier_calls", 0),
@@ -2146,6 +2085,7 @@ def experiment_compare(baseline_path: Path, candidate_path: Path) -> dict[str, A
 def experiment_export_pic(root: Path, *, suite: str, output: Path) -> dict[str, Any]:
     """Export a PIC-compatible runtime report."""
 
+    validate_identifier(suite, field="experiment suite")
     payload = {
         "accepted": False,
         "candidate_only_reasons": ["CCR experiment export is candidate-only until PIC checks it"],
@@ -2465,11 +2405,24 @@ def operation_plan_from_pic_trace(trace_report: dict[str, Any]) -> dict[str, Any
             )
         )
     if schema == "pic.trc_operation_gate_report.v1":
-        pic_operation_ready = bool(trace_report.get("operation_ready", False))
+        pic_operation_ready = strict_bool(
+            trace_report.get("operation_ready"), field="operation_ready", default=False
+        )
     else:
         gate = trace_report.get("real_world_operation_gate")
-        gate_ready = bool(gate.get("operation_ready", False)) if isinstance(gate, dict) else False
-        pic_operation_ready = bool(trace_report.get("execution_available", False)) and gate_ready
+        gate_ready = (
+            strict_bool(gate.get("operation_ready"), field="operation_ready", default=False)
+            if isinstance(gate, dict)
+            else False
+        )
+        pic_operation_ready = (
+            strict_bool(
+                trace_report.get("execution_available"),
+                field="execution_available",
+                default=False,
+            )
+            and gate_ready
+        )
     residuals.extend(
         _authority_freshness_residuals(
             trace_report,
@@ -2546,7 +2499,7 @@ def operation_preflight_from_pic_trace(
     side_effect_policy = "none_without_execute_flag"
     if isinstance(config, dict):
         side_effect_policy = str(config.get("side_effect_policy", side_effect_policy))
-        if config.get("allow_execute") and not config.get("operator_approval_ref"):
+        if config.get("allow_execute") is True and not config.get("operator_approval_ref"):
             execution_blockers.append("operator_approval_required")
             residuals.append(
                 _operation_residual(
@@ -2557,7 +2510,7 @@ def operation_preflight_from_pic_trace(
     provider_dispatch_ready = (
         bool(plan["real_world_operation_ready"])
         and isinstance(config, dict)
-        and bool(config.get("allow_execute"))
+        and config.get("allow_execute") is True
         and bool(config.get("operator_approval_ref"))
         and side_effect_policy not in {"dry_run_only", "none", "none_without_execute_flag"}
         and not execution_blockers
@@ -2692,7 +2645,7 @@ def _operation_preflight_from_plan(
                     f"Provider class {provider_class!r} is not allowed by config.",
                 )
             )
-        if not config.get("allow_execute"):
+        if config.get("allow_execute") is not True:
             execution_blockers.append("explicit_execution_config_required")
             residuals.append(
                 _operation_residual(
@@ -2737,7 +2690,7 @@ def _operation_preflight_from_plan(
     provider_dispatch_ready = (
         bool(plan.get("real_world_operation_ready"))
         and isinstance(config, dict)
-        and bool(config.get("allow_execute"))
+        and config.get("allow_execute") is True
         and bool(config.get("operator_approval_ref"))
         and side_effect_policy in _DISPATCHABLE_SIDE_EFFECT_POLICIES
         and not execution_blockers
@@ -2972,6 +2925,32 @@ def operation_dispatch(
             "Provider execute is blocked while the circuit is open.",
             preflight=effective_preflight,
         )
+    authority_failure = _validate_dispatch_authority_now(plan)
+    if authority_failure is not None:
+        return _dispatch_failure(
+            provider_name,
+            provider_plan,
+            authority_failure,
+            "Operation authority is not valid at dispatch time.",
+            preflight=effective_preflight,
+        )
+    approval_ok, approval_failure, approval = validate_and_consume_approval(
+        root,
+        plan=plan,
+        provider=provider_name,
+        config=config,
+    )
+    if not approval_ok:
+        return _dispatch_failure(
+            provider_name,
+            provider_plan,
+            approval_failure or "operator_approval_invalid",
+            (
+                "Operation approval is missing, stale, replayed, or does not match "
+                "dispatch parameters."
+            ),
+            preflight=effective_preflight,
+        )
     report = provider.execute(
         action="trc_operation",
         payload=payload,
@@ -2990,13 +2969,46 @@ def operation_dispatch(
         ),
     )
     return {
-        "executed": bool(report.get("network_call_performed")),
-        "ok": bool(report.get("ok", False)),
+        "approval_id": approval.get("approval_id") if approval else None,
+        "executed": report.get("effect_executed") is True,
+        "network_call_performed": report.get("network_call_performed") is True,
+        "ok": report.get("ok") is True,
         "preflight": effective_preflight,
         "provider": provider_name,
         "report": report,
         "schema_version": "ccr.trc_operation_dispatch.v1",
     }
+
+
+def _validate_dispatch_authority_now(plan: dict[str, Any]) -> str | None:
+    current = datetime.now(timezone.utc)
+    operations = plan.get("operations")
+    if not isinstance(operations, list) or not operations:
+        return "missing_authority_envelope"
+    for operation in operations:
+        if not isinstance(operation, dict):
+            return "authority_envelope_invalid"
+        authority = operation.get("authority_envelope")
+        if not isinstance(authority, dict) or str(authority.get("status", "")).lower() not in {
+            "active",
+            "approved",
+        }:
+            return "authority_status_not_active"
+        raw_expiry = authority.get("expires_at")
+        if not isinstance(raw_expiry, str):
+            return "authority_time_unknown"
+        try:
+            parsed_expiry = datetime.fromisoformat(raw_expiry.replace("Z", "+00:00"))
+        except ValueError:
+            return "authority_time_unknown"
+        if parsed_expiry.tzinfo is None:
+            return "authority_time_unknown"
+        expires_at = parsed_expiry.astimezone(timezone.utc)
+        if expires_at is None:
+            return "authority_time_unknown"
+        if expires_at <= current:
+            return "expired_authority_envelope"
+    return None
 
 
 def _parse_observation_time(value: Any) -> datetime | None:
@@ -3076,10 +3088,8 @@ def operation_observe(
 
     if not isinstance(observation, dict):
         observation = {"raw_observation": observation}
-    executed = bool(
-        dispatch_report.get("executed")
-        or dispatch_report.get("network_call_performed")
-        or _deep_get_dict(dispatch_report, "report.network_call_performed")
+    executed = dispatch_report.get("executed") is True or (
+        _deep_get_dict(dispatch_report, "report.effect_executed") is True
     )
     plan = _dispatch_operation_plan(dispatch_report)
     plan_postconditions = _operation_plan_records(plan, "postcondition", "postconditions")
@@ -3091,7 +3101,7 @@ def operation_observe(
         "rollback_plan",
     )
     provider_report = dispatch_report.get("report")
-    physical_actuation_observed = bool(observation.get("physical_actuation_observed", False))
+    physical_actuation_observed = observation.get("physical_actuation_observed") is True
     physical_outcome_claimed = bool(
         observation.get("physical_outcome_observed")
         or observation.get("physical_outcome_observed_value") is not None
@@ -3105,7 +3115,12 @@ def operation_observe(
         or observation.get("verifier_acceptance_scope")
         or observation.get("verifier_scope")
     )
-    has_scoped_verifier = bool(verifier_ref and verifier_scope)
+    has_scoped_verifier = (
+        isinstance(verifier_ref, str)
+        and bool(verifier_ref)
+        and isinstance(verifier_scope, str)
+        and bool(verifier_scope)
+    )
     residuals: list[dict[str, Any]] = []
     if not executed:
         residuals.append(
@@ -3244,10 +3259,23 @@ def operation_observe(
                 "Observation provider/profile does not match the dispatch report.",
             )
         )
+    physical_outcome_verified = False
+    if physical_outcome_claimed:
+        physical_outcome_verified, verification_failure = verify_physical_observation(
+            plan=plan,
+            observation=observation,
+        )
+        if not physical_outcome_verified and verification_failure is not None:
+            residuals.append(
+                _operation_residual(
+                    verification_failure,
+                    "Physical outcome verifier evidence did not pass cryptographic binding.",
+                )
+            )
     incident_required = any(
-        str(item.get("kind"))
+        str(item.get("kind")).startswith("physical_outcome_")
+        or str(item.get("kind"))
         in {
-            "physical_outcome_mismatch",
             "rollback_not_confirmed",
             "hazard_observation_missing",
             "tolerance_violation_observed",
@@ -3266,20 +3294,7 @@ def operation_observe(
                 "Observation residuals require explicit incident review before closure.",
             )
         )
-    physical_outcome_proven = bool(
-        physical_outcome_claimed
-        and has_scoped_verifier
-        and not any(
-            item.get("kind")
-            in {
-                "physical_outcome_mismatch",
-                "tolerance_violation_observed",
-                "observation_window_expired",
-                "observation_profile_mismatch",
-            }
-            for item in residuals
-        )
-    )
+    physical_outcome_verified = physical_outcome_verified and not residuals
     repair_task_candidates = _observation_repair_task_candidates(residuals)
     return {
         "dispatch_executed": executed,
@@ -3292,7 +3307,8 @@ def operation_observe(
         "observation": observation,
         "observation_residual_count": len(residuals),
         "ok": not residuals,
-        "physical_outcome_proven": physical_outcome_proven,
+        "physical_outcome_proven": False,
+        "physical_outcome_verified": physical_outcome_verified,
         "repair_task_candidates": repair_task_candidates,
         "residuals": residuals,
         "schema_version": "ccr.trc_operation_observation.v1",
@@ -3662,7 +3678,7 @@ def _distillation_report(
             {"name": "segmentation", "status": "dry_run"},
             {"name": "candidate_mining", "status": "dry_run"},
             {"name": "canonicalization", "status": "dry_run"},
-            {"name": "leakage_check_placeholder", "status": "residual_ready"},
+            {"name": "contamination_scan", "status": "completed"},
             {"name": "dependency_graph_extraction", "status": "dry_run"},
             {"name": "minimal_interface_summary", "status": "dry_run"},
             {"name": "verifier_binding", "status": "dry_run"},
@@ -4357,10 +4373,15 @@ def _task_kind_for_residual(residual: dict[str, Any]) -> str:
 def _store_experiment_result(
     root: Path, *, suite: str, label: str, result: dict[str, Any]
 ) -> dict[str, Any]:
+    validate_identifier(suite, field="experiment suite")
     init_runtime(root)
-    path = root / "experiments" / suite / f"{label}.json"
+    path = require_path_within_root(
+        root / "experiments" / suite / f"{label}.json",
+        root,
+        field="experiment result path",
+    )
     payload = {
-        "limitations": ["result imported or synthetic; no arbitrary solver execution"],
+        "limitations": ["result imported from static JSON; no arbitrary solver execution"],
         "schema_version": f"ccr.experiment_{label}.v1",
         **result,
     }
@@ -4368,18 +4389,34 @@ def _store_experiment_result(
     return {"ok": True, "path": str(path), "result": payload, "suite": suite}
 
 
-def _load_result_or_synthetic(path: Path, *, label: str) -> dict[str, Any]:
-    if path.exists():
-        data = read_json(path)
-        if isinstance(data, dict):
-            return data
-    return {
-        "cost": 1.0,
-        "resource_envelope": {"budget": 1.0, "time": 1.0},
-        "solver": label,
-        "success_score": 0.0 if label == "baseline" else 0.1,
-        "verifier_calls": 0,
+def _load_experiment_result(path: Path, *, label: str) -> dict[str, Any]:
+    required = {
+        "outcome_schema",
+        "resource_envelope",
+        "seed",
+        "solver",
+        "success_score",
+        "tool_model_version",
     }
+    data: dict[str, Any] = {}
+    if path.exists():
+        loaded = read_json(path)
+        if not isinstance(loaded, dict):
+            raise ValueError("experiment result must be a JSON object")
+        data = loaded
+    missing = sorted(required - data.keys())
+    if missing:
+        residual = _report_residual(
+            "missing_evidence",
+            f"{label} experiment result is missing required fields: {', '.join(missing)}.",
+        )
+        return {
+            **data,
+            "accepted": False,
+            "blocking_residuals": [residual],
+            "missing_fields": missing,
+        }
+    return {**data, "accepted": True, "blocking_residuals": []}
 
 
 def _lease_stale(task: dict[str, Any]) -> bool:
@@ -4408,14 +4445,21 @@ def _diagnostic_reserve_known(root: Path) -> bool:
 
 def _iter_jsonl(path: Path) -> list[tuple[int, Any | None, str | None]]:
     rows: list[tuple[int, Any | None, str | None]] = []
+    if path.stat().st_size > DEFAULT_MAX_JSON_BYTES:
+        return [(0, None, f"JSONL input exceeds {DEFAULT_MAX_JSON_BYTES} bytes")]
     with path.open("r", encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, start=1):
+            if line_number > DEFAULT_MAX_JSONL_LINES:
+                rows.append((line_number, None, "JSONL line limit exceeded"))
+                break
             stripped = line.strip()
             if not stripped:
                 continue
             try:
-                rows.append((line_number, json.loads(stripped), None))
-            except json.JSONDecodeError as exc:
+                value = json.loads(stripped)
+                validate_json_depth(value)
+                rows.append((line_number, value, None))
+            except (json.JSONDecodeError, ValueError) as exc:
                 rows.append((line_number, None, str(exc)))
     return rows
 

@@ -6,10 +6,11 @@ import tarfile
 import zipfile
 from pathlib import Path
 
+from ccr import __version__
 from ccr.audit.repo import (
     CCR_PIP_INSTALL,
     CI_WORKFLOW,
-    FIRST_TIME_AGENT_MARKERS,
+    FIRST_TIME_AGENT_DOC_MARKERS,
     PIC_COMPAT_EXAMPLES,
     PIC_PIP_INSTALL,
     PUBLISH_WORKFLOW,
@@ -182,7 +183,9 @@ def test_audit_fails_when_first_time_agent_docs_are_missing(tmp_path):
     repo = _copy_repo(tmp_path)
     readme = repo / "README.md"
     readme.write_text(
-        readme.read_text(encoding="utf-8").replace(FIRST_TIME_AGENT_MARKERS[0], ""),
+        readme.read_text(encoding="utf-8").replace(
+            FIRST_TIME_AGENT_DOC_MARKERS["README.md"][0], ""
+        ),
         encoding="utf-8",
     )
 
@@ -243,8 +246,8 @@ def test_package_build_metadata_is_v1_distribution_ready(tmp_path):
         text=True,
     )
     assert audit.returncode == 0, audit.stdout + audit.stderr
-    wheel = next(dist_dir.glob("collective_capability_runtime-1.5.0-*.whl"))
-    sdist = next(dist_dir.glob("collective_capability_runtime-1.5.0.tar.gz"))
+    wheel = next(dist_dir.glob(f"collective_capability_runtime-{__version__}-*.whl"))
+    sdist = next(dist_dir.glob(f"collective_capability_runtime-{__version__}.tar.gz"))
     with zipfile.ZipFile(wheel) as archive:
         metadata_name = next(name for name in archive.namelist() if name.endswith("METADATA"))
         metadata = archive.read(metadata_name).decode("utf-8")
@@ -256,7 +259,7 @@ def test_package_build_metadata_is_v1_distribution_ready(tmp_path):
 
     for text in [metadata, pkg_info]:
         assert "Name: collective-capability-runtime" in text
-        assert "Version: 1.5.0" in text
+        assert f"Version: {__version__}" in text
         assert CCR_PIP_INSTALL in (REPO_ROOT / "README.md").read_text(encoding="utf-8")
 
 

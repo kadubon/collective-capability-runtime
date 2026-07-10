@@ -46,6 +46,8 @@ Agents advance phase formation through explicit state transitions:
 ```bash
 ccr task next --role generator --json
 ccr task lease <task_id> --ttl 30m --agent <agent_id> --json
+ccr task heartbeat <task_id> --agent <agent_id> --fencing-token <token> --json
+ccr task complete <task_id> --agent <agent_id> --fencing-token <token> --idempotency-key result.1 --summary "candidate ready" --json
 ccr packet submit --file packet.json --json
 ccr verify --provider pic --packet <packet_id> --profile development --json
 ccr integrate --report reports/pic/<report>.json --json
@@ -69,6 +71,11 @@ packet count, and duplicate mass do not increase safe capital.
 For real-world operations, keep plan, preflight, dispatch, and observation
 separate. `provider_dispatch_ready` is not dispatch; `physical_dispatch_ready`
 is not physical outcome proof.
+
+Network-capable provider execution must use `operation approve` followed by
+`operation dispatch`. Never reuse a nonce or approval, and do not replace the
+plan, provider config, scope, or resource limits after approval. Provider and
+PIC imports attach evidence but do not change packet status.
 
 ## First-time agent guide
 
