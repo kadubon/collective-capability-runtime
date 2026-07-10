@@ -66,7 +66,11 @@ def iter_tasks(root: Path, *, status: str | None = None) -> list[dict[str, Any]]
         if not directory.exists():
             continue
         for path in sorted(directory.glob("*.json"), key=lambda item: item.name):
-            data = read_json(path)
+            try:
+                data = read_json(path)
+            except FileNotFoundError:
+                # A concurrent transactional lease may move an entry after glob().
+                continue
             if isinstance(data, dict):
                 tasks.append(data)
     return tasks

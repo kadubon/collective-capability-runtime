@@ -18,7 +18,7 @@ from ccr.storage.local_store import SQLiteRuntimeStore
 from ccr.tasks.factory import build_task
 from ccr.tasks.lease import lease_task
 from ccr.tasks.lifecycle import complete_task, heartbeat_task
-from ccr.tasks.store import submit_task
+from ccr.tasks.store import iter_tasks, submit_task
 from tests.conftest import example_json
 
 
@@ -123,6 +123,31 @@ def test_sqlite_concurrent_workers_receive_unique_leases(runtime_root: Path) -> 
     task_ids = [str(item["task"]["task_id"]) for item in claims if item is not None]
     assert len(task_ids) == 20
     assert len(set(task_ids)) == 20
+
+
+def test_task_iteration_skips_entry_moved_after_snapshot(
+    runtime_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    task = build_task(
+        kind="local_concurrency",
+        title="Moving task",
+        objective="Move after the open queue snapshot.",
+        role="generator",
+        source="local:moving",
+    )
+    open_path = submit_task(runtime_root, task)
+    leased_path = runtime_root / "tasks" / "leased" / open_path.name
+
+    def move_before_read(path: Path) -> object:
+        if path == open_path:
+            leased_path.parent.mkdir(parents=True, exist_ok=True)
+            open_path.replace(leased_path)
+        return read_json(path)
+
+    monkeypatch.setattr("ccr.tasks.store.read_json", move_before_read)
+
+    assert iter_tasks(runtime_root, status="open") == []
+    assert leased_path.exists()
 
 
 def test_residual_resolution_requires_independent_digest_bound_verifier(
