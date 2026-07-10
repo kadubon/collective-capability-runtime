@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -130,7 +131,7 @@ def test_performance_cache_and_index_reports_are_local_only(
     assert bench["local_only"] is True
     assert bench["network_call_performed"] is False
     assert (runtime_root / "ccr.sqlite").is_file()
-    with sqlite3.connect(runtime_root / "ccr.sqlite") as connection:
+    with closing(sqlite3.connect(runtime_root / "ccr.sqlite")) as connection:
         tables = {
             row[0]
             for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")

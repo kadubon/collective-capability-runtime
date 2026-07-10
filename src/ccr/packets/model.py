@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ccr.io import json_file_name
+from ccr.safe_io import require_path_within_root
 
 
 def packet_id(packet: dict[str, Any]) -> str:
@@ -24,4 +25,5 @@ def packet_status(packet: dict[str, Any]) -> str:
 def packet_path(root: Path, packet_id_value: str, status: str) -> Path:
     """Return packet path by status."""
 
-    return root / "packets" / status / json_file_name(packet_id_value)
+    path = root / "packets" / status / json_file_name(packet_id_value)
+    return require_path_within_root(path, root, field="packet path")

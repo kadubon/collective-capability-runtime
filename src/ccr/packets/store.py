@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ccr.constants import PACKET_STATUSES
+from ccr.ids import validate_identifier
 from ccr.io import read_json, write_json_atomic
 from ccr.packets.model import packet_path
 from ccr.schemas.validation import ValidationResult, validate_instance
@@ -21,6 +22,7 @@ def validate_packet(packet: dict[str, Any], *, root: Path) -> ValidationResult:
 def submit_packet(root: Path, packet: dict[str, Any]) -> Path:
     """Store a packet according to its declared status."""
 
+    validate_identifier(str(packet["packet_id"]), field="packet_id")
     status = str(packet.get("status", "candidate"))
     path = packet_path(root, str(packet["packet_id"]), status)
     write_json_atomic(path, packet, overwrite=False)
@@ -59,6 +61,7 @@ def save_packet_at_status(
 ) -> Path:
     """Save a packet at a status and remove the old path if status changed."""
 
+    validate_identifier(str(packet["packet_id"]), field="packet_id")
     packet["status"] = status
     destination = packet_path(root, str(packet["packet_id"]), status)
     write_json_atomic(destination, packet, overwrite=True)

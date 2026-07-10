@@ -40,6 +40,7 @@ def replay_manifest(
         "observation_ref": observation.name,
         "ok": not blockers,
         "physical_outcome_proven": False,
+        "physical_outcome_verified": False,
         "provider_dispatch_ready": False,
         "replay_steps": [
             "Load dispatch report as evidence.",
@@ -117,6 +118,7 @@ def verify_observation(manifest_path: Path, verifier_path: Path) -> dict[str, An
         "non_claims": list(MISSION_NON_CLAIMS),
         "ok": not blockers,
         "physical_outcome_proven": False,
+        "physical_outcome_verified": False,
         "provider_dispatch_ready": False,
         "residual_ready": residuals,
         "schema_version": "ccr.observation_verification_report.v1",

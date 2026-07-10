@@ -1,87 +1,76 @@
-# Getting Started with CCR
+# Getting Started With CCR
 
-This guide gives a first-time agent the shortest safe path through Collective
-Capability Runtime (CCR). It uses only local files and non-executing defaults.
+This is the shortest safe path from an empty directory to an inspectable agent
+coordination mission. It works with the published package and performs no
+provider execution or network request.
 
-CCR coordinates AI-agent work as JSON artifacts: tasks, capability packets,
-residuals, mission reports, provider evidence, and phase diagnostics. The goal
-is protocol-relative ASI-proxy phase formation, meaning a bounded and testable
-improvement over a resource-matched baseline. CCR does not claim real ASI,
-model self-rewrite, execution authority, or physical outcome proof.
-
-Related optional PIC project:
-[kadubon/percolation-inversion-compiler](https://github.com/kadubon/percolation-inversion-compiler)
-
-```bash
-python -m pip install percolation-inversion-compiler
-```
-
-## First-time agent guide
-
-Purpose: create one local mission, inspect the next safe action, read the
-workbench, and route residuals without dispatching providers or changing the
-outside world.
-
-First commands:
+## Install And Inspect
 
 ```bash
 python -m pip install collective-capability-runtime
 ccr agent explain --json
-ccr asi quickstart --profile development --json
-ccr mission next --mission mission:quickstart --compact --json
-ccr workbench report --mission mission:quickstart --format markdown --out CCR_WORKBENCH.md
-ccr residual market --mission mission:quickstart --json
 ```
 
-Safe boundary: the commands above are local-first. They do not perform provider
-dispatch, network calls, MCP/A2A tool dispatch, shell execution, physical
-actuation, release publication, tag creation, PyPI upload, or model updates.
+Confirm that `default_mode` is `dry_run` and read `safe_next_commands`. The
+manifest reports local write boundaries and explicit non-claims for agents that
+have not seen the repository.
 
-Expected outputs:
+## Create A Local Mission
 
-- `ccr agent explain --json` returns the role contract, non-claims, docs, and
-  safe first commands.
-- `ccr asi quickstart --json` creates local mission fixtures and reports
-  `external_execution=false`.
-- `ccr mission next --compact --json` returns the next safe local action.
-- `ccr workbench report` writes a mission-scoped report.
-- `ccr residual market --json` ranks blockers and repair work.
-
-Failure/residual handling: if a command returns `ok=false`, inspect
-`residual_ready`, `residuals`, `blockers`, and `non_claims`. Do not suppress the
-blocker. Preserve it, repair the referenced input, or create a local task with
-`ccr residual bounty --emit task`.
-
-P2 safe commands:
+Use a dedicated runtime directory so generated artifacts do not mix with source
+files:
 
 ```bash
-ccr residual market --json
-ccr residual market --mission mission:quickstart --json
-ccr residual bounty --residual <residual_id> --mission mission:quickstart --emit task --json
-ccr residual diff --before before.json --after after.json --json
-ccr workbench export --mission mission:quickstart --format static-html --out site/ --json
-ccr operation replay-manifest --dispatch-report dispatch.json --observation observation.json --out replay.json --json
-ccr operation verify-observation --manifest replay.json --verifier verifier.json --json
-ccr conformance bundle --bundle examples/asi_proxy_mission_bundle --json
-ccr conformance parity --ccr-report ccr.json --pic-report pic.json --json
-ccr provider registry-validate --file provider-registry.json --json
+ccr --root ccr-runtime asi quickstart --profile development --json
+ccr --root ccr-runtime mission status --mission mission:quickstart --json
+ccr --root ccr-runtime mission next --mission mission:quickstart --compact --json
+ccr --root ccr-runtime workbench report --mission mission:quickstart --format markdown --out CCR_WORKBENCH.md
 ```
 
-Provider import: use provider imports only as evidence normalization. Imported
-safe commands become local review tasks, not executed actions.
+Expected output:
 
-Phase formation cycle: create or repair packets, preserve residuals, import
-verifier evidence, run `ccr phase form --profile development --json`, compare
-against a baseline, and route the next blocker through tasks or residual market.
+- `ok=true` when the local command completes;
+- `external_execution=false` and `network_call_performed=false`;
+- `settled=false` while evidence or verification remains incomplete;
+- a `CCR_WORKBENCH.md` file containing packets, tasks, and residuals.
 
-What not to claim: a passing quickstart or workbench report is not real ASI
-proof, not execution authority, not provider settlement, not PIC settlement, and
-not physical outcome proof.
+## Route Remaining Work
 
-## Next Documents
+```bash
+ccr --root ccr-runtime residual market --mission mission:quickstart --json
+ccr --root ccr-runtime task next --role verifier --json
+```
 
-- [Command Map](command-map.md) for command categories and local writes.
-- [ASI-Proxy Mission Runtime](asi-proxy-mission.md) for mission details.
-- [P2 Runtime Surfaces](p2-runtime-surfaces.md) for residual market, static
-  workbench, operation replay, conformance, and provider registry commands.
-- [Operation Gate](operation-gate.md) for dispatch and observation boundaries.
+The market ranks residual work but never waives it. A repair is resolved only
+after an artifact-bound independent verifier report is supplied. A leased task
+must echo its current fencing token when heartbeating or completing.
+
+## Try Collective Coordination
+
+For a repository checkout, the mechanics fixture supplies complete input JSON:
+
+```bash
+uv run ccr --root .tmp/collective-runtime workcell create --template packet-distillation --name review-a --json
+uv run ccr --root .tmp/collective-runtime workcell submit --workcell review-a --file examples/collective_runtime/proposal-a.json --json
+uv run ccr --root .tmp/collective-runtime workcell submit --workcell review-a --file examples/collective_runtime/proposal-b.json --json
+```
+
+Continue with
+[examples/collective_runtime/README.md](../examples/collective_runtime/README.md)
+and [Collective Workcells](collective-workcells.md). The fixture demonstrates
+correlation discounting; it is not a capability benchmark.
+
+## Choose The Next Guide
+
+- [Collective Workcells](collective-workcells.md): proposal isolation, critique,
+  task leasing, and residual resolution.
+- [Distributed Runtime](distributed-runtime.md): PostgreSQL, OIDC + DPoP, and
+  worker processes.
+- [Measurement Protocol](measurement-protocol.md): preregistered,
+  resource-matched comparisons.
+- [Operation Gate](operation-gate.md): external-effect approval and dispatch.
+- [Command Map](command-map.md): all major commands and local write behavior.
+
+What not to claim: a successful quickstart proves only that the finite local
+workflow ran. It does not prove real ASI, model improvement, legal authority,
+physical outcome, or settlement.

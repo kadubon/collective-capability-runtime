@@ -8,6 +8,7 @@
     "schema_version": { "const": "ccr.observation_verification_report.v1" },
     "executed": { "const": false },
     "physical_outcome_proven": { "const": false },
+    "physical_outcome_verified": { "type": "boolean" },
     "external_execution": { "const": false },
     "network_call_performed": { "const": false },
     "provider_dispatch_ready": { "const": false },

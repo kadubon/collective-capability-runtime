@@ -29,17 +29,31 @@ def make_event(
     event_id = stable_id(
         "event", timestamp, actor, action, object_type, object_id, status_before, status_after
     )
+    trace_id = stable_id("trace", event_id).split(":", 1)[1].ljust(32, "0")[:32]
+    span_id = stable_id("span", event_id).split(":", 1)[1][:16]
     return {
         "action": action,
         "actor": actor,
         "dry_run": dry_run,
         "event_id": event_id,
+        "id": event_id,
         "note": note,
         "object_id": object_id,
         "object_type": object_type,
+        "provenance": {
+            "prov:generatedAtTime": timestamp,
+            "prov:wasAssociatedWith": actor,
+            "refs": sorted(refs or []),
+        },
         "refs": sorted(refs or []),
         "residuals": sorted(residuals or []),
         "status_after": status_after,
         "status_before": status_before,
+        "source": "/ccr/runtime",
+        "specversion": "1.0",
+        "subject": f"{object_type}/{object_id}",
+        "time": timestamp,
         "timestamp": timestamp,
+        "traceparent": f"00-{trace_id}-{span_id}-01",
+        "type": f"io.kadubon.ccr.{action}",
     }

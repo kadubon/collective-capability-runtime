@@ -62,8 +62,8 @@ def test_safe_commands_become_task_hints_not_executed(runtime_root, tmp_path):
 
     assert cmd_integrate(Args()) == 0
     updated, _path, status = load_packet(runtime_root, "packet.pic.interop")
-    assert status == "provisional"
-    assert updated["status"] == "provisional"
+    assert status == "candidate"
+    assert updated["status"] == "candidate"
     residuals = list(iter_residuals(runtime_root, status="open"))
     assert any(item["kind"] == "candidate_only_reason" for item in residuals)
     assert any(item["kind"] == "settlement_blocker" for item in residuals)
@@ -85,8 +85,8 @@ def test_pic_provider_import_preserves_v050_blockers_and_safe_commands(runtime_r
 
     assert cmd_provider_import(Args()) == 0
     updated, _path, status = load_packet(runtime_root, "packet.pic.interop")
-    assert status == "provisional"
-    assert updated["status"] == "provisional"
+    assert status == "candidate"
+    assert updated["status"] == "candidate"
     assert updated["verifier_reports"][-1]["provider"] == "pic"
     assert updated["verifier_reports"][-1]["settled"] is True
     residuals = list(iter_residuals(runtime_root, status="open"))

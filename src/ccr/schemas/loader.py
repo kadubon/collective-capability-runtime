@@ -9,9 +9,11 @@ from pathlib import Path
 from typing import Any, cast
 
 from ccr.constants import MANIFEST_FILENAME
-from ccr.paths import manifest_path, schemas_dir
+from ccr.ids import sha256_json
+from ccr.paths import manifest_path
 
 SCHEMA_FILENAMES = {
+    "generic-report": "generic-report.schema.json",
     "packet": "packet.schema.json",
     "task": "task.schema.json",
     "agent-manifest": "agent-manifest.schema.json",
@@ -43,6 +45,7 @@ SCHEMA_FILENAMES = {
     "path-law-response-policy": "path-law-response-policy.schema.json",
     "phase-control-action": "phase-control-action.schema.json",
     "operation-profile": "operation-profile.schema.json",
+    "operation-approval": "operation-approval.schema.json",
     "physical-provider-profile": "physical-provider-profile.schema.json",
     "observation-verifier-profile": "observation-verifier-profile.schema.json",
     "incident-ledger": "incident-ledger.schema.json",
@@ -98,19 +101,41 @@ def _repository_resource_path(relative: str) -> Path | None:
 
 
 def load_schema(kind: str, *, root: Path | None = None) -> dict[str, Any]:
-    """Load a schema from local ``schemas/`` first, then package resources."""
+    """Load a normative schema from the trusted package or source checkout.
+
+    ``root`` remains accepted for API compatibility but runtime-local schemas
+    are deliberately ignored: an untrusted runtime must not weaken validation.
+    """
 
     if kind not in SCHEMA_FILENAMES:
         raise KeyError(f"unknown schema kind: {kind}")
     filename = SCHEMA_FILENAMES[kind]
-    if root is not None:
-        local_path = schemas_dir(root) / filename
-        if local_path.exists():
-            return _loads_object(local_path.read_text(encoding="utf-8"), str(local_path))
     repository_path = _repository_resource_path(f"schemas/{filename}")
     if repository_path is not None:
-        return _loads_object(repository_path.read_text(encoding="utf-8"), str(repository_path))
-    return _loads_object(_load_resource_text(f"schemas/{filename}"), f"schemas/{filename}")
+        schema = _loads_object(repository_path.read_text(encoding="utf-8"), str(repository_path))
+        _verify_registered_digest(kind, schema)
+        return schema
+    schema = _loads_object(_load_resource_text(f"schemas/{filename}"), f"schemas/{filename}")
+    _verify_registered_digest(kind, schema)
+    return schema
+
+
+def _verify_registered_digest(kind: str, schema: dict[str, Any]) -> None:
+    repository_path = _repository_resource_path("schemas/schema-registry.json")
+    if repository_path is not None:
+        registry = _loads_object(repository_path.read_text(encoding="utf-8"), str(repository_path))
+    else:
+        registry = _loads_object(
+            _load_resource_text("schemas/schema-registry.json"),
+            "schemas/schema-registry.json",
+        )
+    digests = {
+        str(entry.get("schema_sha256"))
+        for entry in registry.get("entries", [])
+        if isinstance(entry, dict) and entry.get("schema_kind") == kind
+    }
+    if digests and digests != {sha256_json(schema)}:
+        raise ValueError(f"schema digest does not match registry: {kind}")
 
 
 def load_agent_manifest(*, root: Path | None = None) -> dict[str, Any]:

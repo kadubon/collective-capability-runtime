@@ -290,6 +290,7 @@ def _check_pic_repo_version(version: str | None, findings: list[dict[str, Any]])
         or version.startswith("0.7.")
         or version.startswith("0.8.")
         or version.startswith("0.9.")
+        or version.startswith("1.0.")
     ):
         findings.append(
             _finding(
@@ -297,7 +298,7 @@ def _check_pic_repo_version(version: str | None, findings: list[dict[str, Any]])
                 "pyproject.toml",
                 "medium",
                 False,
-                f"PIC source version is {version}; CCR v1.4 matrix targets PIC v0.5.x-v0.9.x.",
+                f"PIC source version is {version}; CCR matrix targets PIC v0.5.x-v1.0.x.",
                 repair_hint="Review INTEROP_PIC.md before relying on this PIC version.",
             )
         )

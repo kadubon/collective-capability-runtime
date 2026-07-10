@@ -40,6 +40,20 @@
     },
     "dry_run": { "type": "boolean" },
     "note": { "type": "string" }
+    ,"specversion": { "const": "1.0" }
+    ,"id": { "type": "string" }
+    ,"source": { "type": "string" }
+    ,"type": { "type": "string" }
+    ,"subject": { "type": "string" }
+    ,"time": { "type": "string", "format": "date-time" }
+    ,"traceparent": {
+      "type": "string",
+      "pattern": "^00-[0-9a-f]{32}-[0-9a-f]{16}-0[01]$"
+    }
+    ,"provenance": {
+      "type": "object",
+      "additionalProperties": true
+    }
   },
   "$defs": {
     "id": {

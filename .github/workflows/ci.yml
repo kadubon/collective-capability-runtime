@@ -22,8 +22,34 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run mypy src
+      - run: uv run python scripts/check_schema_registry.py
       - run: uv run python -m compileall -q src tests
       - run: uv run pytest
+      - name: Safety-critical coverage gate
+        run: >-
+          uv run pytest -q
+          tests/test_runtime_p0_p1_hardening.py
+          tests/test_distributed_collective_protocol.py
+          tests/test_task_state_machine.py
+          tests/test_task_leasing.py
+          tests/test_provider_api_v1.py
+          tests/test_phase_engine_v1.py
+          tests/test_safety_failure_branches.py
+          tests/test_storage_sqlite.py
+          tests/test_v140_runtime_scalability.py
+          --cov=ccr.tasks.lease
+          --cov=ccr.tasks.lifecycle
+          --cov=ccr.residuals.lifecycle
+          --cov=ccr.operations.approval
+          --cov=ccr.operations.verifier
+          --cov=ccr.workcells.protocol
+          --cov=ccr.experiments.protocol
+          --cov=ccr.storage.local_store
+          --cov=ccr.storage.sqlite
+          --cov=ccr.providers.http
+          --cov=ccr.phase.eligibility
+          --cov-report=term
+          --cov-fail-under=90
       - run: uv run ccr schema validate --kind packet --file examples/minimal/packet.json
       - run: uv run ccr schema validate --kind task --file examples/minimal/task.json
       - run: uv run ccr schema validate --kind packet --file examples/phase_formation/packets/checked/packet.phase.seed.json
@@ -55,3 +81,64 @@ jobs:
           python-version: "3.10"
       - run: uv sync --all-extras
       - run: uv run ccr audit pic --pic-root .tmp/pic-root --json
+
+  python-compat:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync --python "${{ matrix.python-version }}"
+      - run: uv run python -c "import ccr; print(ccr.__version__)"
+      - run: uv run ccr agent explain --json
+      - run: uv run ccr --root "${{ runner.temp }}/ccr-python-smoke" storage doctor --json
+      - run: uv run ccr --root "${{ runner.temp }}/ccr-python-smoke" asi quickstart --profile development --json
+
+  platform-smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a
+      - run: uv sync --all-extras
+      - run: uv run ccr --root "${{ runner.temp }}/ccr-smoke" storage doctor --json
+      - run: uv run ccr --root "${{ runner.temp }}/ccr-smoke" worker run --role verifier --worker-id worker:smoke --once
+
+  postgres-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ccr_test
+          POSTGRES_PASSWORD: test
+          POSTGRES_USER: ccr_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ccr_test -d ccr_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      CCR_TEST_POSTGRES_DSN: postgresql://ccr_test:test@127.0.0.1:5432/ccr_test
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a
+      - run: uv sync --all-extras
+      - run: uv run pytest -q tests/test_distributed_collective_protocol.py::test_postgres_one_hundred_worker_leases_are_unique

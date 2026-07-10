@@ -6,6 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ccr.ids import validate_identifier
 from ccr.io import read_json, write_json_atomic
 from ccr.schemas.validation import ValidationResult, validate_instance
 from ccr.tasks.model import STATUS_TO_DIR, task_path
@@ -20,6 +21,11 @@ def validate_task(task: dict[str, Any], *, root: Path) -> ValidationResult:
 def submit_task(root: Path, task: dict[str, Any]) -> Path:
     """Store an open task."""
 
+    result = validate_task(task, root=root)
+    if not result.ok:
+        messages = "; ".join(issue.message for issue in result.errors)
+        raise ValueError(f"invalid task: {messages}")
+    validate_identifier(str(task["task_id"]), field="task_id")
     status = str(task.get("status", "open"))
     destination_status = "open" if status == "open" else status
     path = task_path(root, str(task["task_id"]), destination_status)

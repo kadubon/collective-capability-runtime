@@ -14,6 +14,7 @@ from ccr.adapters.base import BaseVerifierProvider
 from ccr.ids import stable_id
 from ccr.io import json_file_name
 from ccr.packets.distill import packet_summary_text
+from ccr.strict import strict_bool
 from ccr.time import now_iso
 
 # Security: PIC CLI execution uses shell=False, fixed argv, and a timeout.
@@ -117,9 +118,11 @@ class PicVerifierProvider(BaseVerifierProvider):
         )
         if not isinstance(source, dict):
             source = report
-        workflow_usable = bool(source.get("workflow_usable", False))
-        accepted = bool(source.get("accepted", workflow_usable))
-        settled = bool(source.get("settled", False))
+        workflow_usable = strict_bool(
+            source.get("workflow_usable"), field="workflow_usable", default=False
+        )
+        accepted = strict_bool(source.get("accepted"), field="accepted", default=workflow_usable)
+        settled = strict_bool(source.get("settled"), field="settled", default=False)
         candidate_only_reasons = _combine_lists(
             source,
             "candidate_only_reasons",
@@ -134,7 +137,8 @@ class PicVerifierProvider(BaseVerifierProvider):
         blocking_residuals = [
             item
             for item in residuals
-            if isinstance(item, dict) and bool(item.get("blocking", False))
+            if isinstance(item, dict)
+            and strict_bool(item.get("blocking"), field="residual.blocking", default=False)
         ]
         status_blockers = (
             candidate_only_reasons

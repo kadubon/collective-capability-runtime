@@ -149,6 +149,9 @@
             "$ref": "#/$defs/id"
           },
           "default": []
+        },
+        "idempotency_key": {
+          "type": "string"
         }
       },
       "default": {}
@@ -333,6 +336,20 @@
         "renewal_allowed": {
           "type": "boolean",
           "default": true
+        },
+        "fencing_token": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "heartbeat_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "idempotency_key": {
+          "type": "string"
         }
       }
     },

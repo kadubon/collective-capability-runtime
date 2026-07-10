@@ -16,23 +16,32 @@
       "schemas/phase-acceleration-report.schema.json"
     ],
     "docs": [
+      "README.md",
+      "docs/README.md",
+      "docs/getting-started.md",
+      "docs/command-map.md",
+      "docs/collective-workcells.md",
+      "docs/distributed-runtime.md",
+      "docs/measurement-protocol.md",
+      "docs/security-audit-checklist.md",
       "INTEROP_PIC.md",
       "AGENTS.md",
       "SPEC.md",
       "FORMAL_MODEL.md",
-      "docs/asi-proxy-acceleration.md",
-      "docs/ccr-pic-roundtrip.md",
       "docs/operation-gate.md",
       "docs/real-world-impact.md",
       "docs/mcp-a2a-safety.md",
-      "docs/cross-repo-conformance.md"
+      "docs/cross-repo-loop-conformance.md"
     ],
     "runtime_state": [
+      "ccr.sqlite",
       "blackboard/events.jsonl",
       "tasks/",
       "packets/",
       "residuals/",
-      "reports/"
+      "reports/",
+      "workcells/",
+      "experiments/"
     ]
   },
   "default_mode": "dry_run",
@@ -53,6 +62,11 @@
     "real_asi_creation": false,
     "provider_dispatch_ready_is_not_dispatch": true,
     "physical_dispatch_ready_is_not_physical_outcome_proof": true,
+    "physical_outcome_proven_is_always_false": true,
+    "physical_outcome_verified_requires_signed_scoped_observation": true,
+    "unknown_coordinates_do_not_contribute_progress": true,
+    "network_effects_require_parameter_bound_approval": true,
+    "correlated_support_counts_once": true,
     "capital_admitted_is_not_settlement": true
   },
   "primary_commands": [
@@ -73,12 +87,36 @@
       "purpose": "Return this contract, schemas, modes, and next safe commands."
     },
     {
+      "command": "ccr asi quickstart --profile development --json",
+      "purpose": "Create an inspectable local mission without provider execution or network access."
+    },
+    {
+      "command": "ccr storage doctor --json",
+      "purpose": "Check local transactional storage and index consistency without repairing it."
+    },
+    {
+      "command": "ccr workcell create --template packet-distillation --name <name> --json",
+      "purpose": "Create a staged independent-proposal, critique, revision, verification, and integration workcell."
+    },
+    {
       "command": "ccr task next --role <role> --json",
       "purpose": "Return a leaseable task for the requested role."
     },
     {
-      "command": "ccr task lease <task_id> --ttl 30m --json",
+      "command": "ccr task lease <task_id> --ttl 30m --agent <worker_id> --json",
       "purpose": "Lease a task without mutating external systems."
+    },
+    {
+      "command": "ccr task heartbeat <task_id> --agent <worker_id> --fencing-token <token> --json",
+      "purpose": "Extend an owned lease while rejecting stale workers."
+    },
+    {
+      "command": "ccr task complete <task_id> --agent <worker_id> --fencing-token <token> --idempotency-key <key> --summary <summary> --json",
+      "purpose": "Complete a task transactionally with an idempotent fenced commit."
+    },
+    {
+      "command": "ccr residual resolve --residual <residual_id> --artifact <file> --verifier <report.json> --json",
+      "purpose": "Resolve a residual only with artifact-bound independent verifier evidence."
     },
     {
       "command": "ccr packet submit --file <packet.json> --json",
@@ -107,6 +145,18 @@
     {
       "command": "ccr foundry active-cuts --json",
       "purpose": "Return active bottleneck cuts for verifier, evidence, baseline, authority, and physical-observation work."
+    },
+    {
+      "command": "ccr experiment register --suite <suite> --manifest <manifest.json> --json",
+      "purpose": "Register a preregistered resource-matched evaluation protocol."
+    },
+    {
+      "command": "ccr experiment compare --baseline <baseline.json> --candidate <collective.json> --json",
+      "purpose": "Compare results conservatively without synthesizing missing values."
+    },
+    {
+      "command": "ccr operation approve --plan <plan.json> --provider <provider> --config <config.json> --approver <id> --expires-at <time> --nonce <nonce> --json",
+      "purpose": "Create a time-limited approval bound to one operation plan and provider configuration."
     },
     {
       "command": "ccr report --format markdown",
@@ -338,6 +388,7 @@
     "trc-operation-plan": "schemas/trc-operation-plan.schema.json",
     "trc-operation-preflight": "schemas/trc-operation-preflight.schema.json",
     "trc-operation-observation": "schemas/trc-operation-observation.schema.json",
+    "operation-approval": "schemas/operation-approval.schema.json",
     "runtime-capital-witness": "schemas/runtime-capital-witness.schema.json",
     "phase-acceleration-report": "schemas/phase-acceleration-report.schema.json"
   },

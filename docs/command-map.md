@@ -109,6 +109,38 @@ truth, model self-rewrite, or CCR settlement from provider/PIC evidence alone.
 | `ccr provider registry-validate --file registry.json --json` | validate static registry metadata | no |
 | `ccr provider registry-list --file registry.json --json` | list registry metadata | no |
 
+## Transactional Task And Residual Work
+
+```bash
+ccr storage doctor --json
+ccr storage migrate --json
+ccr storage reconcile --json
+ccr task heartbeat <task_id> --agent <agent_id> --fencing-token <token> --json
+ccr task complete <task_id> --agent <agent_id> --fencing-token <token> --idempotency-key result.1 --summary "ready" --json
+ccr task fail <task_id> --agent <agent_id> --fencing-token <token> --reason "blocked" --json
+ccr task retry <task_id> --reason "repair available" --json
+ccr residual assign --residual <residual_id> --agent <agent_id> --json
+ccr residual resolve --residual <residual_id> --artifact repair.json --verifier verifier.json --json
+ccr residual reopen --residual <residual_id> --reason "new evidence" --json
+```
+
+Heartbeat and completion require the current fencing token. Residual resolution
+requires digest-bound repair evidence from an independent verifier.
+
+## Distributed And Experiment Work
+
+```bash
+ccr server run --auth-config oidc.json
+ccr worker run --role verifier --worker-id worker:verifier-1 --once
+ccr experiment register --suite study-a --manifest manifest.json --json
+ccr experiment ingest --suite study-a --label baseline --file baseline.json --json
+ccr experiment compare --baseline baseline.json --candidate collective.json --json
+```
+
+The server and worker need the optional `distributed` extra. Write APIs require
+OIDC + DPoP. Experiment acceleration claims require a preregistered fixed
+horizon or confidence sequence.
+
 ## Commands Requiring Extra Authority
 
 `ccr provider execute --execute` is outside the safe first-use path. It requires

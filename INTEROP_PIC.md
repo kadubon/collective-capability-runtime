@@ -150,6 +150,11 @@ ccr integrate --report reports/pic/<report>.json --json
 
 ## PIC v0.5.0/v0.6.0 compatibility matrix
 
+The strict contract is also supported through PIC 1.0.x. CCR negotiates the
+major/minor version, validates JSON booleans without truthy coercion, records a
+canonical report digest, compares residual kind sets, and keeps every
+`safe_commands` item as a non-executed task hint.
+
 | PIC surface | CCR v1.1 mapping | Compatibility rule |
 |---|---|---|
 | `pic agent check --compact` | `verify --provider pic` plan/execute and `provider import --provider pic` | Optional provider; missing CLI becomes provider-missing residual-ready JSON. |
@@ -158,7 +163,7 @@ ccr integrate --report reports/pic/<report>.json --json
 | `pic phase plan --compact` | phase-plan report import and bottleneck diagnostics | `phase_gap_vector`, `bottlenecks`, and `safe_commands` stay diagnostic/task-hint inputs. |
 | `pic runtime collective-certify` | external certificate-candidate evidence | PIC output never settles CCR by itself. |
 | `pic trc trace-normalize` / `trace-check` / `trace-to-packet` | TRC operation plan input and packet candidate import | Trace checks expose blockers and readiness gates; they do not grant execution authority. |
-| `accepted` / `workflow_usable` | checked or provisional evidence | Usable workflow evidence is not settlement authority. |
+| `accepted` / `workflow_usable` | verifier evidence attached to the existing packet status | Import never promotes; normal CCR promotion evaluates evidence. |
 | `settled` | `settled_candidate` provider evidence | CCR settlement still requires CCR promotion, phase, baseline, and residual gates. |
 | `candidate_only_reasons` | nonblocking residuals | Candidate-only mass never adds positive phase contribution. |
 | `settled_blockers`, `missing_obligations`, `cannot_promote_because` | blocking residuals | Block CCR settlement until resolved. |
@@ -169,9 +174,9 @@ ccr integrate --report reports/pic/<report>.json --json
 
 | PIC output | CCR mapping | Rule |
 |---|---|---|
-| `accepted=false` | `rejected` or `quarantined` | Unsafe or malformed output should quarantine. |
-| `accepted=true, settled=false` | `checked` or `provisional` | Normal accepted evidence path. |
-| `accepted=true, settled=true` | `checked` plus settlement blocker review | PIC settlement alone never grants CCR final settlement. |
+| `accepted=false` | evidence plus residuals; packet status unchanged | Normal promotion or quarantine policy decides later. |
+| `accepted=true, settled=false` | evidence plus candidate-only reasons; packet status unchanged | Normal accepted evidence path. |
+| `accepted=true, settled=true` | evidence plus settlement blocker review; packet status unchanged | PIC settlement alone never grants CCR final settlement. |
 | `candidate_only_reasons` | residuals | Preserve without promotion. |
 | `settled_blockers` | blocking residuals | Prevent CCR settlement. |
 | `safe_commands` | tasks/open hints | Never execute automatically. |
@@ -287,7 +292,7 @@ computes loop-next, foundry, graph quotient, performance, cache, and interval
 diagnostics. PIC/PIC-TS remain checker layers. CCR remains the local runtime
 and never treats PIC acceptance as settlement or execution authority.
 
-## v1.5 P2 Interop
+## Runtime Conformance Interop
 
 Use `ccr conformance bundle` and `ccr conformance parity` to compare CCR bundle
 reports with PIC/PIC-TS evidence reports. Missing parity fields become

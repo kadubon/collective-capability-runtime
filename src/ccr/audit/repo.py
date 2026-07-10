@@ -3,21 +3,26 @@
 
 from __future__ import annotations
 
+import json
+import re
 from pathlib import Path
 from typing import Any
 
 from ccr.constants import NON_CLAIMS
 from ccr.ids import stable_id
 from ccr.residuals.model import build_residual
+from ccr.schemas.registry import audit_schema_registry
 from ccr.time import now_iso
 
 REQUIRED_SCHEMA_FILES = [
+    "generic-report.schema.json",
     "packet.schema.json",
     "task.schema.json",
     "agent-manifest.schema.json",
     "blackboard-event.schema.json",
     "residual.schema.json",
     "verifier-report.schema.json",
+    "operation-approval.schema.json",
     "phase-report.schema.json",
     "phase-state.schema.json",
     "effective-graph.schema.json",
@@ -52,23 +57,6 @@ REQUIRED_SCHEMA_FILES = [
     "parity-report.schema.json",
     "provider-registry.schema.json",
     "provider-registry-report.schema.json",
-]
-
-DOC_ROUTE_FILES = [
-    "README.md",
-    "docs/README.md",
-    "docs/getting-started.md",
-    "docs/command-map.md",
-    "SPEC.md",
-    "FORMAL_MODEL.md",
-    "INTEROP_PIC.md",
-    "SECURITY.md",
-    "AGENTS.md",
-    "GOVERNANCE.md",
-    "CONTRIBUTING.md",
-    "AUDIT.md",
-    "examples/phase_formation/README.md",
-    "examples/pic_interop/README.md",
 ]
 
 PIC_REPOSITORY_ROUTE = (
@@ -115,32 +103,34 @@ PIC_COMPAT_DOCS = [
     "SECURITY.md",
     "AGENTS.md",
 ]
-FIRST_TIME_AGENT_DOC_FILES = [
-    "README.md",
-    "docs/README.md",
-    "docs/getting-started.md",
-    "docs/command-map.md",
-    "AGENTS.md",
-    "SPEC.md",
-    "SECURITY.md",
-    "INTEROP_PIC.md",
-    "FORMAL_MODEL.md",
-    "AUDIT.md",
-    "examples/phase_formation/README.md",
-    "examples/pic_interop/README.md",
-]
-FIRST_TIME_AGENT_MARKERS = [
-    "First-time agent guide",
-    "Purpose:",
-    "First commands:",
-    "Safe boundary:",
-    "Expected outputs:",
-    "Failure/residual handling:",
-    "P2 safe commands:",
-    "Provider import:",
-    "Phase formation cycle:",
-    "What not to claim:",
-]
+FIRST_TIME_AGENT_DOC_MARKERS = {
+    "README.md": [
+        "## Five-Minute Start",
+        "## Choose A Workflow",
+        "## Important Output Fields",
+        "## State And External Effects",
+        "## Documentation",
+    ],
+    "docs/README.md": ["## Start Locally", "## Choose A Task", "## Safety Boundaries"],
+    "docs/getting-started.md": [
+        "## Install And Inspect",
+        "## Create A Local Mission",
+        "## Route Remaining Work",
+        "## Choose The Next Guide",
+    ],
+    "agent-manifest.json": [
+        "docs/collective-workcells.md",
+        "docs/distributed-runtime.md",
+        "docs/measurement-protocol.md",
+        "ccr storage doctor --json",
+    ],
+    "examples/collective_runtime/README.md": [
+        "## Workcell",
+        "## Experiment",
+        "effective_support_count",
+        "resource-matched",
+    ],
+}
 PUBLIC_RELEASE_DOC_FILES = [
     "README.md",
     "AGENTS.md",
@@ -246,11 +236,16 @@ P2_RUNTIME_CHECKS = [
     ),
     (
         "docs/README.md",
-        ["Getting Started", "Command Map", "Safety Statements", "Release is not performed"],
+        ["Start Locally", "Choose A Task", "Safety Boundaries", "Getting Started"],
     ),
     (
         "docs/getting-started.md",
-        ["shortest safe path", "residual market", "external_execution=false", "Next Documents"],
+        [
+            "shortest safe path",
+            "residual market",
+            "external_execution=false",
+            "Choose The Next Guide",
+        ],
     ),
     (
         "docs/command-map.md",
@@ -300,7 +295,6 @@ def audit_repository(root: Path) -> dict[str, Any]:
         "pyproject.toml",
         must_contain=[
             'name = "collective-capability-runtime"',
-            'version = "1.5.0"',
             "Apache-2.0",
             "Development Status :: 5 - Production/Stable",
             "ccr =",
@@ -344,6 +338,9 @@ def audit_repository(root: Path) -> dict[str, Any]:
     _check_pic_doc_routes(root, findings)
     _check_pic_compatibility_surface(root, findings)
     _check_first_time_agent_docs(root, findings)
+    _check_version_consistency(root, findings)
+    _check_markdown_links(root, findings)
+    _check_agent_manifest_paths(root, findings)
     _check_public_release_hygiene(root, findings)
     _check_publish_workflow_secrets(root, findings)
     _check_publish_workflow_order(root, findings)
@@ -355,6 +352,32 @@ def audit_repository(root: Path) -> dict[str, Any]:
     _check_mission_hardening_surface(root, findings)
     _check_p1_gate_surface(root, findings)
     _check_p2_runtime_surface(root, findings)
+    _check_file(
+        root,
+        findings,
+        "docs/security-audit-checklist.md",
+        must_contain=[
+            "## Govern",
+            "## Map",
+            "## Measure",
+            "## Manage",
+            "## OWASP Agent Controls",
+            "DPoP",
+            "Ed25519",
+        ],
+        missing_content_blocks=True,
+    )
+    registry = audit_schema_registry(root)
+    if not registry["ok"]:
+        findings.append(
+            _finding(
+                "schema-registry-drift",
+                "schemas/schema-registry.json",
+                "high",
+                True,
+                f"Public schema registry is incomplete or non-deterministic: {registry}",
+            )
+        )
     blocking = [finding for finding in findings if finding["blocking"]]
     return {
         "accepted": not blocking,
@@ -396,7 +419,7 @@ def _check_file(
 
 
 def _check_pic_doc_routes(root: Path, findings: list[dict[str, Any]]) -> None:
-    for relative in DOC_ROUTE_FILES:
+    for relative in PIC_COMPAT_DOCS:
         _check_file(
             root,
             findings,
@@ -404,6 +427,13 @@ def _check_pic_doc_routes(root: Path, findings: list[dict[str, Any]]) -> None:
             must_contain=[PIC_REPOSITORY_ROUTE, PIC_PIP_INSTALL],
             missing_content_blocks=True,
         )
+    _check_file(
+        root,
+        findings,
+        "docs/README.md",
+        must_contain=["[PIC Interoperability](../INTEROP_PIC.md)"],
+        missing_content_blocks=True,
+    )
 
 
 def _check_pic_compatibility_surface(root: Path, findings: list[dict[str, Any]]) -> None:
@@ -447,14 +477,101 @@ def _check_pic_compatibility_surface(root: Path, findings: list[dict[str, Any]])
 
 
 def _check_first_time_agent_docs(root: Path, findings: list[dict[str, Any]]) -> None:
-    for relative in FIRST_TIME_AGENT_DOC_FILES:
+    for relative, markers in FIRST_TIME_AGENT_DOC_MARKERS.items():
         _check_file(
             root,
             findings,
             relative,
-            must_contain=FIRST_TIME_AGENT_MARKERS,
+            must_contain=markers,
             missing_content_blocks=True,
         )
+
+
+def _check_version_consistency(root: Path, findings: list[dict[str, Any]]) -> None:
+    sources = {
+        "pyproject.toml": r'^version\s*=\s*"([^"]+)"',
+        "src/ccr/__init__.py": r'^__version__\s*=\s*"([^"]+)"',
+    }
+    versions: dict[str, str] = {}
+    for relative, pattern in sources.items():
+        path = root / relative
+        if not path.exists():
+            continue
+        match = re.search(pattern, path.read_text(encoding="utf-8"), re.MULTILINE)
+        if match:
+            versions[relative] = match.group(1)
+    if len(set(versions.values())) > 1:
+        findings.append(
+            _finding(
+                "version-drift",
+                "pyproject.toml",
+                "high",
+                True,
+                f"Public package versions disagree: {versions}",
+            )
+        )
+    version = next(iter(versions.values()), None)
+    changelog = root / "CHANGELOG.md"
+    if (
+        version
+        and changelog.exists()
+        and f"## {version} -" not in changelog.read_text(encoding="utf-8")
+    ):
+        findings.append(
+            _finding(
+                "version-changelog-drift",
+                "CHANGELOG.md",
+                "high",
+                True,
+                f"CHANGELOG.md has no release heading for {version}.",
+            )
+        )
+
+
+def _check_markdown_links(root: Path, findings: list[dict[str, Any]]) -> None:
+    files = [root / "README.md", *(root / "docs").glob("*.md")]
+    for path in files:
+        if not path.exists():
+            continue
+        for target in re.findall(r"\[[^]]+\]\(([^)]+)\)", path.read_text(encoding="utf-8")):
+            target_path = target.split("#", 1)[0]
+            if not target_path or "://" in target_path or target_path.startswith("mailto:"):
+                continue
+            resolved = (path.parent / target_path).resolve()
+            if not resolved.exists():
+                relative = path.relative_to(root).as_posix()
+                findings.append(
+                    _finding(
+                        "broken-doc-link",
+                        relative,
+                        "medium",
+                        True,
+                        f"{relative} links to missing local path {target}.",
+                    )
+                )
+
+
+def _check_agent_manifest_paths(root: Path, findings: list[dict[str, Any]]) -> None:
+    path = root / "agent-manifest.json"
+    if not path.exists():
+        return
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    layout = manifest.get("repository_layout", {})
+    for group in ("docs", "schemas"):
+        for relative in layout.get(group, []):
+            if isinstance(relative, str) and not (root / relative).exists():
+                findings.append(
+                    _finding(
+                        "agent-manifest-missing-path",
+                        "agent-manifest.json",
+                        "high",
+                        True,
+                        f"agent-manifest.json references missing path {relative}.",
+                    )
+                )
 
 
 def _check_public_release_hygiene(root: Path, findings: list[dict[str, Any]]) -> None:

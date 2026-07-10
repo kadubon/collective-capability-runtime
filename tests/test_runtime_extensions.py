@@ -28,6 +28,7 @@ from ccr.extensions import (
     workcell_submit,
 )
 from ccr.io import write_json_atomic
+from ccr.operations.approval import create_operation_approval
 from ccr.packets.store import submit_packet
 from ccr.residuals.model import build_residual
 from ccr.residuals.store import save_residual
@@ -94,7 +95,7 @@ def test_distill_seed_creates_candidate_packet_and_residual(tmp_path: Path) -> N
         "segmentation",
         "candidate_mining",
         "canonicalization",
-        "leakage_check_placeholder",
+        "contamination_scan",
         "dependency_graph_extraction",
         "minimal_interface_summary",
         "verifier_binding",
@@ -408,6 +409,7 @@ class _FakeDispatchProvider:
     ) -> dict[str, Any]:
         return {
             "action": action,
+            "effect_executed": True,
             "network_call_performed": True,
             "ok": True,
             "provider": self.provider_name,
@@ -428,10 +430,24 @@ def test_operation_dispatch_requires_matching_preflight_and_blocks_forgery(
     config = {
         "allow_execute": True,
         "allowed_provider_classes": ["fake"],
-        "operator_approval_ref": "approval:test",
         "provider_class": "fake",
         "side_effect_policy": "controlled_provider_allowed",
     }
+    approval = create_operation_approval(
+        runtime_root,
+        plan=plan,
+        provider="fake",
+        config=config,
+        approvers=["human:test"],
+        expires_at="2099-01-01T00:00:00Z",
+        nonce="nonce.test",
+    )
+    config.update(
+        {
+            "approval_nonce": "nonce.test",
+            "operator_approval_ref": approval["approval"]["approval_id"],
+        }
+    )
     dry_run = operation_dispatch(
         runtime_root,
         plan=plan,

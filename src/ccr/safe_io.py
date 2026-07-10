@@ -34,6 +34,14 @@ def is_path_within_root(path: Path, root: Path) -> bool:
         return False
 
 
+def require_path_within_root(path: Path, root: Path, *, field: str = "path") -> Path:
+    """Return path when its resolved target stays inside root, otherwise fail."""
+
+    if not is_path_within_root(path, root):
+        raise ValueError(f"{field} resolves outside the runtime root")
+    return path
+
+
 def read_text_bounded(
     path: Path,
     *,

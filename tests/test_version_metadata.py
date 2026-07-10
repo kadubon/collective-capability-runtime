@@ -6,14 +6,14 @@ import ccr
 from tests.conftest import REPO_ROOT
 
 
-def test_source_version_metadata_is_v150() -> None:
+def test_source_version_metadata_is_consistent() -> None:
     pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     changelog = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 
-    assert ccr.__version__ == "1.5.0"
-    assert version("collective-capability-runtime") == "1.5.0"
-    assert 'version = "1.5.0"' in pyproject
-    assert "## 1.5.0 - 2026-07-04" in changelog
+    expected = ccr.__version__
+    assert version("collective-capability-runtime") == expected
+    assert f'version = "{expected}"' in pyproject
+    assert f"## {expected} -" in changelog
 
 
 def test_release_docs_preserve_operator_gated_publication() -> None:

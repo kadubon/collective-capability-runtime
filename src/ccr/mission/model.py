@@ -11,7 +11,7 @@ from ccr.constants import NON_CLAIMS
 from ccr.io import json_file_name, read_json, write_json_atomic
 from ccr.packets.store import iter_packets
 from ccr.residuals.store import iter_residuals
-from ccr.safe_io import residual_ready
+from ccr.safe_io import require_path_within_root, residual_ready
 
 FIXED_CREATED_AT = "1970-01-01T00:00:00Z"
 MISSION_NON_CLAIMS = (
@@ -50,25 +50,39 @@ def mission_root(root: Path) -> Path:
 def mission_path(root: Path, mission_id: str) -> Path:
     """Return the mission artifact path."""
 
-    return mission_root(root) / json_file_name(mission_id)
+    return require_path_within_root(
+        mission_root(root) / json_file_name(mission_id), root, field="mission path"
+    )
 
 
 def mission_state_path(root: Path, mission_id: str) -> Path:
     """Return the mission state artifact path."""
 
-    return mission_root(root) / "state" / json_file_name(mission_id)
+    return require_path_within_root(
+        mission_root(root) / "state" / json_file_name(mission_id),
+        root,
+        field="mission state path",
+    )
 
 
 def target_path(root: Path, target_id: str) -> Path:
     """Return the mission target artifact path."""
 
-    return mission_root(root) / "targets" / json_file_name(target_id)
+    return require_path_within_root(
+        mission_root(root) / "targets" / json_file_name(target_id),
+        root,
+        field="mission target path",
+    )
 
 
 def baseline_path(root: Path, baseline_id: str) -> Path:
     """Return the mission baseline artifact path."""
 
-    return mission_root(root) / "baselines" / json_file_name(baseline_id)
+    return require_path_within_root(
+        mission_root(root) / "baselines" / json_file_name(baseline_id),
+        root,
+        field="mission baseline path",
+    )
 
 
 def load_mission(root: Path, mission_id: str) -> dict[str, Any]:

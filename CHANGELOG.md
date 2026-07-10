@@ -2,9 +2,25 @@
 
 ## Unreleased
 
+## 1.6.0 - 2026-07-10
+
 - Improves first-time-agent readiness with a clearer README, a docs index,
   getting-started guide, P0/P1/P2 command map, richer `ccr agent explain`
   navigation output, and repository audit/test coverage for those routes.
+- Replaces task lock files with closed SQLite transactions, monotonic fencing
+  tokens, heartbeats, idempotent completion, outbox events, and storage
+  doctor/migration/reconciliation commands.
+- Adds independently verified residual resolution, staged workcell integration,
+  correlation-aware support counts, stronger claim distillation, and
+  preregistered resource-matched experiment metrics.
+- Adds parameter-bound TRC approvals, current-time authority checks, hardened
+  HTTPS provider dispatch, strict report booleans, non-promoting provider
+  imports, and verifier-only physical outcome status.
+- Adds an optional PostgreSQL 16+ RuntimeStore, OIDC + DPoP `/v1` API, fenced
+  worker, CloudEvents/Trace Context/PROV event fields, optional OpenTelemetry,
+  PIC 1.0 contract checks, and deterministic public schema registry coverage.
+- Adds task-oriented documentation, an executable collective-runtime fixture,
+  updated agent discovery metadata, and explicit Python 3.10-3.14 CI smoke.
 
 ## 1.5.0 - 2026-07-04
 

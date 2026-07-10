@@ -7,14 +7,19 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from ccr.ids import validate_identifier
 from ccr.io import json_file_name, read_json, write_json_atomic
+from ccr.safe_io import require_path_within_root
 from ccr.schemas.validation import validate_instance
 
 
 def residual_path(root: Path, residual_id: str, status: str = "open") -> Path:
     """Return storage path for a residual."""
 
-    return root / "residuals" / status / json_file_name(residual_id)
+    validate_identifier(residual_id, field="residual_id")
+    validate_identifier(status, field="residual_status")
+    path = root / "residuals" / status / json_file_name(residual_id)
+    return require_path_within_root(path, root, field="residual path")
 
 
 def save_residual(root: Path, residual: dict[str, Any], *, overwrite: bool = True) -> Path:

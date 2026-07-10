@@ -1,0 +1,30 @@
+{
+  "agent_weights": [
+    1,
+    1
+  ],
+  "evaluation_design": {
+    "alpha": 0.05,
+    "horizon": 100,
+    "mode": "fixed_horizon",
+    "pre_registered": true
+  },
+  "outcomes": [
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+  ],
+  "resource_envelope": {
+    "budget": 100,
+    "time": 100
+  },
+  "seed": 7,
+  "tool_model_version": "mechanics-fixture-v1"
+}

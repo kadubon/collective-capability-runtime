@@ -1,0 +1,15 @@
+{
+  "claims": [
+    {
+      "claim_text": "The bounded fixture preserves unresolved residuals."
+    }
+  ],
+  "evidence": [
+    "examples/collective_runtime/README.md"
+  ],
+  "provenance": {
+    "model": "fixture-model",
+    "source": "fixture-source",
+    "tool": "fixture-tool"
+  }
+}
