@@ -1,0 +1,31 @@
+{
+  "skill": "collective-capability-runtime",
+  "positive": [
+    {"prompt":"Coordinate tasks and residuals across several AI agents.","reason":"collective runtime"},
+    {"prompt":"Set up a local mission for multi-agent capability packets.","reason":"mission coordination"},
+    {"prompt":"Lease a verifier task without letting stale workers finish it.","reason":"fenced task lease"},
+    {"prompt":"Route a packet to PIC and keep the unresolved obligations.","reason":"provider verification"},
+    {"prompt":"Create an independent workcell for competing agent proposals.","reason":"collective workcell"},
+    {"prompt":"Rank the residual work blocking this agent mission.","reason":"residual market"},
+    {"prompt":"Compare collective and solo performance with a matched resource baseline.","reason":"collective evaluation"},
+    {"prompt":"Inspect whether this CCR runtime has a next safe task.","reason":"runtime inspection"},
+    {"prompt":"Integrate a verifier report into our local agent coordination state.","reason":"report integration"},
+    {"prompt":"Plan an approval-bound provider operation for this agent fleet.","reason":"operation planning"}
+  ],
+  "negative": [
+    {"prompt":"Assign tasks in Jira.","reason":"generic project management"},
+    {"prompt":"Build a chatbot with an LLM.","reason":"generic LLM runtime"},
+    {"prompt":"Prove the agents agree on the truth.","reason":"consensus is not truth"},
+    {"prompt":"Deploy this external operation now.","reason":"external execution request"},
+    {"prompt":"Store stale Graphiti memories.","reason":"CMGL routing"},
+    {"prompt":"Audit this verifier evidence packet.","reason":"VEK routing"},
+    {"prompt":"Is this individual agent output settled?","reason":"PIC routing"},
+    {"prompt":"Test an AI scientist for p-hacking.","reason":"Audit-Closed routing"}
+  ],
+  "ambiguous": [
+    {"prompt":"Coordinate these agents.","expected":"activate if tasks/packets/residuals need CCR state; otherwise clarify coordination surface","reason":"coordination may be generic"},
+    {"prompt":"Verify a packet.","expected":"use CCR for collective routing/integration; use VEK or PIC if verification is the primary object","reason":"primary object decides"},
+    {"prompt":"Can this provider execute?","expected":"inspect plan/preflight/approval; do not dispatch by default","reason":"authority boundary"},
+    {"prompt":"Our agents are getting better together.","expected":"activate only for declared resource-matched CCR evaluation","reason":"improvement needs measurement protocol"}
+  ]
+}

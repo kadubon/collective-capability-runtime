@@ -8,6 +8,13 @@ without treating repeated answers or raw agent count as proof.
 CCR does not run an LLM. Agents and tools use its CLI, JSON schemas, SQLite or
 PostgreSQL state, and optional HTTP API to exchange auditable work.
 
+## Agent Skill
+
+This repository includes an Agent Skills-compatible workflow at
+[`.agents/skills/collective-capability-runtime/SKILL.md`](.agents/skills/collective-capability-runtime/SKILL.md).
+Compatible agents can discover it from this repository, or copy it to a supported user skills directory
+such as `~/.agents/skills/collective-capability-runtime/`. The canonical implementation remains this repository.
+
 ## Vision And Measurement
 
 CCR supports protocol-relative ASI-proxy phase formation. In ordinary terms,

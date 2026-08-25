@@ -1,0 +1,3 @@
+# Result and operation boundary
+
+Keep CCR's states separate. `ok` means a named finite command completed; `accepted` means local admission under supplied evidence; `checked` may retain residuals; `settled` requires every declared policy condition and is often false. A task lease, local workbench, provider plan, MCP/A2A preflight, or operation approval is not provider dispatch. Dispatch requires an explicit request, selected configuration, parameter-bound approval, and `--execute` where supported. A provider report or receipt is not proof of a physical outcome; signed, scoped observation verification is a distinct check.
