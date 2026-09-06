@@ -1,0 +1,1 @@
+Mechanics fixture input 3. Independently verify a reusable result for this target.

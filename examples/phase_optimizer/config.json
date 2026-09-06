@@ -1,0 +1,125 @@
+{
+  "schema_version": "ccr.optimizer_config.v1",
+  "policy_version": 1,
+  "seed": 17,
+  "deadline": "2099-01-01T00:00:00Z",
+  "epsilon": 0.2,
+  "diagnostic_reserve": 0.2,
+  "resource_limits": {
+    "cost": 100,
+    "calls": 100
+  },
+  "effort_resource": "cost",
+  "max_inflight": 4,
+  "trusted_verifiers": {
+    "replace-with-independent-verifier": "11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo="
+  },
+  "task_manifest": [
+    {
+      "target_id": "target.000",
+      "input_ref": "examples/phase_optimizer/inputs/task-0.txt",
+      "input_sha256": "35ab65ed7aa42a5043f827c55a6df83f3ed6c81a8c2276d54920d51e84894723",
+      "acceptance_criteria": "Produce an independently verified reusable result for this exact input; retain every residual."
+    },
+    {
+      "target_id": "target.001",
+      "input_ref": "examples/phase_optimizer/inputs/task-1.txt",
+      "input_sha256": "e297a5a5478de3d41269c0cd2760832094414b758cd07bc9a1da627c78bae152",
+      "acceptance_criteria": "Produce an independently verified reusable result for this exact input; retain every residual."
+    },
+    {
+      "target_id": "target.002",
+      "input_ref": "examples/phase_optimizer/inputs/task-2.txt",
+      "input_sha256": "6624e9cc50db14aabe19f027a595af175ab26d7a9af1e1ce20ceebb057615cf1",
+      "acceptance_criteria": "Produce an independently verified reusable result for this exact input; retain every residual."
+    },
+    {
+      "target_id": "target.003",
+      "input_ref": "examples/phase_optimizer/inputs/task-3.txt",
+      "input_sha256": "426372920af2cff9c706c646b97e59c9fa4dfc7480b24c6a17f349c08dbfd7cc",
+      "acceptance_criteria": "Produce an independently verified reusable result for this exact input; retain every residual."
+    },
+    {
+      "target_id": "target.004",
+      "input_ref": "examples/phase_optimizer/inputs/task-4.txt",
+      "input_sha256": "1c049a56c0c4fb129d792648dca6f8ebab247dac4d313ed77b7d0e99e0d3320c",
+      "acceptance_criteria": "Produce an independently verified reusable result for this exact input; retain every residual."
+    },
+    {
+      "target_id": "target.005",
+      "input_ref": "examples/phase_optimizer/inputs/task-5.txt",
+      "input_sha256": "baaa482320614c150bde1358b2cf50a07664b6449cab78edc04e3f1639969936",
+      "acceptance_criteria": "Produce an independently verified reusable result for this exact input; retain every residual."
+    }
+  ],
+  "interventions": [
+    {
+      "intervention_id": "verification",
+      "kind": "verification",
+      "resource_upper_bound": {
+        "cost": 1,
+        "calls": 1
+      },
+      "producer_ids": [
+        "producer"
+      ]
+    },
+    {
+      "intervention_id": "residual_repair",
+      "kind": "residual_repair",
+      "resource_upper_bound": {
+        "cost": 1,
+        "calls": 1
+      },
+      "producer_ids": [
+        "producer"
+      ]
+    },
+    {
+      "intervention_id": "independent_proposal",
+      "kind": "independent_proposal",
+      "resource_upper_bound": {
+        "cost": 1,
+        "calls": 1
+      },
+      "producer_ids": [
+        "producer"
+      ]
+    },
+    {
+      "intervention_id": "distillation",
+      "kind": "distillation",
+      "resource_upper_bound": {
+        "cost": 1,
+        "calls": 1
+      },
+      "producer_ids": [
+        "producer"
+      ]
+    },
+    {
+      "intervention_id": "measurement",
+      "kind": "measurement",
+      "resource_upper_bound": {
+        "cost": 1,
+        "calls": 1
+      },
+      "producer_ids": [
+        "producer"
+      ]
+    }
+  ],
+  "evaluation": {
+    "holdout_tasks": [
+      "target.004",
+      "target.005"
+    ],
+    "horizon": 2,
+    "alpha": 0.05,
+    "resource_envelope": {
+      "cost": 40,
+      "calls": 40
+    },
+    "baseline_intervention": "verification"
+  }
+}
