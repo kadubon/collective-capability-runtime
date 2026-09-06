@@ -1,6 +1,16 @@
 # Changelog
 
-## Unreleased
+## 1.7.0 - 2026-09-07
+
+- Adds the phase optimizer: immutable studies, budget-constrained epsilon-greedy
+  intervention selection, fenced tasks, independently signed feedback, and
+  fixed-policy holdout evaluation with training costs charged to the candidate.
+- Adds shared SQLite/PostgreSQL control transactions and audit snapshots, atomic
+  nonce/approval consumption, existing-worker integration, and authenticated
+  optimizer API endpoints. Unknown HTTP outcomes retain reservations and cannot
+  be automatically replayed.
+- Adds optimizer schemas, operating instructions, a mechanics fixture, and
+  concurrent database and mocked-provider regression tests.
 
 ## 1.6.0 - 2026-07-10
 

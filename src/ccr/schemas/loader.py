@@ -13,6 +13,11 @@ from ccr.ids import sha256_json
 from ccr.paths import manifest_path
 
 SCHEMA_FILENAMES = {
+    "optimizer-config": "optimizer-config.schema.json",
+    "optimizer-result": "optimizer-result.schema.json",
+    "optimizer-report": "optimizer-report.schema.json",
+    "optimizer-plan": "optimizer-plan.schema.json",
+    "optimizer-trial": "optimizer-trial.schema.json",
     "generic-report": "generic-report.schema.json",
     "packet": "packet.schema.json",
     "task": "task.schema.json",

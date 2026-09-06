@@ -289,3 +289,25 @@ commands keep the v0 behavior and exit-code contract.
 - `1`: validation, policy, threshold, or provider action failure
 - `2`: missing file, missing provider, or missing config
 - `3`: unexpected internal error
+
+## Phase optimizer (v1.7.0)
+
+The `ccr.optimizer` package adds immutable study registration, constrained
+epsilon-greedy planning, transactional trial/task/resource allocation, approved
+HTTP dispatch, independent Ed25519-signed result admission, and frozen-policy
+holdout comparison. Public contracts are `ccr.optimizer_config.v1`,
+`ccr.optimizer_plan.v1`, `ccr.optimizer_trial.v1`, `ccr.optimizer_result.v1`, and
+`ccr.optimizer_report.v1`, registered in `schemas/schema-registry.json`.
+
+SQLite and PostgreSQL control aggregates are authoritative for optimizer runs,
+leases, fences, reservations, approval nonces, and outbox events. JSON exports
+retain committed audit snapshots. Network calls occur outside transactions;
+unknown outcomes retain reservations and require reconciliation rather than
+automatic retransmission. Stop prevents new allocation and preserves late results.
+
+The optimizer cannot modify phase thresholds or grant approval. Rewards require
+independent signed evidence, existing eligibility checks, reusable artifact
+deduplication, and no related blocking residual. Missing consumption is not zero.
+A positive improvement claim additionally requires the preregistered held-out,
+resource-matched fixed-policy comparison to pass its lower confidence bound.
+See [Phase Optimizer](docs/phase-optimizer.md) for commands and precise accounting.

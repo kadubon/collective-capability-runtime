@@ -8,6 +8,25 @@ without treating repeated answers or raw agent count as proof.
 CCR does not run an LLM. Agents and tools use its CLI, JSON schemas, SQLite or
 PostgreSQL state, and optional HTTP API to exchange auditable work.
 
+## New in v1.7.0
+
+The phase optimizer adds a closed loop: observe, select an intervention, reserve
+resources, dispatch an approved operation, independently verify its outcome,
+and update allocation. It aims to increase verified reusable outcomes under a
+fixed resource budget. Existing phase and eligibility rules remain the evaluator.
+
+```bash
+python -m pip install "collective-capability-runtime[optimizer]==1.7.0"
+```
+
+For PostgreSQL workers and the authenticated API, install
+`collective-capability-runtime[optimizer,distributed]==1.7.0`. Follow the
+[Phase Optimizer guide](docs/phase-optimizer.md) and adapt the
+[configuration fixture](examples/phase_optimizer/config.json) before registering
+a run. Read-only planning does not dispatch providers. Real-world performance
+improvement has not been established; the fixed-policy holdout report retains
+negative and inconclusive results.
+
 ## Agent Skill
 
 This repository includes an Agent Skills-compatible workflow at
@@ -90,6 +109,7 @@ experiment, follow
 | Goal | Start with | Guide |
 |---|---|---|
 | Create a local mission | `ccr asi quickstart` | [Getting Started](docs/getting-started.md) |
+| Allocate a fixed budget adaptively | `ccr optimizer plan --run ...` | [Phase Optimizer](docs/phase-optimizer.md) |
 | Coordinate independent proposals | `ccr workcell create` | [Collective Workcells](docs/collective-workcells.md) |
 | Recover and complete leased work | `ccr task lease` | [Collective Workcells](docs/collective-workcells.md) |
 | Resolve a residual with independent evidence | `ccr residual resolve` | [Command Map](docs/command-map.md) |
@@ -98,6 +118,14 @@ experiment, follow
 | Review a possible external operation | `ccr operation preflight` | [Operation Gate](docs/operation-gate.md) |
 | Check PIC compatibility | `ccr audit pic` | [PIC Interoperability](INTEROP_PIC.md) |
 | Audit a public release | `ccr audit repo` | [Release Audit](AUDIT.md) |
+
+## Phase Optimization
+
+CCR can now close the loop from intervention selection and resource reservation
+to independent verification and adaptive allocation. The optimizer supports
+SQLite, PostgreSQL workers, and approval-bound HTTP dispatch. Training costs
+count against the candidate evaluation budget, and holdout evidence is kept
+separate from policy learning. See [Phase Optimizer](docs/phase-optimizer.md).
 
 ## Core Concepts
 

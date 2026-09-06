@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ccr.mission.model import MISSION_NON_CLAIMS, load_mission, mission_path, mission_scope
+from ccr.optimizer.engine import summaries as optimizer_summaries
 from ccr.safe_io import residual_ready
 
 
@@ -32,6 +33,7 @@ def mission_next(root: Path, *, mission_id: str, compact: bool = False) -> dict[
             "settled": False,
         }
     mission = load_mission(root, mission_id)
+    optimizer = optimizer_summaries(root, mission_id)
     scope = mission_scope(root, mission_id)
     blocking = [item for item in scope["residuals"] if item.get("blocking")] if scope["ok"] else []
     packet_count = len(scope["packets"]) if scope["ok"] else 0
@@ -52,6 +54,7 @@ def mission_next(root: Path, *, mission_id: str, compact: bool = False) -> dict[
         return {
             "external_execution": False,
             "mission_id": mission_id,
+            "optimizer": optimizer,
             "mutated_runtime": False,
             "network_call_performed": False,
             "next_safe_action": safe_command,
@@ -69,6 +72,7 @@ def mission_next(root: Path, *, mission_id: str, compact: bool = False) -> dict[
             "settled": False,
         }
     return {
+        "optimizer": optimizer,
         "advisory": {
             "blocking_residual_count": len(blocking),
             "candidate_packet_count": packet_count,

@@ -6,6 +6,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ccr.optimizer.worker import claim_next, transition
+from ccr.storage.control import ControlStore
 from ccr.storage.sqlite import immediate_transaction, init_database
 from ccr.tasks.lease import lease_task
 from ccr.tasks.lifecycle import complete_task, heartbeat_task
@@ -22,6 +24,11 @@ class SQLiteRuntimeStore:
         return init_database(self.root)
 
     def claim_task(self, *, role: str, worker_id: str, ttl_minutes: int) -> dict[str, Any] | None:
+        optimized = claim_next(
+            ControlStore(self.root, ""), role=role, worker_id=worker_id, ttl_minutes=ttl_minutes
+        )
+        if optimized is not None:
+            return optimized
         while True:
             task = next_task(self.root, role=role)
             if task is None:
@@ -49,6 +56,14 @@ class SQLiteRuntimeStore:
                 return None
 
     def heartbeat(self, *, task_id: str, worker_id: str, fencing_token: int) -> dict[str, Any]:
+        optimized = transition(
+            ControlStore(self.root, ""),
+            task_id=task_id,
+            worker_id=worker_id,
+            fencing_token=fencing_token,
+        )
+        if optimized is not None:
+            return optimized
         result = heartbeat_task(
             self.root,
             task_id,
@@ -67,6 +82,16 @@ class SQLiteRuntimeStore:
         idempotency_key: str,
         result: dict[str, Any],
     ) -> dict[str, Any]:
+        optimized = transition(
+            ControlStore(self.root, ""),
+            task_id=task_id,
+            worker_id=worker_id,
+            fencing_token=fencing_token,
+            result=result,
+            idempotency_key=idempotency_key,
+        )
+        if optimized is not None:
+            return optimized
         completed = complete_task(
             self.root,
             task_id,

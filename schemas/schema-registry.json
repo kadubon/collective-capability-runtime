@@ -653,6 +653,41 @@
     },
     {
       "origin": "ccr-public",
+      "schema_file": "optimizer-config.schema.json",
+      "schema_kind": "optimizer-config",
+      "schema_sha256": "238925d222637bc406e2c8481ae3a176ca1c9d2adc123f0fad6b56b99d95b857",
+      "schema_version": "ccr.optimizer_config.v1"
+    },
+    {
+      "origin": "ccr-public",
+      "schema_file": "optimizer-plan.schema.json",
+      "schema_kind": "optimizer-plan",
+      "schema_sha256": "e9e8f1a21c4bd875c47558251859d37a69b6b0a6e28f22daf9c2d708ae5d8e8b",
+      "schema_version": "ccr.optimizer_plan.v1"
+    },
+    {
+      "origin": "ccr-public",
+      "schema_file": "optimizer-report.schema.json",
+      "schema_kind": "optimizer-report",
+      "schema_sha256": "9a19e7c2a76c1e05543a1d0731e5952d92d76b2863567c37495e5778c2c20be4",
+      "schema_version": "ccr.optimizer_report.v1"
+    },
+    {
+      "origin": "ccr-public",
+      "schema_file": "optimizer-result.schema.json",
+      "schema_kind": "optimizer-result",
+      "schema_sha256": "0809da2763b91f560c6fbd51930900894e72484a85c55af0915aa0cba0943577",
+      "schema_version": "ccr.optimizer_result.v1"
+    },
+    {
+      "origin": "ccr-public",
+      "schema_file": "optimizer-trial.schema.json",
+      "schema_kind": "optimizer-trial",
+      "schema_sha256": "3c9aaff0190786844b703591aa8c52d5ed7b0654f2a4372c5129050057b54664",
+      "schema_version": "ccr.optimizer_trial.v1"
+    },
+    {
+      "origin": "ccr-public",
       "schema_file": "packet.schema.json",
       "schema_kind": "packet",
       "schema_sha256": "db94e26a4dd0804c084c4669a7c8b0c8daacff7f3d9e3007293cae070e8e8676",
@@ -1191,6 +1226,6 @@
       "schema_version": "pic.trc_trace_report.v1"
     }
   ],
-  "registry_digest": "a6d302eedb4448e63a9288afbf28246cf5e1a019cf67aa56085ef472ba7fcc81",
+  "registry_digest": "1d9721d8dd2b5bc2622b9112aa6f1b4864dd3bcf2c6b458fe994bad7c072de5d",
   "schema_version": "ccr.schema_registry.v1"
 }

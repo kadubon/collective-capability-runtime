@@ -10,6 +10,22 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ccr_test
+          POSTGRES_PASSWORD: ccr_test
+          POSTGRES_DB: optimizer_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ccr_test -d optimizer_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      CCR_TEST_POSTGRES_URL: postgresql://ccr_test:ccr_test@localhost:5432/optimizer_ci
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
@@ -29,6 +45,7 @@ jobs:
         run: >-
           uv run pytest -q
           tests/test_runtime_p0_p1_hardening.py
+          tests/test_optimizer.py
           tests/test_distributed_collective_protocol.py
           tests/test_task_state_machine.py
           tests/test_task_leasing.py
@@ -37,6 +54,8 @@ jobs:
           tests/test_safety_failure_branches.py
           tests/test_storage_sqlite.py
           tests/test_v140_runtime_scalability.py
+          --cov=ccr.optimizer
+          --cov=ccr.storage.control
           --cov=ccr.tasks.lease
           --cov=ccr.tasks.lifecycle
           --cov=ccr.residuals.lifecycle

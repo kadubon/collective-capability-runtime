@@ -1,11 +1,11 @@
 ---
 name: collective-capability-runtime
-description: "Coordinate multi-agent tasks, capability packets, independent workcells, verifier reports, residual ledgers, and resource-matched collective evaluation with Collective Capability Runtime (CCR). Use for local AI-agent coordination, task leasing, residual routing, collective verification, PIC-provider integration, mission/workbench inspection, or approval-bound operation planning. Start dry-run and preserve unresolved work. Do not use to claim real ASI, agent agreement as truth, execution authority, physical success, generic team management, or an LLM runtime."
+description: "Coordinate multi-agent tasks, capability packets, independent workcells, verifier reports, residual ledgers, and resource-matched collective evaluation with Collective Capability Runtime (CCR). Use for local AI-agent coordination, task leasing, residual routing, collective verification, PIC-provider integration, mission/workbench inspection, adaptive phase optimization, or approval-bound operation planning. Start dry-run and preserve unresolved work. Do not use to claim real ASI, agent agreement as truth, execution authority, physical success, generic team management, or an LLM runtime."
 license: Apache-2.0
 metadata:
   author: K. Takahashi
   repository: https://github.com/kadubon/collective-capability-runtime
-  version: "1.0"
+  version: "1.7.0"
 ---
 
 # Collective Capability Runtime
@@ -54,6 +54,24 @@ Submit a packet candidate, then route it to the requested verifier provider. PIC
 ### Collective evaluation
 
 Use workcells and preregistered experiment commands for independent proposals and resource-matched comparisons. Treat effective support, error correlation, baseline, measurement limits, and residuals as separate evidence. Do not infer improvement from candidate volume or agent count.
+
+### Phase optimization
+
+Use `ccr optimizer plan --run RUN_ID --json` to inspect allocation, budget, and
+blockers. Registration fixes task inputs, acceptance criteria, resource limits,
+verifier keys, seed, and holdout design. `step --apply` commits one trial, its
+task, and a resource reservation; it does not authorize external execution.
+Read `docs/phase-optimizer.md` for registration, approved dispatch, signed result
+ingestion, lease recovery, and fixed-policy evaluation. Preserve the selected
+shared database across workers: optimizer control and approvals are transactional
+DB state, while exported JSON is an audit snapshot.
+
+Keep `outcome_unknown` reservations until signed reconciliation; do not resend
+an uncertain operation. Award no success for task completion or self-report alone.
+Independent signed evidence, existing eligibility rules, artifact deduplication,
+and absence of blocking residuals govern reward. Report improvement only when
+the preregistered held-out comparison admits a positive lower confidence bound,
+including training, communication, verification, and optimization costs.
 
 ## When to use
 

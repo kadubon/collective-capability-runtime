@@ -1,0 +1,194 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "ccr.optimizer_config.v1"
+    },
+    "policy_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "deadline": {
+      "type": "string",
+      "minLength": 1
+    },
+    "epsilon": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "diagnostic_reserve": {
+      "type": "number",
+      "minimum": 0.2,
+      "maximum": 0.8
+    },
+    "resource_limits": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0
+      }
+    },
+    "effort_resource": {
+      "type": "string",
+      "minLength": 1
+    },
+    "max_inflight": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 128
+    },
+    "trusted_verifiers": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "task_manifest": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "properties": {
+          "target_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "input_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "acceptance_criteria": {
+            "type": "string",
+            "minLength": 1
+          },
+          "input_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "target_id",
+          "input_ref",
+          "acceptance_criteria",
+          "input_sha256"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "interventions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "intervention_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "verification",
+              "residual_repair",
+              "independent_proposal",
+              "distillation",
+              "measurement"
+            ]
+          },
+          "resource_upper_bound": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "producer_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "operation_plan": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "intervention_id",
+          "kind",
+          "resource_upper_bound",
+          "producer_ids"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "properties": {
+        "holdout_tasks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "horizon": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "alpha": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "resource_envelope": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "baseline_intervention": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "holdout_tasks",
+        "horizon",
+        "alpha",
+        "resource_envelope",
+        "baseline_intervention"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "policy_version",
+    "seed",
+    "deadline",
+    "epsilon",
+    "diagnostic_reserve",
+    "resource_limits",
+    "effort_resource",
+    "max_inflight",
+    "trusted_verifiers",
+    "task_manifest",
+    "interventions",
+    "evaluation"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

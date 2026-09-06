@@ -11,6 +11,7 @@ from ccr.ids import sha256_json, stable_id, validate_identifier
 from ccr.io import json_file_name, read_json, write_json_atomic
 from ccr.safe_io import require_path_within_root
 from ccr.schemas.validation import validate_instance
+from ccr.storage.control import ControlStore
 from ccr.storage.sqlite import immediate_transaction
 from ccr.time import now_iso
 
@@ -28,6 +29,7 @@ def create_operation_approval(
     expires_at: str,
     nonce: str,
     max_uses: int = 1,
+    control_store: ControlStore | None = None,
 ) -> dict[str, Any]:
     """Create an immutable approval bound to one exact dispatch parameter set."""
 
@@ -78,26 +80,21 @@ def create_operation_approval(
     if not validation.ok:
         messages = "; ".join(issue.message for issue in validation.errors)
         raise ValueError(f"invalid operation approval: {messages}")
+    store = control_store or ControlStore(root)
+    store.initialize()
+    # One registry lock binds nonce uniqueness and approval insertion atomically.
+    try:
+        with store.edit("operation:approvals", create=True) as (registry, _current):
+            registry.update(approvals={}, nonces={})
+    except FileExistsError:
+        pass
+    with store.edit("operation:approvals") as (registry, _current):
+        if nonce in registry["nonces"]:
+            raise ValueError("approval nonce already registered")
+        registry["nonces"][nonce] = approval_id
+        registry["approvals"][approval_id] = {"artifact": approval, "use_count": 0}
     path = approval_path(root, approval_id)
     write_json_atomic(path, approval, overwrite=False)
-    with immediate_transaction(root) as connection:
-        connection.execute(
-            """
-            INSERT INTO operation_approvals(
-              approval_id, approval_digest, plan_digest, provider, use_count,
-              max_uses, expires_at, updated_at
-            ) VALUES (?, ?, ?, ?, 0, ?, ?, ?)
-            """,
-            (
-                approval_id,
-                sha256_json(approval),
-                plan_digest,
-                provider,
-                max_uses,
-                expires_at,
-                now_iso(),
-            ),
-        )
     return {"approval": approval, "ok": True, "path": str(path)}
 
 
@@ -107,14 +104,23 @@ def validate_and_consume_approval(
     plan: dict[str, Any],
     provider: str,
     config: dict[str, Any],
+    control_store: ControlStore | None = None,
 ) -> tuple[bool, str | None, dict[str, Any] | None]:
     """Validate current dispatch parameters and atomically consume one use."""
 
     approval_ref = config.get("operator_approval_ref")
     if not isinstance(approval_ref, str) or not approval_ref:
         return False, "operator_approval_required", None
+    store = control_store or ControlStore(root)
+    registry = store.read("operation:approvals")
+    registered = registry.get("approvals", {}).get(approval_ref) if registry else None
     try:
-        approval = _load_approval(root, approval_ref)
+        if registered:
+            approval = registered["artifact"]
+        elif store.database_url:
+            return False, "approval_registry_mismatch", None
+        else:
+            approval = _load_approval(root, approval_ref)
     except (FileNotFoundError, ValueError):
         return False, "operator_approval_invalid", None
     checks = {
@@ -141,6 +147,19 @@ def validate_and_consume_approval(
     if len(identities) < _required_approver_count(config):
         return False, "approval_separation_of_duties_failed", approval
     approval_id = str(approval.get("approval_id", ""))
+    if registered:
+        with store.edit("operation:approvals") as (shared, current):
+            entry = shared["approvals"].get(approval_id)
+            if entry is None or sha256_json(entry["artifact"]) != sha256_json(approval):
+                return False, "approval_registry_mismatch", approval
+            if entry["use_count"] >= approval["max_uses"]:
+                return False, "approval_replayed", approval
+            registry_now = _parse_time(current)
+            if registry_now is None or expiry <= registry_now:
+                return False, "approval_expired", approval
+            entry["use_count"] += 1
+        return True, None, approval
+    # Compatibility for pre-optimizer SQLite approval artifacts.
     with immediate_transaction(root) as connection:
         row = connection.execute(
             """

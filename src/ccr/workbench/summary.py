@@ -9,6 +9,7 @@ from typing import Any
 from ccr.constants import PACKET_STATUSES
 from ccr.io import json_file_name, pretty_dumps, write_json_atomic
 from ccr.mission.model import MISSION_NON_CLAIMS, load_mission, mission_path, mission_scope
+from ccr.optimizer.engine import summaries as optimizer_summaries
 from ccr.safe_io import residual_ready
 from ccr.schemas.validation import validate_instance
 from ccr.workbench.markdown import render_markdown_report
@@ -79,6 +80,7 @@ def build_workbench_report(root: Path, *, mission_id: str) -> dict[str, Any]:
         "authority_status": mission.get("authority_envelope", {}).get("status", "unknown")
         if isinstance(mission.get("authority_envelope"), dict)
         else "unknown",
+        "optimizer": optimizer_summaries(root, mission_id),
         "baseline_ref": mission.get("baseline_ref"),
         "blocking_residual_count": len(blocking_residuals),
         "candidate_only_count": candidate_only_count,

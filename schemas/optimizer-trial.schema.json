@@ -1,0 +1,56 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "trial_id",
+    "run_id",
+    "task",
+    "reserved_resources",
+    "state",
+    "fencing_token",
+    "config_digest",
+    "input_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ccr.optimizer_trial.v1"
+    },
+    "trial_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task": {
+      "type": "object"
+    },
+    "reserved_resources": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0
+      }
+    },
+    "state": {
+      "enum": [
+        "queued",
+        "awaiting_approval",
+        "leased",
+        "dispatching",
+        "awaiting_result",
+        "awaiting_verification",
+        "outcome_unknown",
+        "evaluated"
+      ]
+    },
+    "fencing_token": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": true,
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

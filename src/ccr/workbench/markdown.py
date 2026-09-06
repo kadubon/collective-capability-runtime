@@ -28,6 +28,19 @@ def render_markdown_report(report: dict[str, Any]) -> str:
         "",
         "## Packet Status",
     ]
+    for optimizer in report.get("optimizer", []):
+        lines.extend(
+            [
+                "",
+                "## Phase Optimizer",
+                f"Run: {_text(optimizer['run_id'])}",
+                f"State: {_text(optimizer['state'])}",
+                f"Pending trials: {optimizer['pending_trials']}",
+                f"Awaiting approval: {optimizer['approval_waiting']}",
+                f"Accounts: {_text(optimizer['accounts'])}",
+                f"Next action: {_text(optimizer['next_action']['reason'])}",
+            ]
+        )
     packet_summary = report.get("packet_status_summary")
     if isinstance(packet_summary, dict):
         for status in sorted(packet_summary):

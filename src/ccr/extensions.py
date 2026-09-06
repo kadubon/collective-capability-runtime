@@ -40,6 +40,7 @@ from ccr.runtime.init import init_runtime
 from ccr.runtime.state import packet_counts, task_counts
 from ccr.safe_io import require_path_within_root
 from ccr.schemas.validation import validate_instance
+from ccr.storage.control import ControlStore
 from ccr.storage.sqlite import index_runtime, init_database
 from ccr.strict import strict_bool
 from ccr.tasks.scheduler import next_task
@@ -1243,6 +1244,8 @@ def loop_status(root: Path) -> dict[str, Any]:
 def loop_next(root: Path, *, compact: bool = False) -> dict[str, Any]:
     """Return the next safe advisory loop action without mutating runtime."""
 
+    from ccr.optimizer.engine import summaries as optimizer_summaries
+
     dashboard = foundry_dashboard(root)
     cuts = [item for item in dashboard.get("active_cuts", []) if isinstance(item, dict)]
     active_cut = str(cuts[0].get("cut_kind")) if cuts else "baseline_refresh_cut"
@@ -1266,6 +1269,7 @@ def loop_next(root: Path, *, compact: bool = False) -> dict[str, Any]:
             for task in tasks
         ],
         "mode": "advisory",
+        "optimizer": optimizer_summaries(root),
         "mutated_runtime": False,
         "non_claims": [
             *list(NON_CLAIMS),
@@ -1288,6 +1292,7 @@ def loop_next(root: Path, *, compact: bool = False) -> dict[str, Any]:
         return {
             **compact_report(result, next_safe_action=safe_command),
             "recommended_action": result["recommended_action"],
+            "optimizer": result["optimizer"],
             "schema_version": "ccr.loop_next.compact.v1",
         }
     return result
@@ -2818,12 +2823,15 @@ def operation_dispatch(
     config: dict[str, Any] | None = None,
     preflight: dict[str, Any] | None = None,
     execute: bool = False,
+    control_store: ControlStore | None = None,
 ) -> dict[str, Any]:
     """Plan or explicitly dispatch a TRC-governed operation through a provider."""
 
     from ccr.providers.registry import get_provider
 
-    init_runtime(root)
+    control_store = control_store or ControlStore(root)
+    if not control_store.database_url:
+        init_runtime(root)
     if not isinstance(plan, dict):
         raise ValueError("operation plan must be a JSON object")
     provider = get_provider(provider_name)
@@ -2925,7 +2933,12 @@ def operation_dispatch(
             "Provider execute is blocked while the circuit is open.",
             preflight=effective_preflight,
         )
-    authority_failure = _validate_dispatch_authority_now(plan)
+    authority_clock = (
+        datetime.fromisoformat(control_store.now().replace("Z", "+00:00"))
+        if control_store is not None
+        else None
+    )
+    authority_failure = _validate_dispatch_authority_now(plan, current=authority_clock)
     if authority_failure is not None:
         return _dispatch_failure(
             provider_name,
@@ -2939,6 +2952,7 @@ def operation_dispatch(
         plan=plan,
         provider=provider_name,
         config=config,
+        control_store=control_store,
     )
     if not approval_ok:
         return _dispatch_failure(
@@ -2957,17 +2971,24 @@ def operation_dispatch(
         root=root,
         config=config,
     )
-    append_event(
-        root,
-        make_event(
-            action="operation.dispatch",
-            object_type="report",
-            object_id=stable_id("operation-dispatch", report),
-            status_before=None,
-            status_after="created",
-            refs=[str(plan.get("plan_id", ""))],
+    event = make_event(
+        action="operation.dispatch",
+        object_type="report",
+        object_id=stable_id(
+            "operation-dispatch",
+            plan.get("plan_id"),
+            approval.get("approval_id") if approval else None,
+            report,
         ),
+        status_before=None,
+        status_after="created",
+        refs=[str(plan.get("plan_id", ""))],
     )
+    if control_store.database_url:
+        with control_store.edit(str(event["event_id"]), create=True) as (stored, _current):
+            stored.update(event)
+    else:
+        append_event(root, event)
     return {
         "approval_id": approval.get("approval_id") if approval else None,
         "executed": report.get("effect_executed") is True,
@@ -2980,8 +3001,10 @@ def operation_dispatch(
     }
 
 
-def _validate_dispatch_authority_now(plan: dict[str, Any]) -> str | None:
-    current = datetime.now(timezone.utc)
+def _validate_dispatch_authority_now(
+    plan: dict[str, Any], *, current: datetime | None = None
+) -> str | None:
+    current = current or datetime.now(timezone.utc)
     operations = plan.get("operations")
     if not isinstance(operations, list) or not operations:
         return "missing_authority_envelope"

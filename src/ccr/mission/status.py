@@ -14,6 +14,7 @@ from ccr.mission.model import (
     mission_residual_counts,
     mission_scope,
 )
+from ccr.optimizer.engine import summaries as optimizer_summaries
 from ccr.runtime.state import task_counts
 from ccr.safe_io import residual_ready
 
@@ -45,6 +46,7 @@ def mission_status(root: Path, *, mission_id: str) -> dict[str, Any]:
     residuals = scope["residuals"] if scope["ok"] else []
     packets = scope["packets"] if scope["ok"] else []
     return {
+        "optimizer": optimizer_summaries(root, mission_id),
         "baseline_ref": mission.get("baseline_ref"),
         "external_execution": False,
         "mission": mission,

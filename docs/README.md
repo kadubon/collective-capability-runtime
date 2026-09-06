@@ -28,6 +28,9 @@ The installed-package quickstart needs no repository examples. Commands under
 | Check PIC/PIC-TS parity | [Cross-Repo Conformance](cross-repo-loop-conformance.md) | `ccr conformance parity` |
 | Prepare a public release | [Security Audit Checklist](security-audit-checklist.md) | `ccr audit repo` |
 
+- [Phase Optimizer](phase-optimizer.md): adaptive allocation, signed feedback,
+  shared budgets, and resource-matched holdout evaluation.
+
 ## Read Reports Correctly
 
 - `ok=true` means the finite command completed; it does not prove the claim.

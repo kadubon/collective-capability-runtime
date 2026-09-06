@@ -13,7 +13,12 @@
       "schemas/asi-proxy-target.schema.json",
       "schemas/baseline-upper-envelope.schema.json",
       "schemas/runtime-capital-witness.schema.json",
-      "schemas/phase-acceleration-report.schema.json"
+      "schemas/phase-acceleration-report.schema.json",
+      "schemas/optimizer-config.schema.json",
+      "schemas/optimizer-plan.schema.json",
+      "schemas/optimizer-trial.schema.json",
+      "schemas/optimizer-result.schema.json",
+      "schemas/optimizer-report.schema.json"
     ],
     "docs": [
       "README.md",
@@ -31,7 +36,8 @@
       "docs/operation-gate.md",
       "docs/real-world-impact.md",
       "docs/mcp-a2a-safety.md",
-      "docs/cross-repo-loop-conformance.md"
+      "docs/cross-repo-loop-conformance.md",
+      "docs/phase-optimizer.md"
     ],
     "runtime_state": [
       "ccr.sqlite",
@@ -161,6 +167,10 @@
     {
       "command": "ccr report --format markdown",
       "purpose": "Emit a residual-preserving human-readable report."
+    },
+    {
+      "command": "ccr optimizer plan --run <run_id> --json",
+      "purpose": "Inspect budget-constrained intervention choices without writing state or dispatching providers."
     }
   ],
   "roles": {

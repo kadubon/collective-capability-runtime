@@ -147,3 +147,24 @@ horizon or confidence sequence.
 an explicit operator request, an explicit config file, and provider-specific
 policy checks. Audit, conformance, preflight, replay, and registry validation do
 not grant that authority.
+
+## Phase Optimizer
+
+See [Phase Optimizer](phase-optimizer.md) for the configuration and result contracts.
+
+| Command | Behavior | Local write |
+|---|---|---|
+| `optimizer init --mission <id> --config config.json` | register immutable study | yes |
+| `optimizer plan/status/report --run <id>` | inspect allocation or comparison | no |
+| `optimizer step --run <id>` | preview one allocation | no |
+| `optimizer step --run <id> --apply` | reserve resources and register task atomically | yes |
+| `optimizer claim/heartbeat --run <id> --trial <id> --worker <id>` | fenced task ownership | yes |
+| `optimizer run --run <id> --trial <id> --worker <id> --fencing-token <n> --config config.json` | inspect bound operation | no |
+| `optimizer run ... --execute` | dispatch one exactly approved operation | yes, external |
+| `optimizer ingest --run <id> --file result.json` | verify signed observation and update allocation statistics | yes |
+| `optimizer freeze/stop --run <id>` | freeze policy or stop new work | yes |
+| `optimizer export --run <id>` | materialize committed JSON audit snapshots | yes |
+
+`heartbeat` also requires `--fencing-token`. PostgreSQL deployments must use the
+same database for approvals, optimizer, and workers. No optimizer command
+issues approvals, runs imported safe commands, or promotes settlement.

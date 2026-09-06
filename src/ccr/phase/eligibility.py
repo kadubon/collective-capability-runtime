@@ -22,8 +22,13 @@ DIAGNOSTIC_ONLY_STATUSES = {
 }
 
 
-def packet_eligibility(root: Path, packet: dict[str, Any]) -> dict[str, Any]:
-    """Return phase-formation eligibility for one packet."""
+def packet_eligibility(
+    root: Path,
+    packet: dict[str, Any],
+    *,
+    ledger_blockers: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Return eligibility using the local ledger or an authoritative caller snapshot."""
 
     status = str(packet.get("status", "candidate"))
     packet_id = str(packet.get("packet_id", "unknown"))
@@ -38,7 +43,8 @@ def packet_eligibility(root: Path, packet: dict[str, Any]) -> dict[str, Any]:
         for item in packet.get("residuals", [])
         if isinstance(item, dict) and item.get("blocking")
     ]
-    ledger_blockers = linked_open_blocking_residuals(root, packet_id)
+    if ledger_blockers is None:
+        ledger_blockers = linked_open_blocking_residuals(root, packet_id)
     blockers = packet_residuals + ledger_blockers
     authority_level = str(risk.get("authority_level", "none"))
     side_effect_policy = str(execution.get("side_effect_policy", "none"))

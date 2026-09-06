@@ -200,6 +200,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--root", help="CCR runtime root. Defaults to CCR_ROOT or cwd.")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    from ccr.optimizer.cli import register as register_optimizer
+
+    register_optimizer(sub)
     init = sub.add_parser("init", help="Initialize CCR runtime directories.")
     init.add_argument("--force", action="store_true", help="Rewrite ccr.config.json.")
     init.set_defaults(func=cmd_init)

@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from ccr.ids import sha256_json, stable_id, validate_identifier
+from ccr.optimizer.worker import claim_next, transition
+from ccr.storage.control import ControlStore
 from ccr.storage.export import export_content_addressed
 from ccr.telemetry import emit_event_span
 
@@ -21,6 +23,8 @@ class PostgresRuntimeStore:
             json_module = importlib.import_module("psycopg.types.json")
         except ImportError as exc:
             raise RuntimeError("PostgreSQL profile requires the 'distributed' extra") from exc
+        self.database_url = dsn
+        self.root = export_root or Path.cwd()
         self.pool: Any = module.ConnectionPool(conninfo=dsn, min_size=1, max_size=20)
         self._jsonb: Any = json_module.Jsonb
         self.export_root = export_root
@@ -102,6 +106,14 @@ class PostgresRuntimeStore:
         return {"export": export, "inserted": row is not None, "ok": True, "task_id": task_id}
 
     def claim_task(self, *, role: str, worker_id: str, ttl_minutes: int) -> dict[str, Any] | None:
+        optimized = claim_next(
+            ControlStore(self.root, self.database_url, pool=self.pool),
+            role=role,
+            worker_id=worker_id,
+            ttl_minutes=ttl_minutes,
+        )
+        if optimized is not None:
+            return optimized
         with self.pool.connection() as connection, connection.transaction():
             row = connection.execute(
                 """
@@ -145,6 +157,14 @@ class PostgresRuntimeStore:
             return payload
 
     def heartbeat(self, *, task_id: str, worker_id: str, fencing_token: int) -> dict[str, Any]:
+        optimized = transition(
+            ControlStore(self.root, self.database_url, pool=self.pool),
+            task_id=task_id,
+            worker_id=worker_id,
+            fencing_token=fencing_token,
+        )
+        if optimized is not None:
+            return optimized
         with self.pool.connection() as connection, connection.transaction():
             row = connection.execute(
                 """
@@ -170,6 +190,16 @@ class PostgresRuntimeStore:
         idempotency_key: str,
         result: dict[str, Any],
     ) -> dict[str, Any]:
+        optimized = transition(
+            ControlStore(self.root, self.database_url, pool=self.pool),
+            task_id=task_id,
+            worker_id=worker_id,
+            fencing_token=fencing_token,
+            result=result,
+            idempotency_key=idempotency_key,
+        )
+        if optimized is not None:
+            return optimized
         validate_identifier(idempotency_key, field="idempotency_key")
         with self.pool.connection() as connection, connection.transaction():
             existing = connection.execute(

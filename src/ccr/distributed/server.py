@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextvars
 import importlib
 from pathlib import Path
@@ -11,8 +12,10 @@ from typing import Any
 from ccr.distributed.auth import AuthError, identity_class, verify_oidc_dpop
 from ccr.io import DEFAULT_MAX_JSON_BYTES, validate_json_depth
 from ccr.operations.approval import create_operation_approval
+from ccr.optimizer import engine as optimizer
 from ccr.schemas.validation import validate_instance
 from ccr.storage.base import RuntimeStore
+from ccr.storage.control import control_for_store
 
 _request_identity: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
     "ccr_request_identity", default=None
@@ -27,6 +30,7 @@ def create_app(*, root: Path, store: RuntimeStore, auth_config: dict[str, Any]) 
         responses = importlib.import_module("fastapi.responses")
     except ImportError as exc:
         raise RuntimeError("CCR server requires the 'distributed' extra") from exc
+    controls = control_for_store(store, root)
     app = fastapi.FastAPI(title="Collective Capability Runtime", version="v1")
 
     @app.middleware("http")  # type: ignore[untyped-decorator]
@@ -147,7 +151,67 @@ def create_app(*, root: Path, store: RuntimeStore, auth_config: dict[str, Any]) 
             expires_at=str(body["expires_at"]),
             nonce=str(body["nonce"]),
             max_uses=int(body.get("max_uses", 1)),
+            control_store=controls,
         )
+
+    @app.post("/v1/optimizer")  # type: ignore[untyped-decorator]
+    async def optimizer_init(body: dict[str, Any]) -> dict[str, Any]:
+        _require_identity("human")
+        validate_json_depth(body)
+        return optimizer.initialize(controls, mission=str(body["mission"]), config=body["config"])
+
+    @app.get("/v1/optimizer/{run_id}")  # type: ignore[untyped-decorator]
+    async def optimizer_report(run_id: str) -> dict[str, Any]:
+        return optimizer.report(controls, run_id)
+
+    @app.post("/v1/optimizer/{run_id}/{action}")  # type: ignore[untyped-decorator]
+    async def optimizer_action(run_id: str, action: str, body: dict[str, Any]) -> dict[str, Any]:
+        validate_json_depth(body)
+        try:
+            if action in {"step", "stop", "freeze"}:
+                _require_identity("human")
+                if action == "step":
+                    return optimizer.step(
+                        controls,
+                        run_id,
+                        apply=body.get("apply") is True,
+                        expected_revision=body.get("expected_revision"),
+                    )
+                return (
+                    optimizer.stop(controls, run_id)
+                    if action == "stop"
+                    else optimizer.freeze(controls, run_id)
+                )
+            identity = _require_identity("worker")
+            worker = str(identity["sub"])
+            if action == "claim":
+                return optimizer.claim(controls, run_id, str(body["trial_id"]), worker=worker)
+            if action == "dispatch":
+                return await asyncio.to_thread(
+                    optimizer.dispatch,
+                    controls,
+                    run_id,
+                    trial_id=str(body["trial_id"]),
+                    worker=worker,
+                    token=body["fencing_token"],
+                    config=body["config"],
+                    execute=body.get("execute") is True,
+                )
+            if action == "ingest":
+                return optimizer.ingest(controls, run_id, body)
+            if action == "heartbeat":
+                return optimizer.task_transition(
+                    controls,
+                    run_id,
+                    str(body["trial_id"]),
+                    worker=worker,
+                    token=body["fencing_token"],
+                )
+            raise fastapi.HTTPException(status_code=404, detail="unknown optimizer action")
+        except AuthError:
+            raise
+        except (ValueError, FileNotFoundError) as exc:
+            raise fastapi.HTTPException(status_code=409, detail=str(exc)) from exc
 
     return app
 

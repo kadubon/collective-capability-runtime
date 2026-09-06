@@ -1,0 +1,111 @@
+{
+  "type": "object",
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trial_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "config_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "worker_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "observed_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "verifier_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "signature_base64": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "ccr.optimizer_result.v1"
+    },
+    "fencing_token": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "actual_resources": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0
+      }
+    },
+    "accepted": {
+      "type": "boolean"
+    },
+    "residuals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "kind",
+          "blocking"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "blocking": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "packet": {
+      "type": "object"
+    },
+    "artifact_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "resolved_residual_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "required": [
+    "run_id",
+    "trial_id",
+    "target_id",
+    "config_digest",
+    "input_digest",
+    "worker_id",
+    "observed_at",
+    "verifier_id",
+    "signature_base64",
+    "schema_version",
+    "fencing_token",
+    "actual_resources",
+    "accepted",
+    "residuals"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

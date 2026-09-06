@@ -40,6 +40,11 @@ def export_static_workbench(root: Path, *, mission_id: str, out: Path) -> dict[s
             "CCR Workbench",
             _summary_html(report)
             + _table_html(
+                "Phase optimizer",
+                report.get("optimizer", []),
+                ["run_id", "state", "pending_trials", "approval_waiting", "scores", "accounts"],
+            )
+            + _table_html(
                 "Top residuals",
                 report.get("top_residuals", []),
                 ["residual_id", "kind", "severity", "blocking", "description"],
