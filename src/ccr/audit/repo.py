@@ -316,7 +316,7 @@ def audit_repository(root: Path) -> dict[str, Any]:
             "release:",
             "published",
             "id-token: write",
-            "pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b",
+            "pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33",
             "uv build",
             "uvx twine check dist/*",
             "https://pypi.org/p/collective-capability-runtime",
