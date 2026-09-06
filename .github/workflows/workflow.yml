@@ -3,18 +3,38 @@ name: Publish
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing published release tag to build and publish
+        required: true
+        type: string
 
 permissions:
   contents: read
+
+concurrency:
+  group: publish-${{ inputs.tag || github.event.release.tag_name }}
+  cancel-in-progress: false
 
 jobs:
   build:
     name: Build distribution
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
     steps:
+      - name: Require an existing published version tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = false
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
+          ref: ${{ env.RELEASE_TAG }}
       - uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a
         with:
           enable-cache: false
@@ -22,6 +42,8 @@ jobs:
         with:
           python-version: "3.10"
       - run: uv sync --all-extras
+      - name: Match package version to release tag
+        run: uv run python -c "import ccr, os; assert 'v' + ccr.__version__ == os.environ['RELEASE_TAG']"
       - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run mypy src
@@ -68,4 +90,4 @@ jobs:
           name: python-package-distributions
           path: dist/
       - name: Publish package distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2

@@ -51,3 +51,9 @@ Do not perform git operations unless the operator explicitly asks.
 CCR publishes as `collective-capability-runtime` through GitHub Trusted
 Publishing. The release workflow is `.github/workflows/workflow.yml` and must
 not require PyPI token, username, or password secrets.
+
+If publishing fails before upload, correct the publishing infrastructure on
+`main`, then dispatch `workflow.yml` with the existing published release tag.
+The workflow checks out that tag and verifies its package version, preserving
+the release source instead of moving the tag. Check PyPI for partial uploads
+before retrying; do not replace existing distribution files.
