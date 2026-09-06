@@ -1,0 +1,2 @@
+# Optimizer manifests bind these fixtures by byte digest on every platform.
+examples/phase_optimizer/inputs/*.txt text eol=lf
