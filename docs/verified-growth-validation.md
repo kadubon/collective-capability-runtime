@@ -79,8 +79,8 @@ This source record precedes publication. As inspected on 2026-09-12:
 |---|---|
 | Implementation and local qualification | Complete within the finite scope above; runtime commit `b7982bf`, packaging `43db252`, disposable credential remediation `72b7bda` |
 | Feature push / PR | [PR #5](https://github.com/kadubon/collective-capability-runtime/pull/5), branch `codex/ccr-verified-growth-1.8.0` |
-| CI | Queued, not passed: [current code-head run](https://github.com/kadubon/collective-capability-runtime/actions/runs/34694648253) |
-| Security review | Blocked: GitGuardian incident `37045954` retains a disposable PostgreSQL fixture from commit `43db252`; current source replaces it with a per-run value in `72b7bda` |
+| CI | Pending fresh qualification; obsolete and stalled runs were cancelled after more than 35 minutes before job execution |
+| Security review | Owner-authorized review classified incident `37045954` as `Ignored — Test credential`: a disposable CI PostgreSQL credential, not a production credential; release source uses a per-run value since `72b7bda`. Scanning remains enabled; the fresh PR check must confirm the result |
 | Merge | Not performed; no security-check waiver or history rewrite |
 | Repository documentation | Updated in this branch |
 | Existing Wiki | Pushed and remote-verified at `a2bd5b90676f22e0296cc6e899db95ee43c0e4dd`; [Verified Growth](https://github.com/kadubon/collective-capability-runtime/wiki/Verified-Growth) explicitly marks publication pending |
@@ -88,8 +88,8 @@ This source record precedes publication. As inspected on 2026-09-12:
 | Trusted Publishing / PyPI | Not performed |
 | Fresh public-index verification | Not performed; the passing outside-checkout smoke used a local wheel and is not public-index evidence |
 
-The owner must complete the normal GitGuardian incident review; no bypass is
-authorized. CI, including disposable PostgreSQL, must then pass on the relevant
+The individual GitGuardian review is complete; no global detector or check was
+disabled. CI, including disposable PostgreSQL, must pass on the relevant
 head before merge. M4's publication work remains incomplete behind these gates.
 Public distribution hashes do not exist for this work yet. Future inspected
 run/commit and hash receipts belong in a follow-up documentation commit without
