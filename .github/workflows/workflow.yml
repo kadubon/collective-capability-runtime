@@ -29,7 +29,7 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_USER: ccr_test
-          POSTGRES_PASSWORD: ccr_test
+          POSTGRES_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
           POSTGRES_DB: growth_release
         ports:
           - 5432:5432
@@ -37,7 +37,7 @@ jobs:
           --health-cmd "pg_isready -U ccr_test -d growth_release"
           --health-interval 5s --health-timeout 5s --health-retries 12
     env:
-      CCR_TEST_POSTGRES_URL: postgresql://ccr_test:ccr_test@localhost:5432/growth_release
+      CCR_TEST_POSTGRES_URL: postgresql://ccr_test:${{ github.run_id }}-${{ github.run_attempt }}@localhost:5432/growth_release
       RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
     steps:
       - name: Require an existing published version tag
