@@ -18,7 +18,11 @@
       "schemas/optimizer-plan.schema.json",
       "schemas/optimizer-trial.schema.json",
       "schemas/optimizer-result.schema.json",
-      "schemas/optimizer-report.schema.json"
+      "schemas/optimizer-report.schema.json",
+      "schemas/growth-profile.schema.json",
+      "schemas/growth-result.schema.json",
+      "schemas/growth-plan.schema.json",
+      "schemas/growth-report.schema.json"
     ],
     "docs": [
       "README.md",
@@ -37,7 +41,10 @@
       "docs/real-world-impact.md",
       "docs/mcp-a2a-safety.md",
       "docs/cross-repo-loop-conformance.md",
-      "docs/phase-optimizer.md"
+      "docs/phase-optimizer.md",
+      "docs/verified-growth.md",
+      "docs/verified-growth-interchange.md",
+      "docs/verified-growth-validation.md"
     ],
     "runtime_state": [
       "ccr.sqlite",
@@ -400,7 +407,9 @@
     "trc-operation-observation": "schemas/trc-operation-observation.schema.json",
     "operation-approval": "schemas/operation-approval.schema.json",
     "runtime-capital-witness": "schemas/runtime-capital-witness.schema.json",
-    "phase-acceleration-report": "schemas/phase-acceleration-report.schema.json"
+    "phase-acceleration-report": "schemas/phase-acceleration-report.schema.json",
+    "growth-profile": "schemas/growth-profile.schema.json",
+    "growth-result": "schemas/growth-result.schema.json"
   },
   "non_goals": [
     "real ASI detection",

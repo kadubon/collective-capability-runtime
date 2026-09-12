@@ -118,3 +118,16 @@ uvx twine check dist/*
 CCR does not prove real ASI, create real ASI, self-modify models, update model
 weights, grant execution authority, bypass safety, or convert PIC/provider
 output into settled capability by itself.
+
+
+## Verified growth opt-in (v1.8)
+
+Use the separate `ccr.growth_profile.v1` registration with
+`policy=verified_growth_v1` to enable receiver-specific service accounting and
+finite dependency-bundle allocation. Existing v1 optimizer schemas and signing
+bytes remain unchanged. See [Verified Growth](docs/verified-growth.md) for the
+complete register, check, reserve, lease, signed outcome, reuse, replay and
+frozen-comparison path. Service observations, planning forecasts and causal or
+statistical improvement are distinct. Growth does not grant admission, approval
+or settlement authority. Unresolved attribution and invalidated evidence remain
+visible; synthetic records cannot establish production performance.

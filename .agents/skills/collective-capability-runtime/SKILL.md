@@ -5,7 +5,7 @@ license: Apache-2.0
 metadata:
   author: K. Takahashi
   repository: https://github.com/kadubon/collective-capability-runtime
-  version: "1.7.0"
+  version: "1.8.0"
 ---
 
 # Collective Capability Runtime
@@ -117,3 +117,16 @@ State: outcome; runtime/mission and exact command; evidence and checked fields; 
 - A packet/provider result is candidate evidence unless the declared CCR policy settles it.
 - Approval is parameter-bound and is not dispatch; a provider receipt is not a verified physical result.
 - Unknown measurements and residuals do not become favorable defaults or disappear.
+
+
+## Verified growth opt-in (v1.8)
+
+Use the separate `ccr.growth_profile.v1` registration with
+`policy=verified_growth_v1` to enable receiver-specific service accounting and
+finite dependency-bundle allocation. Existing v1 optimizer schemas and signing
+bytes remain unchanged. See `docs/verified-growth.md` for the
+complete register, check, reserve, lease, signed outcome, reuse, replay and
+frozen-comparison path. Service observations, planning forecasts and causal or
+statistical improvement are distinct. Growth does not grant admission, approval
+or settlement authority. Unresolved attribution and invalidated evidence remain
+visible; synthetic records cannot establish production performance.

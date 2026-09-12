@@ -8,24 +8,24 @@ without treating repeated answers or raw agent count as proof.
 CCR does not run an LLM. Agents and tools use its CLI, JSON schemas, SQLite or
 PostgreSQL state, and optional HTTP API to exchange auditable work.
 
-## New in v1.7.0
+## New in v1.8.0
 
-The phase optimizer adds a closed loop: observe, select an intervention, reserve
-resources, dispatch an approved operation, independently verify its outcome,
-and update allocation. It aims to increase verified reusable outcomes under a
-fixed resource budget. Existing phase and eligibility rules remain the evaluator.
+An explicit opt-in growth policy adds evidence-bound service accounting,
+receiver-qualified reuse, and bounded verification-aware allocation. The v1
+optimizer and its existing behavior remain available unchanged.
 
 ```bash
-python -m pip install "collective-capability-runtime[optimizer]==1.7.0"
+python -m pip install "collective-capability-runtime[optimizer]==1.8.0"
+ccr optimizer growth-example --json
 ```
 
-For PostgreSQL workers and the authenticated API, install
-`collective-capability-runtime[optimizer,distributed]==1.7.0`. Follow the
-[Phase Optimizer guide](docs/phase-optimizer.md) and adapt the
-[configuration fixture](examples/phase_optimizer/config.json) before registering
-a run. Read-only planning does not dispatch providers. Real-world performance
-improvement has not been established; the fixed-policy holdout report retains
-negative and inconclusive results.
+The offline example executes a synthetic workcell/task/evidence/reuse loop,
+freezes the policy and compares both arms without contacting providers.
+Read [Verified Growth](docs/verified-growth.md),
+[Interchange](docs/verified-growth-interchange.md), and
+[Release Validation](docs/verified-growth-validation.md) for the finite domain,
+scientific boundaries and actual publication status. Existing configurations
+continue to use the [legacy Phase Optimizer](docs/phase-optimizer.md).
 
 ## Agent Skill
 
