@@ -10,6 +10,9 @@ on:
         required: true
         type: string
 
+env:
+  UV_FROZEN: "true"
+
 permissions:
   contents: read
 
@@ -21,7 +24,20 @@ jobs:
   build:
     name: Build distribution
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ccr_test
+          POSTGRES_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
+          POSTGRES_DB: growth_release
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ccr_test -d growth_release"
+          --health-interval 5s --health-timeout 5s --health-retries 12
     env:
+      CCR_TEST_POSTGRES_URL: postgresql://ccr_test:${{ github.run_id }}-${{ github.run_attempt }}@localhost:5432/growth_release
       RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
     steps:
       - name: Require an existing published version tag
@@ -49,6 +65,37 @@ jobs:
       - run: uv run mypy src
       - run: uv run python -m compileall -q src tests
       - run: uv run pytest
+      - run: uv run python scripts/check_schema_registry.py
+      - run: uv run ccr optimizer growth-example --json
+      - name: Safety-critical coverage gate
+        run: >-
+          uv run pytest -q
+          tests/test_runtime_p0_p1_hardening.py
+          tests/test_optimizer.py
+          tests/test_growth.py
+          tests/test_distributed_collective_protocol.py
+          tests/test_task_state_machine.py
+          tests/test_task_leasing.py
+          tests/test_provider_api_v1.py
+          tests/test_phase_engine_v1.py
+          tests/test_safety_failure_branches.py
+          tests/test_storage_sqlite.py
+          tests/test_v140_runtime_scalability.py
+          --cov=ccr.optimizer
+          --cov=ccr.storage.control
+          --cov=ccr.tasks.lease
+          --cov=ccr.tasks.lifecycle
+          --cov=ccr.residuals.lifecycle
+          --cov=ccr.operations.approval
+          --cov=ccr.operations.verifier
+          --cov=ccr.workcells.protocol
+          --cov=ccr.experiments.protocol
+          --cov=ccr.storage.local_store
+          --cov=ccr.storage.sqlite
+          --cov=ccr.providers.http
+          --cov=ccr.phase.eligibility
+          --cov-report=term
+          --cov-fail-under=90
       - run: uv run ccr schema validate --kind packet --file examples/minimal/packet.json
       - run: uv run ccr schema validate --kind task --file examples/minimal/task.json
       - run: uv run ccr schema validate --kind packet --file examples/phase_formation/packets/checked/packet.phase.seed.json
@@ -62,9 +109,25 @@ jobs:
       - run: uv build
       - run: uv run ccr audit release --dist dist --json
       - run: uvx twine check dist/*
+      - name: Preserve exact distribution checksums
+        run: |
+          mkdir -p release-records
+          sha256sum dist/* > release-records/SHA256SUMS
+      - name: Check installed offline paths outside checkout
+        run: |
+          uv venv /tmp/ccr-installed
+          uv pip install --python /tmp/ccr-installed/bin/python dist/*.whl cryptography
+          cd /tmp
+          /tmp/ccr-installed/bin/ccr optimizer growth-example --json
+          /tmp/ccr-installed/bin/ccr agent explain --json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: distribution-checksums
+          path: release-records/
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           repository: kadubon/percolation-inversion-compiler
+          ref: 83ca785e5ab79fe8c546c92474b4b03321fdc04c # PIC v1.0.0
           path: .tmp/pic-root
           persist-credentials: false
       - run: uv run ccr audit pic --pic-root .tmp/pic-root --json
@@ -91,3 +154,27 @@ jobs:
           path: dist/
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+
+  release-assets:
+    name: Attach verified distributions
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: python-package-distributions
+          path: dist/
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: distribution-checksums
+          path: release-records/
+      - name: Attach the built distributions without rebuilding
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: |
+          sha256sum --check release-records/SHA256SUMS
+          gh release upload "$RELEASE_TAG" dist/* release-records/SHA256SUMS

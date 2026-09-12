@@ -1,0 +1,131 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ok",
+    "settled",
+    "external_execution",
+    "network_call_performed",
+    "mutated_runtime",
+    "blockers",
+    "residuals",
+    "non_claims",
+    "run_id",
+    "config_digest",
+    "reason",
+    "evaluated_at",
+    "revision",
+    "selected",
+    "chosen",
+    "candidates",
+    "search",
+    "forecast_not_observed",
+    "global_optimality"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ccr.growth_plan.v1"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "settled": {
+      "const": false
+    },
+    "external_execution": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "network_call_performed": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "mutated_runtime": {
+      "type": "boolean"
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "maxItems": 128
+    },
+    "residuals": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "maxItems": 128
+    },
+    "non_claims": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "maxItems": 128
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "config_digest": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "evaluated_at": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740992
+    },
+    "selected": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "chosen": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "maxItems": 128
+    },
+    "search": {
+      "type": "object"
+    },
+    "forecast_not_observed": {
+      "const": true
+    },
+    "global_optimality": {
+      "const": false
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

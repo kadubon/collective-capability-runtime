@@ -1,0 +1,238 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "result",
+    "observation",
+    "verifier_id",
+    "worker_id",
+    "signature_base64"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ccr.growth_result.v1"
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trial_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "config_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "worker_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verifier_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signature_base64": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema_version": {
+          "const": "ccr.optimizer_result.v1"
+        },
+        "fencing_token": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "actual_resources": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "accepted": {
+          "type": "boolean"
+        },
+        "residuals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "kind",
+              "blocking"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "minLength": 1
+              },
+              "blocking": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "packet": {
+          "type": "object"
+        },
+        "artifact_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "resolved_residual_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "run_id",
+        "trial_id",
+        "target_id",
+        "config_digest",
+        "input_digest",
+        "worker_id",
+        "observed_at",
+        "verifier_id",
+        "signature_base64",
+        "schema_version",
+        "fencing_token",
+        "actual_resources",
+        "accepted",
+        "residuals"
+      ],
+      "additionalProperties": false,
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "study_id",
+        "evidence_mode",
+        "action_id",
+        "receiver",
+        "context_sha256",
+        "protocol",
+        "evaluator",
+        "artifact_version",
+        "parents",
+        "external_inputs",
+        "status",
+        "measured_service"
+      ],
+      "properties": {
+        "study_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "evidence_mode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "action_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "receiver": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "context_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "protocol": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "evaluator": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "artifact_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "parents": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "maxItems": 128
+        },
+        "external_inputs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "maxItems": 128
+        },
+        "status": {
+          "enum": [
+            "success",
+            "failed",
+            "timeout",
+            "inconclusive"
+          ]
+        },
+        "measured_service": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740992
+          },
+          "maxProperties": 128
+        }
+      }
+    },
+    "verifier_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "worker_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "signature_base64": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

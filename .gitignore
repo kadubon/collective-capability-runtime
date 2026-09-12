@@ -32,3 +32,6 @@ build/
 /examples/phase_formation/reports/providers/
 /examples/phase_formation/phase/
 /examples/phase_formation/ccr.sqlite*
+
+# Local verification receipts and disposable integrations
+/.tmp/

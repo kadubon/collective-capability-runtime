@@ -57,3 +57,16 @@ If publishing fails before upload, correct the publishing infrastructure on
 The workflow checks out that tag and verifies its package version, preserving
 the release source instead of moving the tag. Check PyPI for partial uploads
 before retrying; do not replace existing distribution files.
+
+
+## Verified growth opt-in (v1.8)
+
+Use the separate `ccr.growth_profile.v1` registration with
+`policy=verified_growth_v1` to enable receiver-specific service accounting and
+finite dependency-bundle allocation. Existing v1 optimizer schemas and signing
+bytes remain unchanged. See [Verified Growth](docs/verified-growth.md) for the
+complete register, check, reserve, lease, signed outcome, reuse, replay and
+frozen-comparison path. Service observations, planning forecasts and causal or
+statistical improvement are distinct. Growth does not grant admission, approval
+or settlement authority. Unresolved attribution and invalidated evidence remain
+visible; synthetic records cannot establish production performance.

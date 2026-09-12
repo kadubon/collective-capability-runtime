@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+env:
+  UV_FROZEN: "true"
+
 permissions:
   contents: read
 
@@ -38,6 +41,7 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run mypy src
+      - run: uv run ccr optimizer growth-example --json
       - run: uv run python scripts/check_schema_registry.py
       - run: uv run python -m compileall -q src tests
       - run: uv run pytest
@@ -46,6 +50,7 @@ jobs:
           uv run pytest -q
           tests/test_runtime_p0_p1_hardening.py
           tests/test_optimizer.py
+          tests/test_growth.py
           tests/test_distributed_collective_protocol.py
           tests/test_task_state_machine.py
           tests/test_task_leasing.py
@@ -92,6 +97,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           repository: kadubon/percolation-inversion-compiler
+          ref: 83ca785e5ab79fe8c546c92474b4b03321fdc04c # PIC v1.0.0
           path: .tmp/pic-root
           persist-credentials: false
       - uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a
@@ -133,6 +139,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a
       - run: uv sync --all-extras
+      - run: uv run ccr optimizer growth-example --json
       - run: uv run ccr --root "${{ runner.temp }}/ccr-smoke" storage doctor --json
       - run: uv run ccr --root "${{ runner.temp }}/ccr-smoke" worker run --role verifier --worker-id worker:smoke --once
 

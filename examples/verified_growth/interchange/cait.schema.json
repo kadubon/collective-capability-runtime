@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cait-schema.local/schemas/cait/window_balance_certificate.schema.json",
+  "title": "CAIT Window Balance Certificate",
+  "description": "Ledger-accounting certificate for window-level capital balance.",
+  "type": "object",
+  "required": [
+    "record_type",
+    "window_balance_certificate_id",
+    "window_id",
+    "production_endogenous",
+    "production_injection",
+    "production_human",
+    "production_tool",
+    "production_unresolved",
+    "obsolescence",
+    "external_injection",
+    "typed_loss",
+    "residual",
+    "residual_within_tolerance",
+    "window_status"
+  ],
+  "properties": {
+    "record_type": { "const": "window_balance_certificate" },
+    "window_balance_certificate_id": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+    "window_id": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+    "production_endogenous": { "$ref": "common.schema.json#/$defs/interval" },
+    "production_injection": { "$ref": "common.schema.json#/$defs/interval" },
+    "production_human": { "$ref": "common.schema.json#/$defs/interval" },
+    "production_tool": { "$ref": "common.schema.json#/$defs/interval" },
+    "production_unresolved": { "$ref": "common.schema.json#/$defs/interval" },
+    "obsolescence": { "$ref": "common.schema.json#/$defs/interval" },
+    "external_injection": { "$ref": "common.schema.json#/$defs/interval" },
+    "typed_loss": { "$ref": "common.schema.json#/$defs/interval" },
+    "residual": { "$ref": "common.schema.json#/$defs/interval" },
+    "residual_within_tolerance": { "type": "boolean" },
+    "window_status": { "$ref": "common.schema.json#/$defs/decision_status" }
+  },
+  "additionalProperties": false
+}

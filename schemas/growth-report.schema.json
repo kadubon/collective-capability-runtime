@@ -1,0 +1,166 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ok",
+    "settled",
+    "external_execution",
+    "network_call_performed",
+    "mutated_runtime",
+    "blockers",
+    "residuals",
+    "non_claims",
+    "run_id",
+    "state",
+    "config_digest",
+    "server_time",
+    "comparison_kind",
+    "evidence_mode",
+    "revision",
+    "frozen_policy",
+    "ledgers",
+    "trials",
+    "accounts",
+    "next_action",
+    "restricted_alternative",
+    "improvement_claim_admissible",
+    "evaluation_complete",
+    "observed_comparison",
+    "verifier_pressure",
+    "assumptions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ccr.growth_report.v1"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "settled": {
+      "const": false
+    },
+    "external_execution": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "network_call_performed": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "mutated_runtime": {
+      "type": "boolean"
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "maxItems": 128
+    },
+    "residuals": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "maxItems": 128
+    },
+    "non_claims": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "maxItems": 128
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "state": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "config_digest": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "server_time": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "comparison_kind": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "evidence_mode": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740992
+    },
+    "frozen_policy": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "ledgers": {
+      "type": "object"
+    },
+    "trials": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "maxItems": 128
+    },
+    "accounts": {
+      "type": "object"
+    },
+    "next_action": {
+      "type": "object"
+    },
+    "restricted_alternative": {
+      "type": "object"
+    },
+    "improvement_claim_admissible": {
+      "const": false
+    },
+    "evaluation_complete": {
+      "type": "boolean"
+    },
+    "observed_comparison": {
+      "type": "object"
+    },
+    "verifier_pressure": {
+      "type": "object"
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "maxItems": 128
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

@@ -51,6 +51,10 @@ def initialize(store: ControlStore, *, mission: str, config: dict[str, Any]) -> 
     from ccr.mission.model import mission_path, mission_scope
 
     validate_identifier(mission, field="mission")
+    if config.get("schema_version") == "ccr.growth_profile.v1":
+        from ccr.optimizer.growth_runtime import initialize as growth_initialize
+
+        return growth_initialize(store, mission, config)
     normalized = normalize_config(config)
     initial: dict[str, Any] = {"packets": [], "residuals": []}
     if mission_path(store.root, mission).exists():
@@ -116,9 +120,10 @@ def accounting(run: dict[str, Any], group: str) -> dict[str, Any]:
         if group == "training"
         else dict(evaluation)
     )
-    used = dict.fromkeys(limits, 0.0)
-    reserved = dict.fromkeys(limits, 0.0)
-    diagnostic = dict.fromkeys(limits, 0.0)
+    zero = 0 if "growth" in config else 0.0
+    used = dict.fromkeys(limits, zero)
+    reserved = dict.fromkeys(limits, zero)
+    diagnostic = dict.fromkeys(limits, zero)
     for trial in run["trials"]:
         if trial["group"] != group and not (group == "candidate" and trial["group"] == "training"):
             continue
@@ -129,6 +134,11 @@ def accounting(run: dict[str, Any], group: str) -> dict[str, Any]:
             destination[key] += cost[key]
             if trial["kind"] == "measurement":
                 diagnostic[key] += cost[key]
+    if run.get("growth_reservation"):
+        future = run["growth_reservation"]
+        if future["group"] == group or (group == "candidate" and future["group"] == "training"):
+            for key in reserved:
+                reserved[key] += future["future"][key]
     return {
         "budget": budget,
         "used": used,
@@ -157,6 +167,10 @@ def scores(run: dict[str, Any]) -> dict[str, float | None]:
 
 
 def _plan(run: dict[str, Any], current: str) -> dict[str, Any]:
+    if "growth" in run["config"]:
+        from ccr.optimizer.growth_planner import plan as growth_plan
+
+        return growth_plan(run, current)
     config = run["config"]
     blockers = list(run["blockers"])
     if run["state"] == "stopped":
@@ -326,6 +340,10 @@ def step(
             operation["operations"][0]["resource_use"] = dict(arm["resource_upper_bound"])
             operation["operations"][0]["postcondition"] = target["acceptance_criteria"]
             trial["operation_plan"] = operation
+        if "growth" in config:
+            from ccr.optimizer.growth_runtime import prepare
+
+            prepare(run, proposal, trial, current)
         run["trials"].append(trial)
         run["revision"] += 1
         return response(run_id=run_id, trial=copy.deepcopy(trial), mutated_runtime=True)
@@ -354,6 +372,15 @@ def claim(
         trial = _trial(run, trial_id)
         if run["state"] == "stopped" or timestamp(current) >= timestamp(run["config"]["deadline"]):
             return response(ok=False, blockers=["run_not_active"])
+        if "growth" in run["config"]:
+            from ccr.optimizer.growth_ledger import prerequisites, replay
+
+            action = run["config"]["growth"]["actions"][trial["growth_action"]]
+            missing = prerequisites(
+                run["config"]["growth"], action, replay(run, current, group=trial["group"])
+            )
+            if missing:
+                return response(ok=False, blockers=missing)
         if trial["state"] not in {"queued", "awaiting_approval", "leased"}:
             return response(ok=False, blockers=["trial_not_claimable"])
         if trial["lease_expires_at"] and timestamp(trial["lease_expires_at"]) > timestamp(current):
@@ -436,6 +463,15 @@ def dispatch(
         trial = _trial(run, trial_id)
         if run["state"] == "stopped" or timestamp(current) >= timestamp(run["config"]["deadline"]):
             return response(ok=False, blockers=["run_not_active"])
+        if "growth" in run["config"]:
+            from ccr.optimizer.growth_ledger import prerequisites, replay
+
+            action = run["config"]["growth"]["actions"][trial["growth_action"]]
+            missing = prerequisites(
+                run["config"]["growth"], action, replay(run, current, group=trial["group"])
+            )
+            if missing:
+                return response(ok=False, blockers=missing)
         check_lease(trial, current, worker, token)
         if trial["state"] != "leased" or "operation_plan" not in trial:
             return response(ok=False, blockers=["trial_not_dispatchable"])
@@ -564,110 +600,120 @@ def _result_ledger(
 
 
 def ingest(store: ControlStore, run_id: str, result: dict[str, Any]) -> dict[str, Any]:
+    if result.get("schema_version") == "ccr.growth_result.v1":
+        from ccr.optimizer.growth_runtime import ingest as growth_ingest
+
+        return growth_ingest(store, run_id, result)
+    with edit_run(store, run_id) as (run, current):
+        if "growth" in run["config"]:
+            raise ValueError("growth run requires the separate signed growth envelope")
+        return _ingest_result(store, run, current, result)
+
+
+def _ingest_result(
+    store: ControlStore, run: dict[str, Any], current: str, result: dict[str, Any]
+) -> dict[str, Any]:
     validation = validate_instance("optimizer-result", result)
     if not validation.ok:
         raise ValueError("invalid optimizer result: " + str(validation.errors))
-    with edit_run(store, run_id) as (run, current):
-        config = run["config"]
-        _verify(config, result)
-        trial = _trial(run, result["trial_id"])
-        digest = sha256_json(result)
-        if trial["result_digest"]:
-            if trial["result_digest"] != digest:
-                raise ValueError("conflicting result for evaluated trial")
-            return response(trial_id=trial["trial_id"], reward=trial["reward"], idempotent=True)
-        for field in (
-            "run_id",
-            "target_id",
-            "config_digest",
-            "input_digest",
-            "worker_id",
-            "fencing_token",
-        ):
-            if result[field] != trial[field]:
-                raise ValueError(f"result {field} does not match trial")
-        if trial["worker_id"] is None or trial["state"] not in {
-            "leased",
-            "awaiting_result",
-            "awaiting_verification",
-            "outcome_unknown",
-            "dispatching",
-        }:
-            raise ValueError("trial has no attributable execution")
-        if "operation_plan" in trial and not trial.get("dispatch_config_digest"):
-            raise ValueError("external trial was not dispatched")
-        # Signed observation can reconcile an expired/crashed dispatch, but never a new fence.
-        observed = timestamp(result["observed_at"])
-        if observed < timestamp(trial["created_at"]) or observed > timestamp(current):
-            raise ValueError("result observation time outside trial window")
-        actual = vector(result["actual_resources"], config["resource_limits"])
-        if actual[config["effort_resource"]] <= 0:
-            raise ValueError(
-                "actual effort must include positive total evaluation and control cost"
-            )
-        overrun = any(actual[k] > trial["reserved_resources"][k] for k in actual)
-        reward = 0.0
-        reasons = []
-        if overrun:
-            run["blockers"].append("resource_overrun")
-            reasons.append("resource_overrun")
-        residuals = result["residuals"]
-        if result["accepted"] and not overrun:
-            packet = result.get("packet")
-            if not isinstance(packet, dict):
-                reasons.append("verified_packet_required")
+    config = run["config"]
+    _verify(config, result)
+    trial = _trial(run, result["trial_id"])
+    digest = sha256_json(result)
+    if trial["result_digest"]:
+        if trial["result_digest"] != digest:
+            raise ValueError("conflicting result for evaluated trial")
+        return response(trial_id=trial["trial_id"], reward=trial["reward"], idempotent=True)
+    for field in (
+        "run_id",
+        "target_id",
+        "config_digest",
+        "input_digest",
+        "worker_id",
+        "fencing_token",
+    ):
+        if result[field] != trial[field]:
+            raise ValueError(f"result {field} does not match trial")
+    if trial["worker_id"] is None or trial["state"] not in {
+        "leased",
+        "awaiting_result",
+        "awaiting_verification",
+        "outcome_unknown",
+        "dispatching",
+    }:
+        raise ValueError("trial has no attributable execution")
+    if "operation_plan" in trial and not trial.get("dispatch_config_digest"):
+        raise ValueError("external trial was not dispatched")
+    # Signed observation can reconcile an expired/crashed dispatch, but never a new fence.
+    observed = timestamp(result["observed_at"])
+    if observed < timestamp(trial["created_at"]) or observed > timestamp(current):
+        raise ValueError("result observation time outside trial window")
+    actual = vector(result["actual_resources"], config["resource_limits"])
+    if actual[config["effort_resource"]] <= 0:
+        raise ValueError("actual effort must include positive total evaluation and control cost")
+    overrun = any(actual[k] > trial["reserved_resources"][k] for k in actual)
+    reward = 0.0
+    reasons = []
+    if overrun:
+        run["blockers"].append("resource_overrun")
+        reasons.append("resource_overrun")
+    residuals = result["residuals"]
+    if result["accepted"] and not overrun:
+        packet = result.get("packet")
+        if not isinstance(packet, dict):
+            reasons.append("verified_packet_required")
+        else:
+            packet_check = validate_instance("packet", packet)
+            if not packet_check.ok:
+                reasons.append("packet_not_eligible")
             else:
-                packet_check = validate_instance("packet", packet)
-                if not packet_check.ok:
-                    reasons.append("packet_not_eligible")
-                else:
-                    artifact_hashes = {a.get("content_sha256") for a in packet.get("artifacts", [])}
-                    if (
-                        not result.get("artifact_sha256")
-                        or result["artifact_sha256"] not in artifact_hashes
-                    ):
-                        reasons.append("reusable_artifact_digest_mismatch")
-                    if packet["issuer"]["actor_id"] == result["verifier_id"]:
-                        reasons.append("packet_verifier_not_independent")
-                    if any(r.get("blocking") is True for r in residuals):
-                        reasons.append("blocking_residual")
-                    if not reasons:
-                        ledger, known_blockers = _result_ledger(run, trial, result)
-                        eligible = packet_eligibility(
-                            store.root, packet, ledger_blockers=known_blockers
-                        )
-                        if not eligible["positive_contribution"]:
-                            reasons.append("packet_not_eligible")
-                        else:
-                            run["residuals"] = ledger
-                credit_group = "baseline" if trial["group"] == "baseline" else "collective"
-                artifact_key = f"{credit_group}:{result.get('artifact_sha256')}"
-                target_key = f"{trial['group']}:target:{trial['target_id']}"
-                if artifact_key in run["credited"] or target_key in run["credited"]:
-                    reasons.append("duplicate_outcome")
+                artifact_hashes = {a.get("content_sha256") for a in packet.get("artifacts", [])}
+                if (
+                    not result.get("artifact_sha256")
+                    or result["artifact_sha256"] not in artifact_hashes
+                ):
+                    reasons.append("reusable_artifact_digest_mismatch")
+                if packet["issuer"]["actor_id"] == result["verifier_id"]:
+                    reasons.append("packet_verifier_not_independent")
+                if any(r.get("blocking") is True for r in residuals):
+                    reasons.append("blocking_residual")
                 if not reasons:
-                    reward = 1.0
-                    run["credited"].update(
-                        {artifact_key: trial["trial_id"], target_key: trial["trial_id"]}
+                    ledger, known_blockers = _result_ledger(run, trial, result)
+                    eligible = packet_eligibility(
+                        store.root, packet, ledger_blockers=known_blockers
                     )
-        trial.update(
-            state="evaluated",
-            actual_resources=actual,
-            reward=reward,
-            result_digest=digest,
-            result=result,
-            blockers=reasons,
-        )
-        trial["residuals"].extend(residuals)
-        run["residuals"].extend({**r, "optimizer_target_id": trial["target_id"]} for r in residuals)
-        run["revision"] += 1
-        return response(
-            trial_id=trial["trial_id"],
-            reward=reward,
-            blockers=reasons,
-            residuals=trial["residuals"],
-            mutated_runtime=True,
-        )
+                    if not eligible["positive_contribution"]:
+                        reasons.append("packet_not_eligible")
+                    else:
+                        run["residuals"] = ledger
+            credit_group = "baseline" if trial["group"] == "baseline" else "collective"
+            artifact_key = f"{credit_group}:{result.get('artifact_sha256')}"
+            target_key = f"{trial['group']}:target:{trial['target_id']}"
+            if artifact_key in run["credited"] or target_key in run["credited"]:
+                reasons.append("duplicate_outcome")
+            if not reasons:
+                reward = 1.0
+                run["credited"].update(
+                    {artifact_key: trial["trial_id"], target_key: trial["trial_id"]}
+                )
+    trial.update(
+        state="evaluated",
+        actual_resources=actual,
+        reward=reward,
+        result_digest=digest,
+        result=result,
+        blockers=reasons,
+    )
+    trial["residuals"].extend(residuals)
+    run["residuals"].extend({**r, "optimizer_target_id": trial["target_id"]} for r in residuals)
+    run["revision"] += 1
+    return response(
+        trial_id=trial["trial_id"],
+        reward=reward,
+        blockers=reasons,
+        residuals=trial["residuals"],
+        mutated_runtime=True,
+    )
 
 
 def freeze(store: ControlStore, run_id: str) -> dict[str, Any]:
@@ -677,6 +723,10 @@ def freeze(store: ControlStore, run_id: str) -> dict[str, Any]:
         if not run["trials"] or any(t["state"] != "evaluated" for t in run["trials"]):
             raise ValueError("complete training observations before freezing")
         policy = {"scores": scores(run), "frozen_at": current, "training_revision": run["revision"]}
+        if "growth" in run["config"]:
+            from ccr.optimizer.growth_runtime import freeze as growth_freeze
+
+            policy = growth_freeze(run, current)
         policy["policy_digest"] = sha256_json(policy)
         run.update(frozen_policy=policy, state="evaluation", revision=run["revision"] + 1)
         return response(frozen_policy=policy, mutated_runtime=True)
@@ -691,6 +741,10 @@ def stop(store: ControlStore, run_id: str) -> dict[str, Any]:
 def report(store: ControlStore, run_id: str) -> dict[str, Any]:
     run = load(store, run_id)
     config = run["config"]
+    if "growth" in config:
+        from ccr.optimizer.growth_runtime import report as growth_report
+
+        return growth_report(store, run)
     evaluation = config["evaluation"]
     arms: dict[str, Any] = {}
     complete = bool(run["frozen_policy"])

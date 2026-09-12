@@ -195,3 +195,16 @@ from a registry manifest.
 
 For command choice, use `docs/command-map.md`. For the first safe run, use
 `docs/getting-started.md`. For broad documentation search, use `docs/README.md`.
+
+
+## Verified growth opt-in (v1.8)
+
+Use the separate `ccr.growth_profile.v1` registration with
+`policy=verified_growth_v1` to enable receiver-specific service accounting and
+finite dependency-bundle allocation. Existing v1 optimizer schemas and signing
+bytes remain unchanged. See [Verified Growth](docs/verified-growth.md) for the
+complete register, check, reserve, lease, signed outcome, reuse, replay and
+frozen-comparison path. Service observations, planning forecasts and causal or
+statistical improvement are distinct. Growth does not grant admission, approval
+or settlement authority. Unresolved attribution and invalidated evidence remain
+visible; synthetic records cannot establish production performance.

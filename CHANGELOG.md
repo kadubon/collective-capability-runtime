@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.8.0 - 2026-09-12
+
+- Adds an explicit verified-growth profile, chained outcome/lineage journal,
+  receiver qualification, delayed reuse, lifecycle invalidation and revalidation.
+- Adds rational bounded-bundle planning, an independent checker, verifier-service
+  investment, shared quota transactions and frozen restricted-baseline comparison.
+- Integrates signed growth observations into existing optimizer tasks, workers,
+  leases, storage and authenticated API while preserving all v1 contracts.
+- Adds pinned local CAIT/VEK/ALT evidence adapters, installed synthetic examples,
+  regression/property/oracle tests and release verification documentation.
+- No external empirical collective-intelligence acceleration experiment was
+  performed; these changes do not establish causal gain, AGI/ASI or indefinite growth.
+
 ## 1.7.0 - 2026-09-07
 
 - Adds the phase optimizer: immutable studies, budget-constrained epsilon-greedy

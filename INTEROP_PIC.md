@@ -299,3 +299,8 @@ reports with PIC/PIC-TS evidence reports. Missing parity fields become
 `residual_ready`; PIC `settled=true` remains evidence-only and is not CCR
 settlement. Provider registry validation reads static manifests only and does
 not import PIC, PIC-TS, or provider plugin modules.
+
+
+CCR 1.8 preserves this PIC compatibility matrix. New bounded CAIT/VEK/ALT
+evidence adapters are documented in [Growth Interchange](docs/verified-growth-interchange.md).
+They do not expand PIC-supported versions or execute imported commands.

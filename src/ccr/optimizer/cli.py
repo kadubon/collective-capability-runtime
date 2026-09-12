@@ -17,6 +17,9 @@ from ccr.storage.control import ControlStore
 def register(sub: Any) -> None:
     parser = sub.add_parser("optimizer", help="Optimize verified capability under fixed budgets.")
     commands = parser.add_subparsers(dest="optimizer_command", required=True)
+    demo = commands.add_parser("growth-example")
+    demo.add_argument("--json", action="store_true", dest="json_output")
+    demo.set_defaults(func=execute)
     for name in (
         "init",
         "plan",
@@ -30,6 +33,11 @@ def register(sub: Any) -> None:
         "claim",
         "heartbeat",
         "export",
+        "check-plan",
+        "growth-ledger",
+        "replay",
+        "reuse",
+        "interchange",
     ):
         command = commands.add_parser(name)
         command.add_argument("--json", action="store_true", dest="json_output")
@@ -45,7 +53,11 @@ def register(sub: Any) -> None:
             command.add_argument("--expected-revision", type=int)
         if name == "run":
             command.add_argument("--execute", action="store_true")
-        if name == "ingest":
+        if name == "interchange":
+            command.add_argument("--apply", action="store_true")
+            command.add_argument("--file")
+            command.add_argument("--tool", choices=["cait", "vek", "alt"], required=True)
+        if name in {"ingest", "check-plan", "reuse"}:
             command.add_argument("--file", required=True)
         if name in {"claim", "run", "heartbeat"}:
             command.add_argument("--trial", required=True)
@@ -63,6 +75,11 @@ def object_file(path: str) -> dict[str, Any]:
 
 
 def execute(args: argparse.Namespace) -> int:
+    if args.optimizer_command == "growth-example":
+        from ccr.optimizer.growth_example import run_example
+
+        print(pretty_dumps(run_example()))
+        return 0
     store = ControlStore(runtime_root(args.root), os.getenv(args.database_url_env, ""))
     name = args.optimizer_command
     if name == "init":
@@ -86,6 +103,26 @@ def execute(args: argparse.Namespace) -> int:
         )
     elif name == "ingest":
         result = engine.ingest(store, args.run, object_file(args.file))
+    elif name == "interchange":
+        from ccr.optimizer.growth_interchange import attach, export_cait, import_evidence
+
+        result = (
+            export_cait(engine.report(store, args.run))
+            if args.tool == "cait"
+            else import_evidence(object_file(args.file))
+        )
+        if args.apply and args.tool != "cait":
+            result = attach(store, args.run, object_file(args.file))
+    elif name == "reuse":
+        from ccr.optimizer.growth_runtime import lifecycle
+
+        result = lifecycle(store, args.run, object_file(args.file))
+    elif name == "check-plan":
+        from ccr.optimizer.growth_checker import check
+
+        result = check(engine.load(store, args.run), object_file(args.file), store.now())
+    elif name in {"growth-ledger", "replay"}:
+        result = engine.report(store, args.run)
     elif name == "export":
         engine.load(store, args.run)
         result = engine.response(exports=store.export(args.run), mutated_runtime=True)
