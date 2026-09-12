@@ -1,0 +1,22 @@
+{
+  "token_id": "token:synthetic",
+  "version": "1",
+  "signature": {},
+  "representation": {
+    "text": "inert synthetic reusable workflow"
+  },
+  "adapter": {},
+  "verifier_contract": {
+    "status": "unverified"
+  },
+  "guard": {
+    "receiver": "requires local qualification"
+  },
+  "cost_risk_model": {
+    "formation_cost": "unknown"
+  },
+  "provenance": {
+    "source": "synthetic fixture"
+  },
+  "dependencies": []
+}

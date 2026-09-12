@@ -394,6 +394,41 @@
     },
     {
       "origin": "ccr-public",
+      "schema_file": "generic-report.schema.json",
+      "schema_kind": "generic-report",
+      "schema_sha256": "bea02bab97d7e310c41ba6056ac145afd496163ca54d114161f20ee813e41214",
+      "schema_version": "ccr.growth_interchange.v1"
+    },
+    {
+      "origin": "ccr-public",
+      "schema_file": "growth-plan.schema.json",
+      "schema_kind": "growth-plan",
+      "schema_sha256": "4e14868e906b55c2fba16035a8048f33aeecd8bcd4b8cf7467329f1ef738bf30",
+      "schema_version": "ccr.growth_plan.v1"
+    },
+    {
+      "origin": "ccr-public",
+      "schema_file": "growth-profile.schema.json",
+      "schema_kind": "growth-profile",
+      "schema_sha256": "d1f3262c2964bfdaa90a82668e47bed37bf6ed3aad99c4ec42f56ad789f7dc0f",
+      "schema_version": "ccr.growth_profile.v1"
+    },
+    {
+      "origin": "ccr-public",
+      "schema_file": "growth-report.schema.json",
+      "schema_kind": "growth-report",
+      "schema_sha256": "8820f41b0987421bf9b26804ec4357e295b16cee4219da3622e52bbe6e6d4973",
+      "schema_version": "ccr.growth_report.v1"
+    },
+    {
+      "origin": "ccr-public",
+      "schema_file": "growth-result.schema.json",
+      "schema_kind": "growth-result",
+      "schema_sha256": "6141519a9a9a1058424d74c0e28fb354311039bf13fb83b7bcd5d9359606fc10",
+      "schema_version": "ccr.growth_result.v1"
+    },
+    {
+      "origin": "ccr-public",
       "schema_file": "incident-ledger.schema.json",
       "schema_kind": "incident-ledger",
       "schema_sha256": "65036f258292639834d193bd58d8e8b5e793679a8cb4b8b7384e0551cc06dbae",
@@ -1226,6 +1261,6 @@
       "schema_version": "pic.trc_trace_report.v1"
     }
   ],
-  "registry_digest": "1d9721d8dd2b5bc2622b9112aa6f1b4864dd3bcf2c6b458fe994bad7c072de5d",
+  "registry_digest": "a1677a61ca1909d3493424f3a4507dc6d5faa8a71a542de0f070da94a88c4041",
   "schema_version": "ccr.schema_registry.v1"
 }

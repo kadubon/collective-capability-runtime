@@ -1,0 +1,317 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vet.example/schema/verifier-packet.schema.json",
+  "type": "object",
+  "properties": {
+    "packet_id": { "type": "string" },
+    "origin": { "oneOf": [{ "$ref": "#/$defs/origin" }, { "type": "null" }] },
+    "scope": { "oneOf": [{ "$ref": "#/$defs/scope" }, { "type": "null" }] },
+    "transformation_class": {
+      "oneOf": [{ "$ref": "#/$defs/transformation_class" }, { "type": "null" }]
+    },
+    "verifier_procedure": {
+      "oneOf": [{ "$ref": "#/$defs/verifier_procedure" }, { "type": "null" }]
+    },
+    "certification_condition": {
+      "oneOf": [{ "$ref": "#/$defs/certification_condition" }, { "type": "null" }]
+    },
+    "boundary_refs": {
+      "oneOf": [{ "$ref": "#/$defs/boundary_refs" }, { "type": "null" }]
+    },
+    "residual_hooks": {
+      "oneOf": [{ "$ref": "#/$defs/residual_hooks" }, { "type": "null" }]
+    },
+    "update_profile": {
+      "oneOf": [{ "$ref": "#/$defs/update_profile" }, { "type": "null" }]
+    },
+    "circulation_status": {
+      "oneOf": [{ "$ref": "#/$defs/circulation_status" }, { "type": "null" }]
+    },
+    "question_form": { "type": "object" },
+    "extension": { "type": "object" },
+    "residual_obligations": {
+      "type": "array",
+      "items": { "$ref": "residual-record.schema.json" }
+    },
+    "counter_packet_refs": { "$ref": "#/$defs/string_array" },
+    "anti_overclosure": { "$ref": "#/$defs/anti_overclosure" },
+    "ecological_invariants": { "$ref": "#/$defs/ecological_invariants" },
+    "residual_liveness": { "$ref": "#/$defs/residual_liveness" }
+  },
+  "required": [
+    "packet_id",
+    "origin",
+    "scope",
+    "transformation_class",
+    "verifier_procedure",
+    "certification_condition",
+    "boundary_refs",
+    "residual_hooks",
+    "update_profile",
+    "circulation_status",
+    "question_form",
+    "extension",
+    "residual_obligations",
+    "counter_packet_refs",
+    "anti_overclosure",
+    "ecological_invariants",
+    "residual_liveness"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "origin": {
+      "type": "object",
+      "properties": {
+        "created_from": {
+          "type": "string",
+          "enum": [
+            "failure",
+            "success",
+            "counterexample",
+            "residual",
+            "contrast",
+            "external_packet",
+            "human_specification"
+          ]
+        },
+        "traces": { "$ref": "#/$defs/string_array" },
+        "lineage": { "$ref": "#/$defs/string_array" },
+        "parent_packets": { "$ref": "#/$defs/string_array" },
+        "inherited_residuals": { "$ref": "#/$defs/string_array" },
+        "inherited_boundaries": { "$ref": "#/$defs/string_array" },
+        "inherited_overclosure_exposures": { "$ref": "#/$defs/string_array" },
+        "unresolved_origin_residuals": { "$ref": "#/$defs/string_array" }
+      },
+      "required": [
+        "created_from",
+        "traces",
+        "lineage",
+        "parent_packets",
+        "inherited_residuals",
+        "inherited_boundaries",
+        "inherited_overclosure_exposures",
+        "unresolved_origin_residuals"
+      ],
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "applies_to": { "$ref": "#/$defs/string_array" },
+        "excludes": { "$ref": "#/$defs/string_array" },
+        "assumptions": { "$ref": "#/$defs/string_array" },
+        "unvalidated_assumptions": { "$ref": "#/$defs/string_array" },
+        "known_misuse_contexts": { "$ref": "#/$defs/string_array" },
+        "known_invalid_scopes": { "$ref": "#/$defs/string_array" }
+      },
+      "required": [
+        "applies_to",
+        "excludes",
+        "assumptions",
+        "unvalidated_assumptions",
+        "known_misuse_contexts",
+        "known_invalid_scopes"
+      ],
+      "additionalProperties": false
+    },
+    "transformation_class": {
+      "type": "object",
+      "properties": {
+        "allowed": { "$ref": "#/$defs/string_array" },
+        "forbidden": { "$ref": "#/$defs/string_array" },
+        "transfer_conditions": { "$ref": "#/$defs/string_array" },
+        "self_modification_roles": { "$ref": "#/$defs/string_array" }
+      },
+      "required": ["allowed", "forbidden", "transfer_conditions", "self_modification_roles"],
+      "additionalProperties": false
+    },
+    "verifier_procedure": {
+      "type": "object",
+      "properties": {
+        "steps": { "$ref": "#/$defs/string_array" },
+        "tests": { "$ref": "#/$defs/string_array" },
+        "proof_obligations": { "$ref": "#/$defs/string_array" },
+        "statistical_methods": { "$ref": "#/$defs/string_array" },
+        "stochastic_methods": { "$ref": "#/$defs/string_array" },
+        "tool_dependencies": { "$ref": "#/$defs/string_array" },
+        "evaluator_versions": { "$ref": "#/$defs/string_array" },
+        "counterexample_search": { "$ref": "#/$defs/string_array" },
+        "boundary_checks": { "$ref": "#/$defs/string_array" }
+      },
+      "required": [
+        "steps",
+        "tests",
+        "proof_obligations",
+        "statistical_methods",
+        "stochastic_methods",
+        "tool_dependencies",
+        "evaluator_versions",
+        "counterexample_search",
+        "boundary_checks"
+      ],
+      "additionalProperties": false
+    },
+    "certification_condition": {
+      "type": "object",
+      "properties": {
+        "pass_conditions": { "$ref": "#/$defs/string_array" },
+        "fail_conditions": { "$ref": "#/$defs/string_array" },
+        "quarantine_conditions": { "$ref": "#/$defs/string_array" },
+        "residualization_conditions": { "$ref": "#/$defs/string_array" },
+        "promotion_conditions": { "$ref": "#/$defs/string_array" }
+      },
+      "required": [
+        "pass_conditions",
+        "fail_conditions",
+        "quarantine_conditions",
+        "residualization_conditions",
+        "promotion_conditions"
+      ],
+      "additionalProperties": false
+    },
+    "boundary_refs": {
+      "type": "object",
+      "properties": {
+        "destructive_boundary_ref": { "type": "string" },
+        "narrowing_boundary_ref": { "type": "string" },
+        "reachability_certificate_refs": { "$ref": "#/$defs/string_array" },
+        "inherited_boundary_refs": { "$ref": "#/$defs/string_array" }
+      },
+      "required": [
+        "destructive_boundary_ref",
+        "narrowing_boundary_ref",
+        "reachability_certificate_refs",
+        "inherited_boundary_refs"
+      ],
+      "additionalProperties": false
+    },
+    "residual_hooks": {
+      "type": "object",
+      "properties": {
+        "unresolved_residual_refs": { "$ref": "#/$defs/string_array" },
+        "missing_core_fields": { "$ref": "#/$defs/string_array" },
+        "missing_fields": { "$ref": "#/$defs/string_array" },
+        "conflict_residual_refs": { "$ref": "#/$defs/string_array" },
+        "merge_loss_residual_refs": { "$ref": "#/$defs/string_array" },
+        "redaction_residual_refs": { "$ref": "#/$defs/string_array" }
+      },
+      "required": [
+        "unresolved_residual_refs",
+        "missing_core_fields",
+        "missing_fields",
+        "conflict_residual_refs",
+        "merge_loss_residual_refs",
+        "redaction_residual_refs"
+      ],
+      "additionalProperties": false
+    },
+    "update_profile": {
+      "type": "object",
+      "properties": {
+        "repair_conditions": { "$ref": "#/$defs/string_array" },
+        "retirement_conditions": { "$ref": "#/$defs/string_array" },
+        "revalidation_triggers": { "$ref": "#/$defs/string_array" },
+        "scope_drift_triggers": { "$ref": "#/$defs/string_array" },
+        "contamination_triggers": { "$ref": "#/$defs/string_array" },
+        "rollback_hooks": { "$ref": "#/$defs/string_array" }
+      },
+      "required": [
+        "repair_conditions",
+        "retirement_conditions",
+        "revalidation_triggers",
+        "scope_drift_triggers",
+        "contamination_triggers",
+        "rollback_hooks"
+      ],
+      "additionalProperties": false
+    },
+    "circulation_status": {
+      "type": "object",
+      "properties": {
+        "visibility": {
+          "type": "string",
+          "enum": ["private", "shared", "public", "redacted", "quarantined", "retired"]
+        },
+        "trust_status": {
+          "type": "string",
+          "enum": ["local", "external_candidate", "low_trust", "adversarial", "unknown"]
+        },
+        "local_internalization_status": { "type": "string" },
+        "quarantine_ref": { "type": "string" },
+        "translation_residual_refs": { "$ref": "#/$defs/string_array" },
+        "redaction_residual_refs": { "$ref": "#/$defs/string_array" },
+        "boundary_check_refs": { "$ref": "#/$defs/string_array" }
+      },
+      "required": [
+        "visibility",
+        "trust_status",
+        "local_internalization_status",
+        "quarantine_ref",
+        "translation_residual_refs",
+        "redaction_residual_refs",
+        "boundary_check_refs"
+      ],
+      "additionalProperties": false
+    },
+    "anti_overclosure": {
+      "type": "object",
+      "properties": {
+        "unknowns_to_preserve": { "$ref": "#/$defs/string_array" },
+        "future_candidates_may_narrow": { "type": "boolean" },
+        "question_forms_may_suppress": { "type": "boolean" },
+        "schema_overclosure_residuals": { "$ref": "#/$defs/string_array" },
+        "lineage_laundering_checks": { "$ref": "#/$defs/string_array" }
+      },
+      "required": [
+        "unknowns_to_preserve",
+        "future_candidates_may_narrow",
+        "question_forms_may_suppress",
+        "schema_overclosure_residuals",
+        "lineage_laundering_checks"
+      ],
+      "additionalProperties": false
+    },
+    "ecological_invariants": {
+      "type": "object",
+      "properties": {
+        "preserve_origin": { "type": "boolean" },
+        "preserve_scope": { "type": "boolean" },
+        "preserve_residuals": { "type": "boolean" },
+        "preserve_boundaries": { "type": "boolean" },
+        "preserve_counter_packet_route": { "type": "boolean" },
+        "preserve_aperture": { "type": "boolean" }
+      },
+      "required": [
+        "preserve_origin",
+        "preserve_scope",
+        "preserve_residuals",
+        "preserve_boundaries",
+        "preserve_counter_packet_route",
+        "preserve_aperture"
+      ],
+      "additionalProperties": false
+    },
+    "residual_liveness": {
+      "type": "object",
+      "properties": {
+        "owner": { "type": "string" },
+        "deadline": { "type": "string" },
+        "resource_quota": { "$ref": "#/$defs/string_array" },
+        "recheck_trigger": { "type": "string" },
+        "preserved_unknown_route": { "type": "string" }
+      },
+      "required": [
+        "owner",
+        "deadline",
+        "resource_quota",
+        "recheck_trigger",
+        "preserved_unknown_route"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -168,6 +168,10 @@ def create_app(*, root: Path, store: RuntimeStore, auth_config: dict[str, Any]) 
     async def optimizer_action(run_id: str, action: str, body: dict[str, Any]) -> dict[str, Any]:
         validate_json_depth(body)
         try:
+            if action == "check-plan":
+                from ccr.optimizer.growth_checker import check
+
+                return check(optimizer.load(controls, run_id), body, controls.now())
             if action in {"step", "stop", "freeze"}:
                 _require_identity("human")
                 if action == "step":
@@ -197,7 +201,16 @@ def create_app(*, root: Path, store: RuntimeStore, auth_config: dict[str, Any]) 
                     config=body["config"],
                     execute=body.get("execute") is True,
                 )
+            if action == "reuse":
+                from ccr.optimizer.growth_runtime import lifecycle
+
+                return lifecycle(controls, run_id, body)
             if action == "ingest":
+                if (
+                    body.get("schema_version") == "ccr.growth_result.v1"
+                    and body.get("worker_id") != worker
+                ):
+                    raise ValueError("authenticated worker identity mismatch")
                 return optimizer.ingest(controls, run_id, body)
             if action == "heartbeat":
                 return optimizer.task_transition(

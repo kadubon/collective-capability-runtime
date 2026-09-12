@@ -1,0 +1,52 @@
+{
+  "record_type": "window_balance_certificate",
+  "window_balance_certificate_id": "wb_synthetic_001",
+  "window_id": "window_synthetic_001",
+  "production_endogenous": {
+    "lower": 1.5,
+    "upper": 2.0,
+    "unit": "verified_capability_tokens"
+  },
+  "production_injection": {
+    "lower": 0.1,
+    "upper": 0.2,
+    "unit": "verified_capability_tokens"
+  },
+  "production_human": {
+    "lower": 0.0,
+    "upper": 0.1,
+    "unit": "verified_capability_tokens"
+  },
+  "production_tool": {
+    "lower": 0.0,
+    "upper": 0.1,
+    "unit": "verified_capability_tokens"
+  },
+  "production_unresolved": {
+    "lower": 0.0,
+    "upper": 0.0,
+    "unit": "verified_capability_tokens"
+  },
+  "obsolescence": {
+    "lower": 0.1,
+    "upper": 0.2,
+    "unit": "verified_capability_tokens"
+  },
+  "external_injection": {
+    "lower": 0.1,
+    "upper": 0.2,
+    "unit": "verified_capability_tokens"
+  },
+  "typed_loss": {
+    "lower": 0.0,
+    "upper": 0.1,
+    "unit": "verified_capability_tokens"
+  },
+  "residual": {
+    "lower": 0.0,
+    "upper": 0.01,
+    "unit": "verified_capability_tokens"
+  },
+  "residual_within_tolerance": true,
+  "window_status": "pass"
+}

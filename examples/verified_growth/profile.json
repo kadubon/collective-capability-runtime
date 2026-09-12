@@ -1,0 +1,652 @@
+{
+  "schema_version": "ccr.growth_profile.v1",
+  "policy": "verified_growth_v1",
+  "base": {
+    "schema_version": "ccr.optimizer_config.v1",
+    "policy_version": 1,
+    "seed": 17,
+    "deadline": "2099-01-01T00:00:00Z",
+    "epsilon": 0.2,
+    "diagnostic_reserve": 0.2,
+    "resource_limits": {
+      "cost": 100
+    },
+    "effort_resource": "cost",
+    "max_inflight": 1,
+    "trusted_verifiers": {
+      "reviewer": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    },
+    "task_manifest": [
+      {
+        "target_id": "target:form",
+        "input_ref": "synthetic:form",
+        "input_sha256": "e4ea2137b49a629f678153fe614ae313c6dd1761a757afc764cf1cd74a986de6",
+        "acceptance_criteria": "Check finite synthetic input and receiver contract; no empirical claim."
+      },
+      {
+        "target_id": "target:transfer",
+        "input_ref": "synthetic:transfer",
+        "input_sha256": "7708079517f101c8daa66f7e425488fc59e1ffde88e2f5a8d081e90ef7983664",
+        "acceptance_criteria": "Check finite synthetic input and receiver contract; no empirical claim."
+      },
+      {
+        "target_id": "target:reuse",
+        "input_ref": "synthetic:reuse",
+        "input_sha256": "40212409706364ac8455eee31195fe61a6fd22466f03c4536d4b5a8568d09d51",
+        "acceptance_criteria": "Check finite synthetic input and receiver contract; no empirical claim."
+      },
+      {
+        "target_id": "target:reuse_again",
+        "input_ref": "synthetic:reuse_again",
+        "input_sha256": "5c9ef754ce68aec980c879afcba536273dc599bbd2bdeeccd171b744d4f4ae37",
+        "acceptance_criteria": "Check finite synthetic input and receiver contract; no empirical claim."
+      },
+      {
+        "target_id": "target:greedy",
+        "input_ref": "synthetic:greedy",
+        "input_sha256": "4fea7c965f21a4a65822d018f321c026eafa21f072aca892c38ff87b813f3897",
+        "acceptance_criteria": "Check finite synthetic input and receiver contract; no empirical claim."
+      },
+      {
+        "target_id": "target:holdout_form",
+        "input_ref": "synthetic:holdout_form",
+        "input_sha256": "b737035847649da219fdcfd425db9d44ad28b396350dc9b4bfe6684782b0f84b",
+        "acceptance_criteria": "Check finite synthetic input and receiver contract; no empirical claim."
+      },
+      {
+        "target_id": "target:holdout_transfer",
+        "input_ref": "synthetic:holdout_transfer",
+        "input_sha256": "d6f2e8896c7abcedf66fe7a6ca602273021317408d2925d6c6e1aef763d3127c",
+        "acceptance_criteria": "Check finite synthetic input and receiver contract; no empirical claim."
+      },
+      {
+        "target_id": "target:holdout_reuse",
+        "input_ref": "synthetic:holdout_reuse",
+        "input_sha256": "b9a97dc1b1e264b781948eff76f2469c5d692f1c9d25f423cd24155c132186b3",
+        "acceptance_criteria": "Check finite synthetic input and receiver contract; no empirical claim."
+      },
+      {
+        "target_id": "target:holdout_reuse_again",
+        "input_ref": "synthetic:holdout_reuse_again",
+        "input_sha256": "afe9972be84cb9ca2d7c499738ee4d5083d9d5593a6cf649ae5bd59b87ae6d08",
+        "acceptance_criteria": "Check finite synthetic input and receiver contract; no empirical claim."
+      },
+      {
+        "target_id": "target:holdout_greedy",
+        "input_ref": "synthetic:holdout_greedy",
+        "input_sha256": "9f40ff07774874af8fc413adcd01b83923af20d9dea73981319c6aab48243caa",
+        "acceptance_criteria": "Check finite synthetic input and receiver contract; no empirical claim."
+      }
+    ],
+    "interventions": [
+      {
+        "intervention_id": "form",
+        "kind": "distillation",
+        "resource_upper_bound": {
+          "cost": 1
+        },
+        "producer_ids": [
+          "producer"
+        ]
+      },
+      {
+        "intervention_id": "transfer",
+        "kind": "verification",
+        "resource_upper_bound": {
+          "cost": 1
+        },
+        "producer_ids": [
+          "producer"
+        ]
+      },
+      {
+        "intervention_id": "reuse",
+        "kind": "independent_proposal",
+        "resource_upper_bound": {
+          "cost": 1
+        },
+        "producer_ids": [
+          "producer"
+        ]
+      },
+      {
+        "intervention_id": "reuse_again",
+        "kind": "independent_proposal",
+        "resource_upper_bound": {
+          "cost": 1
+        },
+        "producer_ids": [
+          "producer"
+        ]
+      },
+      {
+        "intervention_id": "greedy",
+        "kind": "independent_proposal",
+        "resource_upper_bound": {
+          "cost": 1
+        },
+        "producer_ids": [
+          "producer"
+        ]
+      },
+      {
+        "intervention_id": "holdout_form",
+        "kind": "distillation",
+        "resource_upper_bound": {
+          "cost": 1
+        },
+        "producer_ids": [
+          "producer"
+        ]
+      },
+      {
+        "intervention_id": "holdout_transfer",
+        "kind": "verification",
+        "resource_upper_bound": {
+          "cost": 1
+        },
+        "producer_ids": [
+          "producer"
+        ]
+      },
+      {
+        "intervention_id": "holdout_reuse",
+        "kind": "independent_proposal",
+        "resource_upper_bound": {
+          "cost": 1
+        },
+        "producer_ids": [
+          "producer"
+        ]
+      },
+      {
+        "intervention_id": "holdout_reuse_again",
+        "kind": "independent_proposal",
+        "resource_upper_bound": {
+          "cost": 1
+        },
+        "producer_ids": [
+          "producer"
+        ]
+      },
+      {
+        "intervention_id": "holdout_greedy",
+        "kind": "independent_proposal",
+        "resource_upper_bound": {
+          "cost": 1
+        },
+        "producer_ids": [
+          "producer"
+        ]
+      }
+    ],
+    "evaluation": {
+      "holdout_tasks": [
+        "target:holdout_form",
+        "target:holdout_transfer",
+        "target:holdout_reuse",
+        "target:holdout_reuse_again",
+        "target:holdout_greedy"
+      ],
+      "horizon": 5,
+      "alpha": 0.05,
+      "resource_envelope": {
+        "cost": 40
+      },
+      "baseline_intervention": "greedy"
+    }
+  },
+  "growth": {
+    "study_id": "synthetic:delayed",
+    "checkpoint_digest": "b981120ab38c3780ba699d2d7082c36d7879baa0d4998fd0f5f0785c60af7970",
+    "evidence_mode": "synthetic",
+    "targets": {
+      "task": 4,
+      "research": 4
+    },
+    "units": {
+      "task": "registered_service",
+      "research": "registered_service",
+      "costs": {
+        "cost": "effort_unit"
+      }
+    },
+    "horizon_seconds": 30,
+    "max_steps": 8,
+    "candidate_limit": 128,
+    "attribution_seconds": 3600,
+    "window_end": "2099-01-01T00:00:00Z",
+    "receivers": {
+      "source": {
+        "mission_id": "mission:source",
+        "context_sha256": "073171f7f5e1438ae632cb252bda87d19e1bfab1a0ba309e91bdd645886f24ea",
+        "domain": "finite_software",
+        "protocol": "synthetic-service-1",
+        "evaluator": "arithmetic-oracle-1",
+        "quality": "exact",
+        "cross_mission_allowed": true
+      },
+      "receiver": {
+        "mission_id": "mission:receiver",
+        "context_sha256": "10534255a9b1a585bb675f1ff703f9a45c62fa49247e05999feebcae0f5f5d47",
+        "domain": "finite_software",
+        "protocol": "synthetic-service-1",
+        "evaluator": "arithmetic-oracle-1",
+        "quality": "exact",
+        "cross_mission_allowed": true
+      }
+    },
+    "assets": {
+      "2adfab7df1de5108c8c567ba12ef88101c5e26706da3da5612ea4ec01c503a05": {
+        "version": "1",
+        "source_mission": "mission:source",
+        "receivers": [
+          "source",
+          "receiver"
+        ],
+        "parents": [],
+        "external_inputs": [
+          "synthetic:hand-authored-model"
+        ],
+        "expires_at": "2099-01-01T00:00:00Z"
+      }
+    },
+    "actions": {
+      "form": {
+        "kind": "formation",
+        "intervention_id": "form",
+        "target_id": "target:form",
+        "receiver": "source",
+        "requires": [],
+        "produces": "2adfab7df1de5108c8c567ba12ef88101c5e26706da3da5612ea4ec01c503a05",
+        "gains": {
+          "task": 0,
+          "research": 0
+        },
+        "duration_seconds": 2,
+        "cleanup_seconds": 1,
+        "cleanup_cost": {
+          "cost": 1
+        },
+        "capacity": {
+          "worker": 1
+        },
+        "service_measurement": {
+          "review": 0
+        },
+        "verification_work": {
+          "review": 1
+        },
+        "authority": "local_only",
+        "evidence_refs": [
+          "synthetic:finite-model"
+        ]
+      },
+      "transfer": {
+        "kind": "transfer_validation",
+        "intervention_id": "transfer",
+        "target_id": "target:transfer",
+        "receiver": "receiver",
+        "requires": [
+          "2adfab7df1de5108c8c567ba12ef88101c5e26706da3da5612ea4ec01c503a05"
+        ],
+        "produces": null,
+        "gains": {
+          "task": 0,
+          "research": 0
+        },
+        "duration_seconds": 2,
+        "cleanup_seconds": 1,
+        "cleanup_cost": {
+          "cost": 1
+        },
+        "capacity": {
+          "worker": 1
+        },
+        "service_measurement": {
+          "review": 0
+        },
+        "verification_work": {
+          "review": 1
+        },
+        "authority": "local_only",
+        "evidence_refs": [
+          "synthetic:finite-model"
+        ]
+      },
+      "reuse": {
+        "kind": "reuse",
+        "intervention_id": "reuse",
+        "target_id": "target:reuse",
+        "receiver": "receiver",
+        "requires": [
+          "2adfab7df1de5108c8c567ba12ef88101c5e26706da3da5612ea4ec01c503a05"
+        ],
+        "produces": null,
+        "gains": {
+          "task": 2,
+          "research": 2
+        },
+        "duration_seconds": 2,
+        "cleanup_seconds": 1,
+        "cleanup_cost": {
+          "cost": 1
+        },
+        "capacity": {
+          "worker": 1
+        },
+        "service_measurement": {
+          "review": 0
+        },
+        "verification_work": {
+          "review": 1
+        },
+        "authority": "local_only",
+        "evidence_refs": [
+          "synthetic:finite-model"
+        ]
+      },
+      "reuse_again": {
+        "kind": "reuse",
+        "intervention_id": "reuse_again",
+        "target_id": "target:reuse_again",
+        "receiver": "receiver",
+        "requires": [
+          "2adfab7df1de5108c8c567ba12ef88101c5e26706da3da5612ea4ec01c503a05"
+        ],
+        "produces": null,
+        "gains": {
+          "task": 2,
+          "research": 2
+        },
+        "duration_seconds": 2,
+        "cleanup_seconds": 1,
+        "cleanup_cost": {
+          "cost": 1
+        },
+        "capacity": {
+          "worker": 1
+        },
+        "service_measurement": {
+          "review": 0
+        },
+        "verification_work": {
+          "review": 1
+        },
+        "authority": "local_only",
+        "evidence_refs": [
+          "synthetic:finite-model"
+        ]
+      },
+      "greedy": {
+        "kind": "service",
+        "intervention_id": "greedy",
+        "target_id": "target:greedy",
+        "receiver": "source",
+        "requires": [],
+        "produces": null,
+        "gains": {
+          "task": 1,
+          "research": 1
+        },
+        "duration_seconds": 2,
+        "cleanup_seconds": 1,
+        "cleanup_cost": {
+          "cost": 1
+        },
+        "capacity": {
+          "worker": 1
+        },
+        "service_measurement": {
+          "review": 0
+        },
+        "verification_work": {
+          "review": 1
+        },
+        "authority": "local_only",
+        "evidence_refs": [
+          "synthetic:finite-model"
+        ]
+      },
+      "holdout_form": {
+        "kind": "formation",
+        "intervention_id": "holdout_form",
+        "target_id": "target:holdout_form",
+        "receiver": "source",
+        "requires": [],
+        "produces": "2adfab7df1de5108c8c567ba12ef88101c5e26706da3da5612ea4ec01c503a05",
+        "gains": {
+          "task": 0,
+          "research": 0
+        },
+        "duration_seconds": 2,
+        "cleanup_seconds": 1,
+        "cleanup_cost": {
+          "cost": 1
+        },
+        "capacity": {
+          "worker": 1
+        },
+        "service_measurement": {
+          "review": 0
+        },
+        "verification_work": {
+          "review": 1
+        },
+        "authority": "local_only",
+        "evidence_refs": [
+          "synthetic:finite-model"
+        ]
+      },
+      "holdout_transfer": {
+        "kind": "transfer_validation",
+        "intervention_id": "holdout_transfer",
+        "target_id": "target:holdout_transfer",
+        "receiver": "receiver",
+        "requires": [
+          "2adfab7df1de5108c8c567ba12ef88101c5e26706da3da5612ea4ec01c503a05"
+        ],
+        "produces": null,
+        "gains": {
+          "task": 0,
+          "research": 0
+        },
+        "duration_seconds": 2,
+        "cleanup_seconds": 1,
+        "cleanup_cost": {
+          "cost": 1
+        },
+        "capacity": {
+          "worker": 1
+        },
+        "service_measurement": {
+          "review": 0
+        },
+        "verification_work": {
+          "review": 1
+        },
+        "authority": "local_only",
+        "evidence_refs": [
+          "synthetic:finite-model"
+        ]
+      },
+      "holdout_reuse": {
+        "kind": "reuse",
+        "intervention_id": "holdout_reuse",
+        "target_id": "target:holdout_reuse",
+        "receiver": "receiver",
+        "requires": [
+          "2adfab7df1de5108c8c567ba12ef88101c5e26706da3da5612ea4ec01c503a05"
+        ],
+        "produces": null,
+        "gains": {
+          "task": 2,
+          "research": 2
+        },
+        "duration_seconds": 2,
+        "cleanup_seconds": 1,
+        "cleanup_cost": {
+          "cost": 1
+        },
+        "capacity": {
+          "worker": 1
+        },
+        "service_measurement": {
+          "review": 0
+        },
+        "verification_work": {
+          "review": 1
+        },
+        "authority": "local_only",
+        "evidence_refs": [
+          "synthetic:finite-model"
+        ]
+      },
+      "holdout_reuse_again": {
+        "kind": "reuse",
+        "intervention_id": "holdout_reuse_again",
+        "target_id": "target:holdout_reuse_again",
+        "receiver": "receiver",
+        "requires": [
+          "2adfab7df1de5108c8c567ba12ef88101c5e26706da3da5612ea4ec01c503a05"
+        ],
+        "produces": null,
+        "gains": {
+          "task": 2,
+          "research": 2
+        },
+        "duration_seconds": 2,
+        "cleanup_seconds": 1,
+        "cleanup_cost": {
+          "cost": 1
+        },
+        "capacity": {
+          "worker": 1
+        },
+        "service_measurement": {
+          "review": 0
+        },
+        "verification_work": {
+          "review": 1
+        },
+        "authority": "local_only",
+        "evidence_refs": [
+          "synthetic:finite-model"
+        ]
+      },
+      "holdout_greedy": {
+        "kind": "service",
+        "intervention_id": "holdout_greedy",
+        "target_id": "target:holdout_greedy",
+        "receiver": "source",
+        "requires": [],
+        "produces": null,
+        "gains": {
+          "task": 1,
+          "research": 1
+        },
+        "duration_seconds": 2,
+        "cleanup_seconds": 1,
+        "cleanup_cost": {
+          "cost": 1
+        },
+        "capacity": {
+          "worker": 1
+        },
+        "service_measurement": {
+          "review": 0
+        },
+        "verification_work": {
+          "review": 1
+        },
+        "authority": "local_only",
+        "evidence_refs": [
+          "synthetic:finite-model"
+        ]
+      }
+    },
+    "bundles": {
+      "delayed": [
+        "form",
+        "transfer",
+        "reuse",
+        "reuse_again"
+      ],
+      "simple": [
+        "greedy"
+      ],
+      "holdout_delayed": [
+        "holdout_form",
+        "holdout_transfer",
+        "holdout_reuse",
+        "holdout_reuse_again"
+      ],
+      "holdout_simple": [
+        "holdout_greedy"
+      ]
+    },
+    "scenarios": {
+      "finite": {
+        "form": true,
+        "transfer": true,
+        "reuse": true,
+        "reuse_again": true,
+        "greedy": true,
+        "holdout_form": true,
+        "holdout_transfer": true,
+        "holdout_reuse": true,
+        "holdout_reuse_again": true,
+        "holdout_greedy": true
+      }
+    },
+    "verifier_stages": {
+      "review": {
+        "domains": [
+          "finite_software"
+        ],
+        "quality": "exact",
+        "service_units_per_second": 1,
+        "fresh_until": "2099-01-01T00:00:00Z",
+        "independence_groups": [
+          "synthetic-reviewer"
+        ],
+        "exposure_groups": [
+          "shared-fixture"
+        ],
+        "dependence": "shared"
+      }
+    },
+    "quota": {
+      "pool_id": "pool:synthetic:delayed",
+      "pool_budget": {
+        "cost": 100
+      },
+      "pool_capacity": {
+        "worker": 1
+      },
+      "budget": {
+        "cost": 100
+      },
+      "capacity": {
+        "worker": 1
+      },
+      "allocation_ref": "synthetic:dedicated-budget"
+    },
+    "cost_order": [
+      "cost"
+    ],
+    "diagnostic_budget": {
+      "cost": 2
+    },
+    "comparison": {
+      "restricted_bundles": [
+        "delayed",
+        "simple",
+        "holdout_delayed",
+        "holdout_simple"
+      ],
+      "independent_unit": "whole_synthetic_study",
+      "uncertainty_method": "unresolved"
+    }
+  }
+}

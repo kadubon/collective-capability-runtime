@@ -142,11 +142,31 @@ class ControlStore:
 
     @contextmanager
     def edit(self, key: str, *, create: bool = False) -> Iterator[tuple[dict[str, Any], str]]:
-        if create:
+        with self.edit_many([key], create_keys={key} if create else set()) as (objects, current):
+            yield objects[key], current
+
+    @contextmanager
+    def edit_many(
+        self,
+        keys: list[str],
+        *,
+        create_keys: set[str] | None = None,
+        optional_keys: set[str] | None = None,
+    ) -> Iterator[tuple[dict[str, dict[str, Any]], str]]:
+        """Atomically update a bounded set of aggregates in canonical lock order."""
+        create_keys = create_keys or set()
+        optional_keys = optional_keys or set()
+        if not keys or len(keys) > 8 or not (create_keys | optional_keys) <= set(keys):
+            raise ValueError("invalid aggregate transaction keys")
+        keys = sorted(set(keys))
+        if create_keys or optional_keys:
             self.initialize()
         with self.connection(write=True) as connection:
             if self.database_url:
-                self.sql(connection, "SELECT pg_advisory_xact_lock(hashtextextended(?,0))", (key,))
+                for key in keys:
+                    self.sql(
+                        connection, "SELECT pg_advisory_xact_lock(hashtextextended(?,0))", (key,)
+                    )
                 current = connection.execute(
                     "SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC', "
                     '\'YYYY-MM-DD"T"HH24:MI:SS"Z"\')'
@@ -155,31 +175,34 @@ class ControlStore:
                 current = connection.execute(
                     "SELECT strftime('%Y-%m-%dT%H:%M:%SZ','now')"
                 ).fetchone()[0]
-            row = self.sql(
-                connection, "SELECT payload FROM ccr_control WHERE object_key=?", (key,)
-            ).fetchone()
-            if create and row:
-                raise FileExistsError(key)
-            if not create and not row:
-                raise FileNotFoundError(key)
-            data = json.loads(row[0]) if row else {}
-            before = sha256_json(data)
-            yield data, current
-            if sha256_json(data) == before:
-                return
-            payload = json.dumps(data, sort_keys=True, allow_nan=False)
-            self.sql(
-                connection,
-                "INSERT INTO ccr_control(object_key,payload) VALUES (?,?) "
-                "ON CONFLICT(object_key) DO UPDATE SET payload=excluded.payload",
-                (key, payload),
-            )
-            self.sql(
-                connection,
-                "INSERT INTO ccr_control_outbox(event_id,object_key,payload,created_at) "
-                "VALUES (?,?,?,?) ON CONFLICT DO NOTHING",
-                (stable_id("event:control", key, data), key, payload, current),
-            )
+            objects = {}
+            for key in keys:
+                row = self.sql(
+                    connection, "SELECT payload FROM ccr_control WHERE object_key=?", (key,)
+                ).fetchone()
+                if key in create_keys and row:
+                    raise FileExistsError(key)
+                if key not in create_keys | optional_keys and not row:
+                    raise FileNotFoundError(key)
+                objects[key] = json.loads(row[0]) if row else {}
+            before = {key: sha256_json(data) for key, data in objects.items()}
+            yield objects, current
+            for key, data in objects.items():
+                if sha256_json(data) == before[key]:
+                    continue
+                payload = json.dumps(data, sort_keys=True, allow_nan=False)
+                self.sql(
+                    connection,
+                    "INSERT INTO ccr_control(object_key,payload) VALUES (?,?) "
+                    "ON CONFLICT(object_key) DO UPDATE SET payload=excluded.payload",
+                    (key, payload),
+                )
+                self.sql(
+                    connection,
+                    "INSERT INTO ccr_control_outbox(event_id,object_key,payload,created_at) "
+                    "VALUES (?,?,?,?) ON CONFLICT DO NOTHING",
+                    (stable_id("event:control", key, data), key, payload, current),
+                )
 
 
 def control_for_store(store: Any, root: Path) -> ControlStore:

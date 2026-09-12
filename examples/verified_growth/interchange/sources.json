@@ -1,0 +1,23 @@
+{
+  "cait": {
+    "repository": "cait-certificate-schema",
+    "commit": "8ef4bc1ea272751804655a6e056467837ff35670",
+    "path": "schemas/cait/window_balance_certificate.schema.json",
+    "sha256": "98db9c0df0fabc8b31c58cbbf9b9179c01407dded5f40942a3b7ad18e41a072b",
+    "schema_id": "https://cait-schema.local/schemas/cait/window_balance_certificate.schema.json"
+  },
+  "vek": {
+    "repository": "verification-ecology-kit",
+    "commit": "718a481db6752cb5a86417e46fb5234a7257cfec",
+    "path": "src/verification_ecology_kit/schemas/verifier-packet.schema.json",
+    "sha256": "b0eb83f1d4e4171c4c8b55e8177be19378ebf4e11e81685c76791218f21a8cb6",
+    "schema_id": "https://vet.example/schema/verifier-packet.schema.json"
+  },
+  "alt": {
+    "repository": "alt-foundry-kernel",
+    "commit": "b5170dbee93b9183f86570c9b2fa325be9cded51",
+    "path": "schemas/token.schema.json",
+    "sha256": "9cb346f650719b211806f28c9c26b12f89d56bc600eca6316942982214507ea1",
+    "schema_id": "urn:alt-foundry-kernel:schema:token:0.4.0"
+  }
+}

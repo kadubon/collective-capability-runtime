@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vet.example/schema/residual-record.schema.json",
+  "type": "object",
+  "properties": {
+    "residual_id": { "type": "string" },
+    "kind": { "type": "string" },
+    "origin": { "type": "string" },
+    "scope": { "type": "array", "items": { "type": "string" } },
+    "obligation": { "type": "string" },
+    "payload": { "type": "object" },
+    "exposure": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["active", "quarantined", "merged", "retired", "redacted"]
+    },
+    "route": {
+      "type": ["object", "null"],
+      "properties": {
+        "owner": { "type": "string" },
+        "deadline": { "type": "string" },
+        "resource_quota": { "type": "array", "items": { "type": "string" } },
+        "recheck_trigger": { "type": "string" },
+        "route_type": {
+          "type": "string",
+          "enum": [
+            "question_formation",
+            "counterexample_search",
+            "boundary_revision",
+            "translation",
+            "packet_repair",
+            "packet_retirement",
+            "counter_packet_generation",
+            "schema_revision",
+            "redaction_review",
+            "migration_review",
+            "explicit_preserved_unknown",
+            "quarantine"
+          ]
+        },
+        "authority_effect": { "type": "string" },
+        "active_follow_through": { "type": "boolean" },
+        "preservation_reason": { "type": "string" }
+      },
+      "required": [
+        "owner",
+        "deadline",
+        "resource_quota",
+        "recheck_trigger",
+        "route_type",
+        "authority_effect",
+        "active_follow_through",
+        "preservation_reason"
+      ],
+      "additionalProperties": false
+    },
+    "update_links": { "type": "array", "items": { "type": "string" } },
+    "provenance": { "type": "array", "items": { "type": "string" } }
+  },
+  "required": [
+    "residual_id",
+    "kind",
+    "origin",
+    "scope",
+    "obligation",
+    "payload",
+    "exposure",
+    "status",
+    "route",
+    "update_links",
+    "provenance"
+  ],
+  "additionalProperties": true
+}

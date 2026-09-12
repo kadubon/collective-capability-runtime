@@ -1,0 +1,38 @@
+{
+  "packet_id": "verifier:synthetic",
+  "origin": null,
+  "scope": null,
+  "transformation_class": null,
+  "verifier_procedure": null,
+  "certification_condition": null,
+  "boundary_refs": null,
+  "residual_hooks": null,
+  "update_profile": null,
+  "circulation_status": null,
+  "question_form": {},
+  "extension": {},
+  "residual_obligations": [],
+  "counter_packet_refs": [],
+  "anti_overclosure": {
+    "unknowns_to_preserve": [],
+    "future_candidates_may_narrow": false,
+    "question_forms_may_suppress": false,
+    "schema_overclosure_residuals": [],
+    "lineage_laundering_checks": []
+  },
+  "ecological_invariants": {
+    "preserve_origin": false,
+    "preserve_scope": false,
+    "preserve_residuals": false,
+    "preserve_boundaries": false,
+    "preserve_counter_packet_route": false,
+    "preserve_aperture": false
+  },
+  "residual_liveness": {
+    "owner": "unknown",
+    "deadline": "unknown",
+    "resource_quota": [],
+    "recheck_trigger": "unknown",
+    "preserved_unknown_route": "unknown"
+  }
+}
