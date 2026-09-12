@@ -73,30 +73,55 @@ unstarted work. No production provider is contacted.
 
 ## Publication receipts
 
-This source record precedes publication. As inspected on 2026-09-12:
+Post-publication verification was completed on 2026-09-13 (Asia/Tokyo).
+This section and the [machine-readable receipt](verified-growth-release-1.8.0.json)
+are follow-up documentation, not part of the original tagged build.
 
 | Operation | Inspected status / evidence |
 |---|---|
-| Implementation and local qualification | Complete within the finite scope above; runtime commit `b7982bf`, packaging `43db252`, disposable credential remediation `72b7bda` |
-| Feature push / PR | [PR #5](https://github.com/kadubon/collective-capability-runtime/pull/5), branch `codex/ccr-verified-growth-1.8.0` |
-| CI | Pending fresh qualification; obsolete and stalled runs were cancelled after more than 35 minutes before job execution |
-| Security review | Owner-authorized review classified incident `37045954` as `Ignored — Test credential`: a disposable CI PostgreSQL credential, not a production credential; release source uses a per-run value since `72b7bda`. Scanning remains enabled; the fresh PR check must confirm the result |
-| Merge | Not performed; no security-check waiver or history rewrite |
-| Repository documentation | Updated in this branch |
-| Existing Wiki | Pushed and remote-verified at `a2bd5b90676f22e0296cc6e899db95ee43c0e4dd`; [Verified Growth](https://github.com/kadubon/collective-capability-runtime/wiki/Verified-Growth) explicitly marks publication pending |
-| Version tag / GitHub Release / release assets | Not performed |
-| Trusted Publishing / PyPI | Not performed |
-| Fresh public-index verification | Not performed; the passing outside-checkout smoke used a local wheel and is not public-index evidence |
+| Implementation / push | Complete: [PR #5](https://github.com/kadubon/collective-capability-runtime/pull/5), branch `codex/ccr-verified-growth-1.8.0` |
+| CI | Passed: [PR CI](https://github.com/kadubon/collective-capability-runtime/actions/runs/34696411458), [merged-main CI](https://github.com/kadubon/collective-capability-runtime/actions/runs/34724947584); Python 3.10–3.14, three operating systems, PIC and PostgreSQL checks |
+| Security review | Passed: GitGuardian returned `No secrets detected` after owner-authorized individual classification of incident `37045954` as a disposable test credential; no global detector or check was disabled |
+| Merge | `1591e88e3b05f9b5fb06b2d0c749aad8bc0909be`, using normal merge without administrator override; tree `c472b3f18d2b98957ce9344798c5b0c375995ebc` exactly matches the tested PR tree |
+| Documentation / Wiki | Canonical guides and agent instructions merged; [existing Wiki](https://github.com/kadubon/collective-capability-runtime/wiki/Verified-Growth) updated through its separate repository |
+| Tag / GitHub Release | [v1.8.0](https://github.com/kadubon/collective-capability-runtime/releases/tag/v1.8.0), remote tag resolves to the merge commit above |
+| Build / artifact attachment | Passed in [Publish run 34724978585, attempt 1](https://github.com/kadubon/collective-capability-runtime/actions/runs/34724978585); the single built wheel/sdist and SHA256SUMS are attached to the Release |
+| Trusted Publishing / PyPI | Passed using the existing workflow and `pypi` environment; [public PyPI 1.8.0](https://pypi.org/project/collective-capability-runtime/1.8.0/) |
+| Public-index verification | Passed: fresh Windows/Python 3.13.5 environment outside checkout; base, optimizer and distributed stages installed with cache disabled from the public index, with pip installation reports |
+| Provenance | Both distribution attestations passed `pypi-attestations verify pypi --repository https://github.com/kadubon/collective-capability-runtime`; certificate bindings match repository, workflow, tag, source commit, publication run/attempt and `pypi` environment |
 
-The individual GitGuardian review is complete; no global detector or check was
-disabled. CI, including disposable PostgreSQL, must pass on the relevant
-head before merge. M4's publication work remains incomplete behind these gates.
-Public distribution hashes do not exist for this work yet. Future inspected
-run/commit and hash receipts belong in a follow-up documentation commit without
-changing tagged distributions or pretending that post-publication evidence
-was part of their original build.
+The PR and release-build full suites each passed 270 tests with one
+non-applicable PostgreSQL-DSN test skipped; the separate PostgreSQL worker job
+passed. The release safety-critical statement gate passed at 91.01%. These
+results supplement, rather than replace, the separately scoped local statement
+and branch figures above. Stalled obsolete CI runs were cancelled and are not
+counted as successful qualification.
 
-No external empirical collective-intelligence acceleration experiment was
-performed. Deterministic software scenarios cannot establish causal endogenous
-capability reproduction, AGI/ASI, indefinite growth, or correctness outside
-the declared evidence and model boundaries.
+The clean environment had sanitized index/PYTHONPATH settings and
+`PIP_CONFIG_FILE` set to the platform null device. Its initial installation was:
+
+```sh
+python -m pip install --index-url https://pypi.org/simple --no-cache-dir --no-input --report base-install.json collective-capability-runtime==1.8.0
+```
+
+The optimizer and distributed extras were then installed in separate stages
+using the same public-index/cache-disabled flags. Every stage passed version,
+module-origin and `pip check` validation. Base `agent explain`, isolated
+storage/mission smoke, distributed imports, and the complete packaged legacy
+and growth offline examples passed. The examples reported no provider network
+calls. Installed PostgreSQL execution was not claimed; disposable PostgreSQL
+correctness is supported by CI and release-build integration evidence.
+
+| Distribution | SHA-256 |
+|---|---|
+| `collective_capability_runtime-1.8.0-py3-none-any.whl` | `97b2f3dc1f675c78246c362d211b71452b721b001e25dd2711263f34874f8b25` |
+| `collective_capability_runtime-1.8.0.tar.gz` | `9b752077917b608295d159f5a24fc5f729aaebf5b4beffdd55781648da4d8ae2` |
+
+Downloaded bytes agree with public PyPI metadata, the pip wheel installation
+report, GitHub Release assets and the build's SHA256SUMS. Both Sigstore
+attestations authenticate these hashes. One initial concurrent verifier call
+hit a local TUF-cache race; the sequential sdist verification succeeded. This
+was a verification-tool retry, not a rebuild or publication retry. The tagged
+source and published distributions remain unchanged.
+
+No external empirical collective-intelligence acceleration experiment was performed for this release. The implementation supports evidence-bound coordination, bounded planning, qualified reuse, and reproducible software-level testing. It does not establish causal endogenous capability reproduction, AGI/ASI, indefinite growth, or correctness outside the declared evidence and model boundaries.

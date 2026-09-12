@@ -1,0 +1,57 @@
+{
+  "release_version": "1.8.0",
+  "source_commit": "1591e88e3b05f9b5fb06b2d0c749aad8bc0909be",
+  "source_tree": "c472b3f18d2b98957ce9344798c5b0c375995ebc",
+  "tag": "v1.8.0",
+  "implementation_pr": 5,
+  "ci_run": 34696411458,
+  "merged_main_ci_run": 34724947584,
+  "publication_run": 34724978585,
+  "publication_attempt": 1,
+  "publication_jobs": {
+    "build": "success",
+    "publish": "success",
+    "release_assets": "success"
+  },
+  "hashes": {
+    "collective_capability_runtime-1.8.0-py3-none-any.whl": "97b2f3dc1f675c78246c362d211b71452b721b001e25dd2711263f34874f8b25",
+    "collective_capability_runtime-1.8.0.tar.gz": "9b752077917b608295d159f5a24fc5f729aaebf5b4beffdd55781648da4d8ae2"
+  },
+  "public_install": {
+    "index": "https://pypi.org/simple",
+    "version": "1.8.0",
+    "cache_disabled": true,
+    "outside_checkout": true,
+    "python": "Python 3.13.5",
+    "base": "passed",
+    "optimizer": "passed",
+    "distributed": "passed",
+    "module_origins": "fresh_virtual_environment",
+    "pip_check": "passed_at_each_stage",
+    "legacy_and_growth_offline": "passed",
+    "installed_postgresql_execution": false,
+    "postgresql_evidence": "disposable PostgreSQL in CI and release build"
+  },
+  "attestations": [
+    {
+      "filename": "collective_capability_runtime-1.8.0-py3-none-any.whl",
+      "repository_verified": true,
+      "tag_verified": true,
+      "commit_verified": true,
+      "workflow_run_attempt_verified": true,
+      "pypi_environment_verified": true,
+      "signature_verified_with": "pypi-attestations verify pypi --repository https://github.com/kadubon/collective-capability-runtime"
+    },
+    {
+      "filename": "collective_capability_runtime-1.8.0.tar.gz",
+      "repository_verified": true,
+      "tag_verified": true,
+      "commit_verified": true,
+      "workflow_run_attempt_verified": true,
+      "pypi_environment_verified": true,
+      "signature_verified_with": "pypi-attestations verify pypi --repository https://github.com/kadubon/collective-capability-runtime"
+    }
+  ],
+  "external_empirical_acceleration_experiment": false,
+  "post_publication_documentation": true
+}
