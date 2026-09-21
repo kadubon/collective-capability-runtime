@@ -726,6 +726,7 @@ def test_native_clock_exact_rounding_and_bounds() -> None:
     for fault in (
         {**clock, "tick_origin": "-1"},
         {**clock, "seconds_per_tick": "0"},
+        {**clock, "utc_origin": "2090-01-01T00:00:00.0000001Z"},
         {**clock, "unexpected": "field"},
     ):
         with pytest.raises(ValueError):

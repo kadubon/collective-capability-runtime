@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import timedelta
 from fractions import Fraction
 from typing import Any
@@ -14,6 +15,11 @@ from ccr.optimizer.native_wire import rational
 
 def validate(clock: dict[str, Any]) -> None:
     closed(clock, "utc_origin tick_origin seconds_per_tick")
+    if not re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})",
+        clock["utc_origin"],
+    ):
+        raise ValueError("native UTC clock origin exceeds supported microsecond precision")
     timestamp(clock["utc_origin"])
     if rational(clock["tick_origin"]) < 0 or rational(clock["seconds_per_tick"]) <= 0:
         raise ValueError("invalid native clock origin or rate")
