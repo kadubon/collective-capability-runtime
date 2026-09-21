@@ -70,6 +70,14 @@ branches (72.19%). It does **not** meet the requested 95% statement / 90% branch
 thresholds. The combined coverage display was 81%; this is not a statement-coverage result.
 Coverage is an open gate, not an exception or waiver.
 
+The unchanged repository safety-critical CI gate also failed at **74.35%** on
+development commit `4432e9a`, in
+[CI run 35600109406](https://github.com/kadubon/collective-capability-runtime/actions/runs/35600109406).
+That test selection does not yet include the new native suite/dependency setup.
+The gate remains at 90%. Python/platform/PIC and the existing PostgreSQL smoke
+jobs passed in that run; the PostgreSQL job does not exercise native admission.
+Later source changes require fresh CI evidence and do not erase this failure.
+
 The full base rerun passed **287 tests with 15 skips**. An earlier release-audit
 failure was caused by the disposable native environment being inside the
 checkout; moving that environment outside the checkout corrected the issue
