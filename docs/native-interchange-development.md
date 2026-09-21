@@ -1,8 +1,15 @@
-# Native interchange development status
+# Native interchange development history
 
-This branch is an **unfinished Phase 2 implementation**, not CCR 1.9.0 and not
-a qualified release candidate. Package version remains 1.8.0. Do not merge or
-publish this branch as completion of the Phase 2 specification.
+The current source is the 1.9.0 review candidate. Mandatory source clocks,
+historical result validity and CPCF task/capability/verifier scope are implemented
+and covered by the 85-test pinned native selection. The supported finite subset,
+rejection boundaries and outstanding publication gates are recorded in
+[Native interchange validation](native-interchange-validation.md).
+
+The sections below preserve earlier development evidence and the work list at
+that time. Their counts, version statements and open implementation items are
+historical; the validation record governs current status. They are not a release
+or public-install verification record.
 
 ## Implemented and exercised
 

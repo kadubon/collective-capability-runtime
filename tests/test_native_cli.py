@@ -119,6 +119,7 @@ def test_native_integrated_example_has_independent_finite_accounting_oracle(
     assert report["first_cycle"]["actual_costs"] == {"cost": 16}
     assert report["first_cycle"]["asset_count"] == 1
     assert report["first_cycle"]["observed_service"] == {"task": 4, "research": 4}
+    assert report["clock_mode"] == "explicit_finite_simulation"
     assert report["second_cycle_next_action"] == "review"
     assert report["feedback"]["reward_added"] == report["feedback"]["asset_stock_added"] == 0
     assert report["after_reconciliation"]["actual_costs"] == {"cost": 16}

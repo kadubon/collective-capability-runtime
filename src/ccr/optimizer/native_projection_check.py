@@ -7,6 +7,7 @@ from fractions import Fraction
 from typing import Any
 
 from ccr.ids import sha256_json
+from ccr.optimizer import native_clock
 from ccr.optimizer.growth_model import closed, digest, integer, text
 from ccr.optimizer.native_checks import PACKAGES
 from ccr.optimizer.native_checks import check as native_check
@@ -20,7 +21,8 @@ def registration_check(run: dict[str, Any], registration: dict[str, Any]) -> Non
     closed(
         registration,
         "schema_version run_id config_digest study_id arm pool_id bindings units"
-        + (" pools" if "pools" in registration else ""),
+        + (" pools" if "pools" in registration else "")
+        + (" clocks" if "clocks" in registration else ""),
     )
     g = run["config"]["growth"]
     if (
@@ -34,6 +36,17 @@ def registration_check(run: dict[str, Any], registration: dict[str, Any]) -> Non
     ):
         raise ValueError("native registration scope mismatch")
     bindings = registration["bindings"]
+    for contract, clock in registration.get("clocks", {}).items():
+        if contract not in {
+            b["contract_sha256"] for b in bindings.values() if b["producer"] != "cait"
+        }:
+            raise ValueError("native clock has no registered source contract")
+        native_clock.validate(clock)
+    if any(
+        b["producer"] != "cait" and b["contract_sha256"] not in registration.get("clocks", {})
+        for b in bindings.values()
+    ):
+        raise ValueError("actionable native source requires a registered UTC clock")
     identities = [
         (b["producer"], b["contract_sha256"], b["source_action"]) for b in bindings.values()
     ]
@@ -43,10 +56,25 @@ def registration_check(run: dict[str, Any], registration: dict[str, Any]) -> Non
         closed(
             binding,
             "producer contract_sha256 source_action action_sha256 valid_from valid_until"
-            + (" observations" if "observations" in binding else ""),
+            + (" observations" if "observations" in binding else "")
+            + (" scope" if "scope" in binding else ""),
         )
         if name not in g["actions"] or binding["producer"] not in PACKAGES:
             raise ValueError("unregistered action or producer")
+        if binding["producer"] == "cpcf":
+            scope = binding.get("scope", {})
+            target = next(
+                t
+                for t in run["config"]["task_manifest"]
+                if t["target_id"] == g["actions"][name]["target_id"]
+            )
+            if (
+                scope.get("target_sha256") != sha256_json(target)
+                or scope.get("host_verifier") not in run["config"]["trusted_verifiers"]
+            ):
+                raise ValueError("CPCF task/check scope is not registered")
+        elif "scope" in binding:
+            raise ValueError("CPCF scope on another producer")
         digest(binding["contract_sha256"])
         text(binding["source_action"])
         if "observations" in binding:
@@ -189,6 +217,13 @@ def check(run: dict[str, Any], raw: bytes, projection: dict[str, Any]) -> dict[s
             if action["kind"] != kinds[row["kind"]]:
                 raise ValueError("ALT task kind mismatch")
             candidates = {q["offer"]["candidate"] for q in c["qualifications"]}
+            if any(
+                q["candidate"]["dependencies"]
+                or q["candidate"]["unresolved"]
+                or q["offer"]["dependencies"]
+                for q in c["qualifications"]
+            ):
+                raise ValueError("ALT dependency lifecycle has no supported host mapping")
             if row["kind"] == "formation" and action["produces"] not in candidates:
                 raise ValueError("ALT candidate identity mismatch")
             if row["kind"] in {"transfer", "reuse"} and not set(action["requires"]) & candidates:
@@ -225,6 +260,8 @@ def check(run: dict[str, Any], raw: bytes, projection: dict[str, Any]) -> dict[s
                     or offer["protocol"] != receiver["protocol"]
                     or offer["evaluator"] != receiver["evaluator"]
                     or offer["task_family"] != receiver["domain"]
+                    or offer["quality"] != receiver["quality"]
+                    or offer["candidate"] not in action["requires"]
                     or target["input_sha256"] not in offer["inputs"]
                 ):
                     raise ValueError("ALT receiver/input/evaluator substitution")
@@ -297,6 +334,59 @@ def check(run: dict[str, Any], raw: bytes, projection: dict[str, Any]) -> dict[s
                 for a in c["action_catalogue"]
                 if objects[a["action_digest"]]["spec"]["action_id"] == original
             )
+            scope = registration["bindings"][name]["scope"]
+            native_action = objects[row["action_digest"]]["spec"]
+            capability = objects[native_action["capability_digest"]]["spec"]
+            if (
+                scope["native_action_digest"] != row["action_digest"]
+                or scope["native_capability_digest"] != native_action["capability_digest"]
+                or scope["native_verifier"] != capability["verifier_principal_id"]
+            ):
+                raise ValueError("CPCF task/check scope substitution")
+            if (
+                any(
+                    native_action[k]
+                    for k in (
+                        "required_object_digests",
+                        "protected_object_digests",
+                        "prohibited_hazards",
+                    )
+                )
+                or row["required_assumptions"]
+                or row["minimum_capacities"]
+                or c["blocking_obligation_ids"]
+            ):
+                raise ValueError("unsupported CPCF host precondition")
+            if any(
+                branch[k]
+                for branch in capability["branches"]
+                for k in (
+                    "debt",
+                    "hazards_added",
+                    "hazards_removed",
+                    "must_add",
+                    "must_remove",
+                    "may_add",
+                    "may_remove",
+                    "guaranteed_evidence_routes",
+                    "resolves_blockers",
+                    "rollback_obligations",
+                )
+            ):
+                raise ValueError("unsupported CPCF host effect or obligation")
+            if any(
+                c["initial_state"][k]
+                for k in (
+                    "actual_evidence_digests",
+                    "evidence",
+                    "assumptions",
+                    "hazards",
+                    "obligations",
+                    "pending_results",
+                    "completed",
+                )
+            ):
+                raise ValueError("CPCF inherited state has no signed CCR history mapping")
             for successor in row["successors"]:
                 duration = max(duration, rational(successor["duration"]))
                 branch: dict[str, Fraction] = {}
@@ -333,6 +423,13 @@ def check(run: dict[str, Any], raw: bytes, projection: dict[str, Any]) -> dict[s
             "obligations": obligations,
             "prerequisites": prerequisites,
         }
+        clock = registration["clocks"][source["document_sha256"]["contract"]]
+        interval = native_clock.window(producer, d, original, clock)
+        if not native_clock.applicable(
+            interval, interval["start"], action["duration_seconds"], action["cleanup_seconds"]
+        ):
+            raise ValueError("native clock interval cannot fund execution and cleanup")
+        envelopes[name]["clock_window"] = interval
     return {
         "ok": True,
         "observation_sha256": (

@@ -1,6 +1,6 @@
 [project]
 name = "collective-capability-runtime"
-version = "1.8.0"
+version = "1.9.0"
 description = "Residual-preserving runtime for verifiable multi-agent coordination."
 readme = "README.md"
 requires-python = ">=3.10"

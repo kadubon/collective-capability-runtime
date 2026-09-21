@@ -26,7 +26,9 @@ from tests.test_growth import config, start
 from tests.test_native_interchange import native, setup_run
 
 
-def registered(tmp_path: Path, producer: str) -> tuple[dict[str, Any], bytes, dict[str, Any]]:
+def registered(
+    tmp_path: Path, producer: str, *, clocked: bool = False
+) -> tuple[dict[str, Any], bytes, dict[str, Any]]:
     if producer == "cpcf":
         _, store, run_id, source, registration = setup_run(tmp_path)
         return engine.load(store, run_id), source, registration
@@ -59,6 +61,14 @@ def registered(tmp_path: Path, producer: str) -> tuple[dict[str, Any], bytes, di
             "reviewer": 1
         }
         units = {"check-work": {"target": "cost", "rate": "1", "rounding": "exact"}}
+    if producer == "alt":
+        from ccr.optimizer.native_example import serial_alt_source
+
+        source = serial_alt_source(source)
+    for name in names.values():
+        raw["growth"]["actions"][name].update(
+            duration_seconds=1 if producer == "alt" else 2, cleanup_seconds=1
+        )
     store, run_id = start(tmp_path, raw)
     run = engine.load(store, run_id)
     inspected = native_checks.check(source)
@@ -82,6 +92,13 @@ def registered(tmp_path: Path, producer: str) -> tuple[dict[str, Any], bytes, di
             }
             for original, name in names.items()
         },
+    }
+    registration["clocks"] = {
+        inspected["document_sha256"]["contract"]: {
+            "utc_origin": "2090-01-01T00:00:00Z" if clocked else store.now(),
+            "tick_origin": "3" if producer == "alt" else "0",
+            "seconds_per_tick": "1" if producer == "alt" else "2",
+        }
     }
     native_runtime.register(store, run_id, registration, expected_revision=0)
     return engine.load(store, run_id), source, registration
@@ -117,6 +134,8 @@ def test_independent_checker_rejects_selected_native_boundary_faults(
         mutation(("contract", "options", first, "end"), 1000)
         mutation(("contract", "qualifications", 0, "offer", "mission"), "substituted")
         mutation(("contract", "qualifications", 0, "offer", "context"), {"other": True})
+        mutation(("contract", "qualifications", 0, "offer", "quality"), "substituted")
+        mutation(("contract", "qualifications", 0, "candidate", "dependencies"), ["unmapped"])
         cost_id = options[first]["costs"][0]
         cost_index = next(
             i for i, c in enumerate(documents["contract"]["costs"]) if c["id"] == cost_id
@@ -155,6 +174,17 @@ def test_independent_checker_rejects_selected_native_boundary_faults(
             for i, a in enumerate(documents["contract"]["spec"]["action_catalogue"])
             if documents["objects"][a["action_digest"]]["spec"]["action_id"] == "prepare"
         )
+        action_digest = documents["contract"]["spec"]["action_catalogue"][row]["action_digest"]
+        capability_digest = documents["objects"][action_digest]["spec"]["capability_digest"]
+        mutation(
+            ("objects", capability_digest, "spec", "verifier_principal_id"), "substituted-verifier"
+        )
+        mutation(("objects", action_digest, "spec", "required_object_digests"), ["unmapped"])
+        mutation(
+            ("objects", capability_digest, "spec", "branches", 0, "rollback_obligations"),
+            ["unmapped"],
+        )
+        mutation(("contract", "spec", "initial_state", "evidence"), {"unmapped": "1"})
         mutation(
             ("contract", "spec", "action_catalogue", row, "successors", 0, "reservations"),
             [{"unmapped": "pool"}],
@@ -166,3 +196,25 @@ def test_independent_checker_rejects_selected_native_boundary_faults(
         with pytest.raises(ValueError):
             native_projection_check.check(run, raw, projected)
     assert original == native_checks.check(raw)
+
+
+@native
+@pytest.mark.parametrize("producer", ["alt", "vek"])
+def test_exact_clock_projection_fits_native_endpoints(tmp_path: Path, producer: str) -> None:
+    from ccr.optimizer import native_clock
+    from ccr.optimizer.model import timestamp
+
+    run, source, registration = registered(tmp_path, producer, clocked=True)
+    checked = native_projection_check.check(
+        run, source, native_projection.project(source, registration)
+    )
+    for name, envelope in checked["envelopes"].items():
+        interval = envelope["clock_window"]
+        action = run["config"]["growth"]["actions"][name]
+        assert (
+            timestamp(interval["execution_end"]) - timestamp(interval["start"])
+        ).total_seconds() == action["duration_seconds"]
+        assert native_clock.applicable(interval, interval["start"], action["duration_seconds"], 1)
+        assert not native_clock.applicable(
+            interval, interval["start"], action["duration_seconds"] + 1
+        )

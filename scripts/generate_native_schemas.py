@@ -72,6 +72,16 @@ def main() -> None:
             "action_sha256": digest,
             "valid_from": timestamp,
             "valid_until": timestamp,
+            "scope": record(
+                {
+                    "native_action_digest": text,
+                    "native_capability_digest": text,
+                    "native_verifier": text,
+                    "host_verifier": text,
+                    "target_sha256": digest,
+                    "effects": {"const": "model_only"},
+                }
+            ),
             "observations": {
                 "type": "object",
                 "additionalProperties": False,
@@ -90,7 +100,7 @@ def main() -> None:
                 },
             },
         },
-        ("observations",),
+        ("observations", "scope"),
     )
     registration = record(
         {
@@ -102,6 +112,9 @@ def main() -> None:
             "pool_id": text,
             "bindings": mapping(binding, 64, 1),
             "pools": mapping(text, 32),
+            "clocks": mapping(
+                record({"utc_origin": timestamp, "tick_origin": text, "seconds_per_tick": text}), 64
+            ),
             "units": mapping(
                 record(
                     {
@@ -117,7 +130,7 @@ def main() -> None:
                 32,
             ),
         },
-        ("pools",),
+        ("pools", "clocks"),
     )
     # Foreign checker result content is independently validated by the pinned
     # producer, then compared exactly during CCR checking. No fields are authority.

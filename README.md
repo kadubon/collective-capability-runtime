@@ -33,6 +33,8 @@ Native companion admission and feedback are being qualified in the additive
 Phase 2 development branch. See [Native interchange](docs/native-interchange.md)
 for its actual CLI, pinned contracts, synthetic example and remaining gates.
 This is not a CCR 1.9.0 release announcement.
+The source candidate declares 1.9.0; its exact supported profile and publication
+status are recorded in [Native validation](docs/native-interchange-validation.md).
 
 This repository includes an Agent Skills-compatible workflow at
 [`.agents/skills/collective-capability-runtime/SKILL.md`](.agents/skills/collective-capability-runtime/SKILL.md).

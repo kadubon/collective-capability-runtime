@@ -149,10 +149,19 @@ def setup_run(
     continuation: bool = False,
     database_url: str = "",
     valid_until: str | None = None,
+    clock: dict[str, Any] | None = None,
+    duration: int | None = None,
+    extra_verifier: bool = False,
 ) -> tuple[Any, Any, str, bytes, dict[str, Any]]:
     from tests.test_growth import config, start
 
     key, raw = config()
+    if extra_verifier:
+        raw["base"]["trusted_verifiers"]["other-reviewer"] = raw["base"]["trusted_verifiers"][
+            "reviewer"
+        ]
+    if duration is not None:
+        raw["growth"]["actions"]["form"]["duration_seconds"] = duration
     raw["base"]["interventions"][0]["resource_upper_bound"]["cost"] = 5
     if continuation:
         next(a for a in raw["base"]["interventions"] if a["intervention_id"] == "reuse")[
@@ -195,6 +204,16 @@ def setup_run(
             "action_sha256": sha256_json(raw["growth"]["actions"]["reuse"]),
             "observations": {"success": "recorded"},
         }
+    registration["clocks"] = {
+        inspected["document_sha256"]["contract"]: clock
+        or {"utc_origin": store.now(), "tick_origin": "0", "seconds_per_tick": "1"}
+    }
+    from ccr.optimizer.native_example import cpcf_scope
+
+    for name, binding in registration["bindings"].items():
+        binding["scope"] = cpcf_scope(
+            run, inspected["documents"], binding["source_action"], name, "reviewer"
+        )
     native_runtime.register(store, run_id, registration, expected_revision=0)
     return key, store, run_id, source, registration
 
@@ -256,8 +275,13 @@ def test_native_same_revision_sqlite_staging(tmp_path: Path) -> None:
 
 
 @native
-def test_cpcf_replans_only_from_registered_signed_observations(tmp_path: Path) -> None:
+def test_cpcf_replans_only_from_registered_signed_observations(
+    tmp_path: Path, native_test_clock: Any
+) -> None:
+    from datetime import timedelta
+
     from ccr.optimizer import native_replan
+    from ccr.optimizer.model import timestamp
     from tests.test_growth import finish
 
     key, store, run_id, raw, registration = setup_run(tmp_path, continuation=True)
@@ -292,6 +316,7 @@ def test_cpcf_replans_only_from_registered_signed_observations(tmp_path: Path) -
     assert plan["policy"]["action_id"] == "reuse"
     assert engine.plan(store, run_id)["chosen"]["immediate_step"] == "transfer"
     finish(store, run_id, key)
+    native_test_clock["now"] = (timestamp(store.now()) + timedelta(seconds=1)).isoformat()
     assert engine.plan(store, run_id)["chosen"]["immediate_step"] != "reuse"
     admit(replanned, "observed")
     assert engine.plan(store, run_id)["chosen"]["immediate_step"] == "reuse"
@@ -397,12 +422,18 @@ def test_cait_signed_roundtrip_reconciles_and_opens_funded_review(tmp_path: Path
 
 
 @native
-def test_alt_native_receiver_admission_runs_existing_lifecycle(tmp_path: Path) -> None:
+def test_alt_native_receiver_admission_runs_existing_lifecycle(
+    tmp_path: Path, native_test_clock: Any
+) -> None:
+    from datetime import timedelta
+
     from ccr.optimizer.growth_example import observation
+    from ccr.optimizer.model import timestamp
+    from ccr.optimizer.native_example import serial_alt_source
     from tests.test_growth import config, start
 
     key, raw = config()
-    native_raw = (FIXTURES / "alt.json").read_bytes()
+    native_raw = serial_alt_source((FIXTURES / "alt.json").read_bytes())
     inspected = native_checks.inspect(native_raw)
     c = inspected["documents"]["contract"]
     selected = inspected["documents"]["plan"]["selected"]
@@ -453,6 +484,7 @@ def test_alt_native_receiver_admission_runs_existing_lifecycle(tmp_path: Path) -
             for scenario in g["scenarios"].values():
                 scenario[name] = True
         action = g["actions"][name]
+        action["duration_seconds"] = 1
         action["receiver"] = "B" if name in {"transfer", "reuse_again", "fourth"} else "A"
         if option["offer"]:
             offer = next(q["offer"] for q in c["qualifications"] if q["id"] == option["offer"])
@@ -479,6 +511,13 @@ def test_alt_native_receiver_admission_runs_existing_lifecycle(tmp_path: Path) -
         "pool_id": g["quota"]["pool_id"],
         "units": {"resource": {"target": "cost", "rate": "1", "rounding": "exact"}},
         "pools": {"verifier": "worker"},
+        "clocks": {
+            inspected["document_sha256"]["contract"]: {
+                "utc_origin": store.now(),
+                "tick_origin": "3",
+                "seconds_per_tick": "1",
+            }
+        },
         "bindings": {
             names[s]: {
                 "producer": "alt",
@@ -503,6 +542,7 @@ def test_alt_native_receiver_admission_runs_existing_lifecycle(tmp_path: Path) -
         trial = engine.step(store, run_id, apply=True)["trial"]
         engine.claim(store, run_id, trial["trial_id"], worker="producer")
         engine.ingest(store, run_id, observation(store, run_id, trial["trial_id"], key))
+        native_test_clock["now"] = (timestamp(store.now()) + timedelta(seconds=2)).isoformat()
         if expected == "form":
             assert (
                 candidate + ":B"
@@ -519,11 +559,13 @@ def test_alt_native_receiver_admission_runs_existing_lifecycle(tmp_path: Path) -
 @pytest.mark.parametrize("status", ["positive", "negative", "timeout", "inconclusive", "invalid"])
 @pytest.mark.parametrize("condition", ["completed", "positive", "negative"])
 def test_vek_signed_negative_completes_work_without_service_credit(
-    tmp_path: Path, status: str, condition: str
+    tmp_path: Path, status: str, condition: str, native_test_clock: Any
 ) -> None:
     import importlib
+    from datetime import timedelta
 
     from ccr.optimizer.growth_example import observation, sign
+    from ccr.optimizer.model import timestamp
     from tests.test_growth import config, start
 
     original = json.loads((FIXTURES / "vek.json").read_bytes())
@@ -599,6 +641,13 @@ def test_vek_signed_negative_completes_work_without_service_credit(
         "arm": "training",
         "pool_id": g["quota"]["pool_id"],
         "units": {"check-work": {"target": "cost", "rate": "1", "rounding": "exact"}},
+        "clocks": {
+            inspected["document_sha256"]["contract"]: {
+                "utc_origin": store.now(),
+                "tick_origin": "0",
+                "seconds_per_tick": "2",
+            }
+        },
         "bindings": {
             name: {
                 "producer": "vek",
@@ -620,7 +669,10 @@ def test_vek_signed_negative_completes_work_without_service_credit(
     native_runtime.admit(store, run_id, staged["proposal_id"], expected_revision=2)
     before = engine.load(store, run_id)
     assert native_runtime.blockers(
-        before, list(action_names.values())[1], store.now(), "training"
+        before,
+        list(action_names.values())[1],
+        (timestamp(store.now()) + timedelta(seconds=4)).isoformat(),
+        "training",
     ) == ["native_VEK_prerequisite_not_observed"]
     assert all(
         row["status"] == "pending"
@@ -644,6 +696,7 @@ def test_vek_signed_negative_completes_work_without_service_credit(
     envelope = sign(key, {k: v for k, v in envelope.items() if k != "signature_base64"})
     result = engine.ingest(store, run_id, envelope)
     assert result["reward"] == 0
+    native_test_clock["now"] = (timestamp(store.now()) + timedelta(seconds=4)).isoformat()
     report = engine.report(store, run_id)
     assert report["trials"][0]["state"] == "evaluated"
     assert report["ledgers"]["training"]["observed_service"] == {"task": 0, "research": 0}
@@ -655,3 +708,98 @@ def test_vek_signed_negative_completes_work_without_service_credit(
         assert report["next_action"]["chosen"]["immediate_step"] == list(action_names.values())[1]
     else:
         assert report["next_action"]["chosen"] is None
+
+
+def test_native_clock_exact_rounding_and_bounds() -> None:
+    from fractions import Fraction
+
+    from ccr.optimizer import native_clock
+
+    clock = {"utc_origin": "2090-01-01T00:00:00Z", "tick_origin": "0", "seconds_per_tick": "1"}
+    assert native_clock.utc(clock, Fraction(1, 3), lower=True) == "2090-01-01T00:00:00.333334+00:00"
+    assert (
+        native_clock.utc(clock, Fraction(1, 3), lower=False) == "2090-01-01T00:00:00.333333+00:00"
+    )
+    assert (
+        native_clock.utc(clock, Fraction(-1, 3), lower=True) == "2089-12-31T23:59:59.666667+00:00"
+    )
+    for fault in (
+        {**clock, "tick_origin": "-1"},
+        {**clock, "seconds_per_tick": "0"},
+        {**clock, "unexpected": "field"},
+    ):
+        with pytest.raises(ValueError):
+            native_clock.validate(fault)
+    with pytest.raises(ValueError, match="UTC range"):
+        native_clock.utc(clock, Fraction(10**30), lower=True)
+    window = {
+        "available_at": clock["utc_origin"],
+        "start": "2090-01-01T00:00:01Z",
+        "end": "2090-01-01T00:00:05Z",
+        "execution_end": "2090-01-01T00:00:05Z",
+    }
+    assert not native_clock.applicable(window, clock["utc_origin"])
+    assert native_clock.applicable(window, window["start"], 3)
+    assert native_clock.applicable(window, window["start"], 4)
+    assert not native_clock.applicable(window, window["start"], 5)
+    assert not native_clock.applicable(window, window["end"])
+
+
+def test_cpcf_history_clock_preserves_elapsed_time_and_evidence_expiry() -> None:
+    from ccr.optimizer import native_clock
+
+    docs = native_checks.inspect((FIXTURES / "cpcf.json").read_bytes())["documents"]
+    clock = {"utc_origin": "2090-01-01T00:00:00Z", "tick_origin": "0", "seconds_per_tick": "1"}
+    docs["plan"]["spec"]["history"] = [{"action_id": "prepare"}]
+    catalogue = docs["contract"]["spec"]["action_catalogue"]
+    prepare = next(
+        row
+        for row in catalogue
+        if docs["objects"][row["action_digest"]]["spec"]["action_id"] == "prepare"
+    )
+    # A separate clock oracle uses all branches, never one guessed hidden model.
+    prepare["successors"][0]["evidence_added"]["calibrated"] = "3"
+    interval = native_clock.window("cpcf", docs, "reuse", clock)
+    assert interval["start"] == "2090-01-01T00:00:01+00:00"
+    assert interval["end"] == "2090-01-01T00:00:03+00:00"
+    for successor in prepare["successors"]:
+        successor["evidence_added"] = {}
+    with pytest.raises(ValueError, match="no mapped source clock"):
+        native_clock.window("cpcf", docs, "reuse", clock)
+
+
+@pytest.mark.parametrize("producer", ["alt", "vek", "cpcf"])
+def test_native_clock_source_windows(producer: str) -> None:
+    from ccr.optimizer import native_clock
+
+    docs = native_checks.inspect((FIXTURES / (producer + ".json")).read_bytes())["documents"]
+    name = {"alt": "reuse-0", "vek": "adapt-B", "cpcf": "prepare"}[producer]
+    clock = {"utc_origin": "2090-01-01T00:00:00Z", "tick_origin": "0", "seconds_per_tick": "1"}
+    interval = native_clock.window(producer, docs, name, clock)
+    assert set(interval) == {"available_at", "start", "execution_end", "end"}
+    if producer == "alt":
+        assert interval == {
+            "available_at": "2090-01-01T00:00:03+00:00",
+            "start": "2090-01-01T00:00:05+00:00",
+            "end": "2090-01-01T00:00:06+00:00",
+            "execution_end": "2090-01-01T00:00:06+00:00",
+        }
+        assert (
+            native_clock.window(producer, docs, "prepare", clock)["start"]
+            == "2090-01-01T00:00:03+00:00"
+        )
+        altered = copy.deepcopy(docs)
+        altered["contract"]["evidence_cutoff"] = 999
+    elif producer == "vek":
+        altered = copy.deepcopy(docs)
+        altered["history"]["events"] = [{"unknown": "clock"}]
+    else:
+        assert interval["end"] == "2090-01-01T00:00:05+00:00"
+        altered = copy.deepcopy(docs)
+        altered["contract"]["spec"]["deadline"] = "0"
+    with pytest.raises(ValueError):
+        native_clock.window(producer, altered, name, clock)
+    with pytest.raises(ValueError, match=r"clock rate|dimension"):
+        native_clock.window(producer, docs, name, {**clock, "seconds_per_tick": "2"})
+    with pytest.raises(ValueError, match="dimension"):
+        native_clock.window("unknown", docs, name, clock)

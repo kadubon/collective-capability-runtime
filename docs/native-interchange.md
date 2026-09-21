@@ -1,7 +1,7 @@
-# Native companion interchange (development)
+# Native companion interchange (1.9.0 review candidate)
 
-This additive implementation is under qualification on PR #7. It has not been
-released as CCR 1.9.0. See [development evidence and open gates](native-interchange-development.md).
+This additive implementation is under review on PR #7. It has not been released
+as CCR 1.9.0. See [validation evidence and open gates](native-interchange-validation.md).
 Legacy `optimizer interchange`, growth schemas and signed bytes retain their
 existing meanings. OAWM completion is not assumed.
 
@@ -77,6 +77,12 @@ subset permits synthetic evidence only. Fractional costs cannot be rounded down.
 An optional `pools` map binds producer resource names to existing canonical CCR
 capacity keys; absent aliases retain exact names. ALT occupancy and VEK pool
 claims are summed after alias resolution, so renaming a pool cannot enlarge it.
+Every actionable ALT, VEK or CPCF contract also requires a `clocks` entry keyed
+by its contract digest: `utc_origin`, exact rational `tick_origin`, and positive
+`seconds_per_tick`. ALT/VEK rates must match the native slot duration; CPCF uses
+seconds. Earliest times round later and deadlines earlier at UTC microsecond
+precision. Missing clocks, overflow and unsupported historical clock events fail
+closed. CAIT derives its separate integer-second clock from signed CCR history.
 
 - ALT 0.5.0: real plan and task-sidecar reconstruction, formation/transfer/reuse
   mapping, scoped receivers/inputs/evaluators, and signed prerequisite outcomes.
@@ -104,6 +110,11 @@ claims are summed after alias resolution, so renaming a pool cannot enlarge it.
   maps reconstruct visible history from qualified, signed training results.
   Unmapped results, mismatched history and old proposals cannot select a branch.
   Replanning does not automatically stage or admit the new proposal.
+  Each binding requires a closed `scope` containing native action/capability
+  digests, the native verifier, a trusted host verifier, and the frozen host task
+  digest. `effects=model_only` prevents native model effects from becoming
+  observed capacity. Unmapped obligations/preconditions and inherited evidence
+  are rejected. Another trusted host verifier cannot substitute for this scope.
 
 The planner checks native admission for the immediate task. It still funds and
 checks the entire registered CCR bundle, including cleanup. Hypothetical future
@@ -116,18 +127,28 @@ must finish before its exclusive endpoint. A signed result whose event time or
 receipt is outside that interval remains a charged attempt without qualification
 or service credit. Replay uses the original receipt time, so a later replay
 does not retroactively expire historical credit. Rehashing derived journal flags
-cannot promote such an invalid result. These host checks do not establish the
-still-unqualified source-clock-to-UTC mapping.
+cannot promote such an invalid result. Source clock windows are separately
+reconstructed from the immutable native documents. Staging/admission reject
+future evidence and expired windows; reservation/lease must fit execution and
+cleanup. An observation must meet the execution endpoint, while its receipt must
+meet the cleanup endpoint. CPCF visible history advances the conservative native
+elapsed bound and required evidence retains its native expiry.
 
 ## Executable finite evidence
 
 The integrated example considers a CPCF probe, runs one explicitly changed and
-native-checked VEK serial verification problem, then ALT formation, transfer and
+native-checked VEK serial verification problem and a newly checked ALT serial
+problem with explicit cleanup gaps, then ALT formation, transfer and
 four services through CCR reservation, lease and signed-result code. The negative
 verification result contributes no service. Eight distinct attempts consume
 16 synthetic cost units; four service events retain one historical asset.
 After a signed withdrawal, native CAIT reconciliation changes the next allocation
 to funded review without adding cost, service or stock again.
+The example uses a finite simulated UTC clock over real SQLite transactions,
+advancing execution and cleanup separately. Imported documents cannot select
+this example store; normal runtime commands retain the database clock. Native
+tests likewise freeze or explicitly advance synthetic time while retaining real
+SQLite/PostgreSQL locks, revisions, outbox writes and contention.
 
 Separate tests exercise subsequent CPCF replanning, actual SQLite/PostgreSQL
 four-worker contention, rollback after selected journal faults, stale revisions,
@@ -147,7 +168,10 @@ amend a frozen growth catalogue. Unpublished draft native records using the old
 `profile` labels must be recreated using the registered schema versions; this
 does not change any released legacy record or signature.
 
-Full source-clock/effect qualification, VEK verifier separation,
-remaining adversarial cases, final coverage gates and release documentation
-and final release qualification remain tracked in the development register.
-Do not infer release readiness from an individually passing example.
+The supported profile rejects unmapped VEK verifier separation, inherited native
+history, ALT dependency lifecycles, shared ALT costs without a unique owner,
+CPCF interval reservations and host effects outside its explicit model-only
+scope. These are fail-closed profile limits, not silently translated features.
+Current qualification and publication gates are tracked in the
+[release validation record](native-interchange-validation.md). Passing the finite
+example does not establish operational performance or complete publication.

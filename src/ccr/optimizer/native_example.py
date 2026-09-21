@@ -8,7 +8,9 @@ import copy
 import importlib
 import json
 import tempfile
-from datetime import datetime, timedelta, timezone
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import timedelta
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -24,7 +26,64 @@ from ccr.optimizer import (
 )
 from ccr.optimizer.growth_example import fixture, observation, sign
 from ccr.optimizer.growth_runtime import lifecycle
+from ccr.optimizer.model import timestamp
 from ccr.storage.control import ControlStore
+
+
+class SyntheticClockStore(ControlStore):
+    """Example-only finite clock over real database transactions and reservations.
+
+    Imported documents cannot select this store. Production uses ControlStore's
+    database clock. The example explicitly advances simulated elapsed time.
+    """
+
+    current = "2090-01-01T00:00:00+00:00"
+
+    def now(self) -> str:
+        return self.current
+
+    def advance(self, seconds: int) -> None:
+        self.current = (timestamp(self.current) + timedelta(seconds=seconds)).isoformat()
+
+    @contextmanager
+    def edit_many(
+        self,
+        keys: list[str],
+        *,
+        create_keys: set[str] | None = None,
+        optional_keys: set[str] | None = None,
+    ) -> Iterator[tuple[dict[str, dict[str, Any]], str]]:
+        with super().edit_many(keys, create_keys=create_keys, optional_keys=optional_keys) as (
+            objects,
+            _,
+        ):
+            yield objects, self.current
+
+
+def serial_alt_source(source: bytes) -> bytes:
+    """Generate a new native problem with explicit cleanup gaps; preserve input."""
+    wrapper = json.loads(source)
+    documents = {k: json.loads(v) for k, v in wrapper["documents"].items()}
+    contract = documents["contract"]
+    contract["horizon"] *= 2
+    for row in contract["options"]:
+        row["start"] *= 2
+        row["end"] = row["start"] + 1
+        for occupancy in row["occupancy"]:
+            occupancy["slot"] *= 2
+    for opportunity in contract["opportunities"]:
+        opportunity["deadline"] = 15
+    models = importlib.import_module("alt_foundry_kernel.reuse.contracts")
+    planner = importlib.import_module("alt_foundry_kernel.reuse.planning")
+    interchange = importlib.import_module("alt_foundry_kernel.reuse.interchange")
+    parsed = models.Contract.model_validate(contract)
+    plan = planner.select(parsed)
+    documents["plan"] = plan.model_dump()
+    documents["tasks"] = interchange.ccr_tasks(parsed, plan, "2090-01-01T00:00:02Z", "0")
+    wrapper["documents"] = {k: json.dumps(v) for k, v in documents.items()}
+    result = json.dumps(wrapper).encode()
+    native_checks.check(result)
+    return result
 
 
 def source_fixture(producer: str) -> bytes:
@@ -37,6 +96,31 @@ def source_fixture(producer: str) -> bytes:
         if path.is_file()
         else resources.files("ccr.data").joinpath(relative).read_bytes()
     )
+
+
+def cpcf_scope(
+    run: dict[str, Any], documents: dict[str, Any], source_action: str, name: str, verifier: str
+) -> dict[str, str]:
+    """Declare the synthetic operator mapping; the independent checker rechecks it."""
+    objects = documents["objects"]
+    row = next(
+        a
+        for a in documents["contract"]["spec"]["action_catalogue"]
+        if objects[a["action_digest"]]["spec"]["action_id"] == source_action
+    )
+    capability_digest = objects[row["action_digest"]]["spec"]["capability_digest"]
+    action = run["config"]["growth"]["actions"][name]
+    target = next(
+        t for t in run["config"]["task_manifest"] if t["target_id"] == action["target_id"]
+    )
+    return {
+        "native_action_digest": row["action_digest"],
+        "native_capability_digest": capability_digest,
+        "native_verifier": objects[capability_digest]["spec"]["verifier_principal_id"],
+        "host_verifier": verifier,
+        "target_sha256": sha256_json(target),
+        "effects": "model_only",
+    }
 
 
 def alt_profile(raw: dict[str, Any]) -> tuple[dict[str, Any], bytes, dict[str, str]]:
@@ -147,10 +231,12 @@ def _run(root: Path) -> dict[str, Any]:
     raw, alt, alt_names = alt_profile(fixture(public))
     g = raw["growth"]
     asset = next(iter(g["assets"]))
-    g["assets"][asset]["expires_at"] = (
-        (datetime.now(timezone.utc) + timedelta(minutes=10)).replace(microsecond=0).isoformat()
-    )
-    sources = {"alt": alt, "vek": vek_single_work(), "cpcf": source_fixture("cpcf")}
+    g["assets"][asset]["expires_at"] = "2090-01-01T00:10:00Z"
+    sources = {
+        "alt": serial_alt_source(alt),
+        "vek": vek_single_work(),
+        "cpcf": source_fixture("cpcf"),
+    }
     inspected = {p: native_checks.check(value) for p, value in sources.items()}
     vek_documents = inspected["vek"]["documents"]
     vek_action = next(iter(vek_documents["plan"]["schedule"]))
@@ -188,6 +274,8 @@ def _run(root: Path) -> dict[str, Any]:
             scenario[name] = None
     for action in g["actions"].values():
         action["capacity"] = {"reviewer": 1}
+        action["duration_seconds"] = 1
+    g["actions"]["verification"]["duration_seconds"] = 2
     g["quota"]["capacity"] = g["quota"]["pool_capacity"] = {"reviewer": 1}
     g["bundles"]["delayed"] = ["probe", "verification", *g["bundles"]["delayed"]]
     g["bundles"]["review"] = ["review"]
@@ -195,7 +283,7 @@ def _run(root: Path) -> dict[str, Any]:
     g["horizon_seconds"] = 60
     raw["base"]["resource_limits"]["cost"] = 200
     g["quota"]["budget"]["cost"] = g["quota"]["pool_budget"]["cost"] = 200
-    store = ControlStore(root, "")
+    store = SyntheticClockStore(root, "")
     run_id = engine.initialize(store, mission="mission:synthetic-native-loop", config=raw)["run_id"]
     run = engine.load(store, run_id)
     bindings = {}
@@ -217,6 +305,9 @@ def _run(root: Path) -> dict[str, Any]:
             "valid_until": g["window_end"],
         }
     bindings["probe"]["observations"] = {"success": "red", "failed": "blue"}
+    bindings["probe"]["scope"] = cpcf_scope(
+        run, inspected["cpcf"]["documents"], "prepare", "probe", "reviewer"
+    )
     registration = {
         "schema_version": "ccr.native_registration.v1",
         "run_id": run_id,
@@ -226,6 +317,16 @@ def _run(root: Path) -> dict[str, Any]:
         "pool_id": g["quota"]["pool_id"],
         "bindings": bindings,
         "pools": {"verifier": "reviewer"},
+        "clocks": {
+            inspected[producer]["document_sha256"]["contract"]: {
+                "utc_origin": "2090-01-01T00:00:00Z"
+                if producer == "cpcf"
+                else "2090-01-01T00:00:02Z",
+                "tick_origin": "0",
+                "seconds_per_tick": "2" if producer == "vek" else "1",
+            }
+            for producer in sources
+        },
         "units": {
             unit: {"target": "cost", "rate": "1", "rounding": "exact"}
             for unit in ("resource", "check-work", "credits")
@@ -235,28 +336,42 @@ def _run(root: Path) -> dict[str, Any]:
     before = engine.plan(store, run_id)
     assert before["chosen"] is None
     receipts = []
-    for producer, source in sources.items():
-        projected = native_projection.project(source, registration)
-        revision = engine.load(store, run_id)["revision"]
-        staged = native_runtime.stage(
-            store, run_id, source, projected, expected_revision=revision, idempotency_key=producer
-        )
-        receipts.append(
-            native_runtime.admit(
-                store, run_id, staged["proposal_id"], expected_revision=revision + 1
-            )
-        )
+    admitted = set()
     trace = []
     for expected in g["bundles"]["delayed"]:
+        producer = bindings[expected]["producer"]
+        if producer not in admitted:
+            source = sources[producer]
+            projected = native_projection.project(source, registration)
+            revision = engine.load(store, run_id)["revision"]
+            staged = native_runtime.stage(
+                store,
+                run_id,
+                source,
+                projected,
+                expected_revision=revision,
+                idempotency_key=producer,
+            )
+            receipts.append(
+                native_runtime.admit(
+                    store, run_id, staged["proposal_id"], expected_revision=revision + 1
+                )
+            )
+            admitted.add(producer)
         plan = engine.plan(store, run_id)
         assert plan["chosen"]["immediate_step"] == expected
         assert growth_checker.check(engine.load(store, run_id), plan, store.now())["ok"]
         trial = engine.step(store, run_id, apply=True, expected_revision=plan["revision"])["trial"]
         assert engine.claim(store, run_id, trial["trial_id"], worker="producer")["ok"]
+        store.advance(g["actions"][expected]["duration_seconds"])
+        envelope = observation(
+            store, run_id, trial["trial_id"], key, success=expected != "verification"
+        )
+        store.advance(g["actions"][expected]["cleanup_seconds"])
         result = engine.ingest(
             store,
             run_id,
-            observation(store, run_id, trial["trial_id"], key, success=expected != "verification"),
+            envelope,
         )
         trace.append(
             {"action": expected, "trial_id": trial["trial_id"], "reward": result["reward"]}
@@ -300,6 +415,7 @@ def _run(root: Path) -> dict[str, Any]:
     return {
         "ok": True,
         "evidence_mode": "synthetic",
+        "clock_mode": "explicit_finite_simulation",
         "operationally_observed": False,
         "before_admission": before["blockers"],
         "admissions": receipts,

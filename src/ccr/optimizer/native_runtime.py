@@ -8,7 +8,7 @@ from datetime import timedelta
 from typing import Any
 
 from ccr.ids import sha256_json
-from ccr.optimizer import engine, growth_ledger
+from ccr.optimizer import engine, growth_ledger, native_clock
 from ccr.optimizer.growth_model import integer, text
 from ccr.optimizer.model import timestamp
 from ccr.optimizer.native_history import cpcf_history
@@ -68,6 +68,7 @@ def stage(
         if len(staged) >= 64 or run["frozen_policy"]:
             raise ValueError("native staging bound or frozen training policy")
         _valid(run, checked["envelopes"], current)
+        _source_time(checked["envelopes"], current)
         staged[idempotency_key] = {"identity": identity, **copy.deepcopy(record)}
         growth_ledger.append(run, "native_stage", {"proposal_id": identity}, current)
         run["revision"] += 1
@@ -85,6 +86,15 @@ def _valid(run: dict[str, Any], names: Any, current: str) -> None:
             binding["valid_until"]
         ) or end >= timestamp(binding["valid_until"]):
             raise ValueError("native binding expired, not yet valid, or ends after validity")
+
+
+def _source_time(envelopes: dict[str, Any], current: str) -> None:
+    for envelope in envelopes.values():
+        interval = envelope.get("clock_window")
+        if interval is not None and not timestamp(interval["available_at"]) <= timestamp(
+            current
+        ) < timestamp(interval["end"]):
+            raise ValueError("native source evidence is future-dated or expired")
 
 
 def admit(
@@ -118,6 +128,7 @@ def admit(
         if stored != record or checked != record["check"]:
             raise ValueError("native staged source or checker binding changed")
         _valid(run, checked["envelopes"], current)
+        _source_time(checked["envelopes"], current)
         entry = {
             "source_sha256": raw_digest(record["raw"].encode("utf-8")),
             "actions": sorted(checked["envelopes"]),
@@ -186,6 +197,12 @@ def blockers(run: dict[str, Any], name: str, current: str, group: str) -> list[s
                 return ["native_observation_unmapped"]
             if entry["observation_sha256"] != sha256_json(history):
                 continue
+        interval = record["check"]["envelopes"][name].get("clock_window")
+        action = run["config"]["growth"]["actions"][name]
+        if interval is not None and not native_clock.applicable(
+            interval, current, action["duration_seconds"], action["cleanup_seconds"]
+        ):
+            return ["native_source_clock_window"]
         if registration["bindings"][name]["producer"] == "alt":
             growth_ledger.replay(run, current, group=group)
             completed = {
@@ -268,4 +285,32 @@ def result_time_blockers(run: dict[str, Any], name: str, observed: str, received
         < timestamp(binding["valid_until"])
     ):
         return ["native_result_outside_validity"]
+    if binding["contract_sha256"] in run["native_registration"].get("clocks", {}):
+        for identity, entry in run["native_admitted"].items():
+            if name not in entry["actions"] or timestamp(entry["admitted_at"]) > timestamp(
+                observed
+            ):
+                continue
+            for record in run["native_staged"].values():
+                if record["identity"] != identity:
+                    continue
+                interval = record["check"]["envelopes"][name].get("clock_window")
+                if (
+                    interval is not None
+                    and timestamp(interval["start"])
+                    <= timestamp(observed)
+                    <= timestamp(interval["execution_end"])
+                    and timestamp(observed) <= timestamp(received) <= timestamp(interval["end"])
+                ):
+                    return []
+        return ["native_result_outside_source_clock"]
+    return []
+
+
+def result_scope_blockers(run: dict[str, Any], name: str, envelope: dict[str, Any]) -> list[str]:
+    binding = run.get("native_registration", {}).get("bindings", {}).get(name)
+    if binding is not None and binding["producer"] == "cpcf":
+        verifier = binding["scope"]["host_verifier"]
+        if envelope["verifier_id"] != verifier or envelope["result"]["verifier_id"] != verifier:
+            return ["native_check_scope_mismatch"]
     return []

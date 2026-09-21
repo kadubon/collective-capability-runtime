@@ -5,7 +5,7 @@ license: Apache-2.0
 metadata:
   author: K. Takahashi
   repository: https://github.com/kadubon/collective-capability-runtime
-  version: "1.8.0"
+  version: "1.9.0"
 ---
 
 # Collective Capability Runtime

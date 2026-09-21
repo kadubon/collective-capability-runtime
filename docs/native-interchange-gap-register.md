@@ -2,28 +2,29 @@
 
 Baseline inspected: CCR `3b4702454f732c7a0a9f30d87483384dc8a281eb`, source,
 GitHub Release and public PyPI 1.8.0 (2026-09-21). Proposed version: 1.9.0;
-no version has been changed or publication initiated.
+the current review candidate now declares 1.9.0. Publication has not started.
 
 Current implementation and measured evidence are tracked in
 [Native interchange development](native-interchange-development.md). The rows
 below describe milestone completion, not whether any code has been written:
 all four native checkers, a same-run integrated example, signed observation
 replanning, SQLite/PostgreSQL contention and installed-wheel examples now execute.
-The 70-test native selection passes 95% statement/90% branch gates for every
+The 85-test native selection passes 95% statement/90% branch gates for every
 native module, with no excluded new module.
-Contract-level release qualification remains incomplete, particularly source-clock
-and action/effect translation. Passing CI is not a waiver for these gaps.
+Mandatory source clocks and CPCF task/capability/verifier scope now enforce the
+bounded supported contract. See [current validation](native-interchange-validation.md)
+for measured evidence and exact unsupported cases. Publication gates remain open.
 
 | Requirement | Existing source and behavior | Required change and verification | Status |
 | --- | --- | --- | --- |
-| P2-A registration | Closed native schemas, raw identities, installed source/schema hashes and immutable bindings now exist | Complete source-clock/action/effect scope qualification | Partial |
-| ALT 0.5 | `growth_interchange.py` pins 0.4 tokens; `growth_runtime.py` already requires signed transfer evidence | Check native source reconstruction and sidecar; bind preregistered work; scoped qualification and withdrawal scenarios | Pending |
-| VEK 1.3 | Growth declares verifier demand; capacity reports have no admission route | Check native schedule, preserve pool/budget separation, reject unsafe serialization; signed negative/unknown work reconciliation | Pending |
-| CAIT 0.2 | Legacy export explicitly lacks native source accounting | Source-bound forward/backward conversion, native analyzer/checker, no duplicate reward, qualified loss changes later eligibility | Pending |
-| CPCF 1.0.1 | No growth-control proposal route | Maintained facade only; checked observable first action, current revision and finite action mapping, preserve continuation obligations | Pending |
-| Runtime | Existing aggregate plus native admission; real SQLite/PostgreSQL four-worker admission/apply contention passes | Broaden source expiry and crash-boundary cases | Partial |
-| Qualification | Existing 90% gate plus isolated pinned native 95%/90% gates pass on `b1b5cfe`; Python 3.10–3.14/platform/PIC jobs pass | Qualify remaining semantics and rerun on eventual final release source | Partial |
-| Publication | Draft PR #7 pushed; existing Wiki development guide published at `e92e77e`; build-once Trusted Publishing retained | Complete qualification, normal review/merge, tag/release, artifact hashes and public no-cache install | Pending |
+| P2-A registration | Closed schemas, raw identity, artifact pins and immutable bindings | Mandatory exact clocks and CPCF scoped task/effect/check binding, independent original-source reconstruction | Implemented; local tests pass |
+| ALT 0.5 | Separate from the unchanged 0.4 legacy importer | Fresh native source/sidecar check, funded preparation/transfer, signed receiver qualification and later reuse | Implemented for documented finite subset |
+| VEK 1.3 | Verification work through existing CCR actions | Native checks, canonical pool/budget separation, preserved serial windows and signed work-state prerequisites | Implemented for documented finite subset |
+| CAIT 0.2 | Original signed CCR source export and feedback | Native analyzer/checker, independent per-event reconciliation, idempotency and qualified loss changing allocation | Implemented for documented root-asset subset |
+| CPCF 1.0.1 | Maintained public facade only | Observable first action, signed history replan, frozen scope and native clock/evidence expiry | Implemented; continuation guarantee not transferred |
+| Runtime | Existing aggregate/transaction/outbox path | SQLite/PostgreSQL admission/apply contention, selected rollback faults, expiry and lease rechecks | Local tests pass |
+| Qualification | Old safety gate retained; every new native module in 95%/90% gate | Local tests pass; exact-candidate CI and installed-artifact checks still required | In progress |
+| Publication | PR #7; existing Wiki; build-once Trusted Publishing retained | Review/merge, Wiki refresh, tag/release, exact artifacts and public no-cache install | Pending |
 
 ## Inspected authority boundaries
 

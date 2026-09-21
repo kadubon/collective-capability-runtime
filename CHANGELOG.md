@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — native companion interchange under qualification
+## 1.9.0 - release candidate, not yet published
 
 - Adds opt-in source inspection, independent projection checks and explicit
   runtime admission for pinned ALT 0.5, VEK 1.3 and maintained CPCF 1.0.1.
@@ -9,8 +9,11 @@
 - Adds a same-run four-companion synthetic example, registered wire schemas,
   installed source/schema hashes and hash-locked optional test dependencies.
 - Adds actual SQLite/PostgreSQL admission contention and selected fault tests.
-  This section does not announce 1.9.0; remaining release gates are recorded in
-  `docs/native-interchange-development.md`.
+  Native execution requires explicit source-to-UTC clocks; execution and cleanup
+  endpoints, signed result receipt and historical replay are checked separately.
+  CPCF proposals bind frozen task/capability/verifier scope and retain model-only
+  effects; unsupported host obligations fail closed.
+  Publication and review status are recorded in `docs/native-interchange-validation.md`.
 
 ## 1.8.0 - 2026-09-12
 

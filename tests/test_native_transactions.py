@@ -131,6 +131,7 @@ def test_registration_and_projection_negative_controls(tmp_path: Path) -> None:
         ("study_id", "other"),
         ("pool_id", "other"),
         ("pools", {"alias": "unregistered"}),
+        ("clocks", {}),
         ("bindings", {}),
         ("units", {"x": {"target": "cost", "rate": "1", "rounding": "lower"}}),
         ("units", {"x": {"target": "other", "rate": "1", "rounding": "exact"}}),
@@ -143,6 +144,15 @@ def test_registration_and_projection_negative_controls(tmp_path: Path) -> None:
     altered = copy.deepcopy(registration)
     altered["bindings"]["greedy"] = copy.deepcopy(altered["bindings"]["form"])
     with pytest.raises(ValueError, match="ambiguous"):
+        registration_check(run, altered)
+    for field, value in (("target_sha256", "0" * 64), ("host_verifier", "untrusted")):
+        altered = copy.deepcopy(registration)
+        altered["bindings"]["form"]["scope"][field] = value
+        with pytest.raises(ValueError, match="scope is not registered"):
+            registration_check(run, altered)
+    altered = copy.deepcopy(registration)
+    altered["bindings"]["form"]["producer"] = "alt"
+    with pytest.raises(ValueError, match="scope on another producer"):
         registration_check(run, altered)
     for key, value in [
         ("producer", "unknown"),
@@ -345,3 +355,152 @@ def test_native_result_expiry_keeps_costs_and_cannot_be_promoted_on_replay(
     with pytest.raises(ValueError, match="native result outside validity"):
         growth_ledger.replay(forged, cutoff)
     assert native_runtime.result_time_blockers(run, "greedy", cutoff, cutoff) == []
+
+
+@native
+@pytest.mark.parametrize("late", [False, True])
+def test_source_clock_controls_admission_lease_and_result(
+    tmp_path: Path, monkeypatch: Any, late: bool
+) -> None:
+    from ccr.optimizer.growth_example import observation
+    from ccr.optimizer.native_projection_check import check
+
+    origin = "2090-01-01T00:00:00Z"
+    clock = {"utc_origin": origin, "tick_origin": "0", "seconds_per_tick": "1"}
+    key, store, run_id, raw, registration = setup_run(tmp_path, clock=clock)
+    changed = copy.deepcopy(registration)
+    changed["clocks"] = {"0" * 64: clock}
+    with pytest.raises(ValueError, match="no registered source"):
+        registration_check(engine.load(store, run_id), changed)
+    projected = native_projection.project(raw, registration)
+    checked = check(engine.load(store, run_id), raw, projected)
+    assert checked["envelopes"]["form"]["clock_window"]["end"] == "2090-01-01T00:00:05+00:00"
+    before = engine.load(store, run_id)
+    with pytest.raises(ValueError, match="future-dated"):
+        native_runtime.stage(
+            store, run_id, raw, projected, expected_revision=1, idempotency_key="future"
+        )
+    assert engine.load(store, run_id) == before
+    current = origin
+    original_edit = engine.edit_run
+
+    @contextmanager
+    def controlled(*args: Any, **kwargs: Any) -> Any:
+        with original_edit(*args, **kwargs) as (run, _):
+            yield run, current
+
+    monkeypatch.setattr(engine, "edit_run", controlled)
+    monkeypatch.setattr(ControlStore, "now", lambda _: current)
+    staged = native_runtime.stage(
+        store, run_id, raw, projected, expected_revision=1, idempotency_key="clock"
+    )
+    current = "2090-01-01T00:00:05Z"
+    with pytest.raises(ValueError, match="expired"):
+        native_runtime.admit(store, run_id, staged["proposal_id"], expected_revision=2)
+    assert not engine.load(store, run_id)["native_admitted"]
+    current = origin
+    native_runtime.admit(store, run_id, staged["proposal_id"], expected_revision=2)
+    assert (
+        native_runtime.result_time_blockers(engine.load(store, run_id), "form", origin, origin)
+        == []
+    )
+    trial = engine.step(store, run_id, apply=True)["trial"]
+    current = "2090-01-01T00:00:03Z"
+    assert engine.claim(store, run_id, trial["trial_id"], worker="producer")["blockers"] == [
+        "native_source_clock_window"
+    ]
+    assert engine.load(store, run_id)["growth_reservation"] is not None
+    current = origin
+    assert engine.claim(store, run_id, trial["trial_id"], worker="producer")["ok"]
+    envelope = observation(store, run_id, trial["trial_id"], key)
+    current = "2090-01-01T00:00:06Z" if late else "2090-01-01T00:00:02Z"
+    result = engine.ingest(store, run_id, envelope)
+    assert ("native_result_outside_source_clock" in result["blockers"]) == late
+    assert result["reward"] == 0
+    ledger = native_runtime.growth_ledger.replay(engine.load(store, run_id), current)
+    assert ledger["actual_costs"] == {"cost": 2} and ledger["asset_count"] == (0 if late else 1)
+
+
+@native
+def test_registered_execution_must_fit_native_clock_interval(tmp_path: Path) -> None:
+    from ccr.optimizer.native_projection_check import check
+
+    clock = {"utc_origin": "2090-01-01T00:00:00Z", "tick_origin": "0", "seconds_per_tick": "1"}
+    _, store, run_id, source, registration = setup_run(tmp_path, clock=clock, duration=5)
+    with pytest.raises(ValueError, match="cannot fund execution and cleanup"):
+        check(engine.load(store, run_id), source, native_projection.project(source, registration))
+
+
+@native
+def test_cpcf_result_requires_the_registered_check_scope(tmp_path: Path) -> None:
+    from ccr.optimizer.growth_example import observation, sign
+
+    key, store, run_id, raw, registration = setup_run(tmp_path, extra_verifier=True)
+    staged = native_runtime.stage(
+        store,
+        run_id,
+        raw,
+        native_projection.project(raw, registration),
+        expected_revision=1,
+        idempotency_key="source",
+    )
+    native_runtime.admit(store, run_id, staged["proposal_id"], expected_revision=2)
+    trial = engine.step(store, run_id, apply=True)["trial"]
+    engine.claim(store, run_id, trial["trial_id"], worker="producer")
+    envelope = observation(store, run_id, trial["trial_id"], key)
+    inner = {k: v for k, v in envelope["result"].items() if k != "signature_base64"}
+    inner["verifier_id"] = "other-reviewer"
+    envelope["result"] = sign(key, inner)
+    envelope["verifier_id"] = "other-reviewer"
+    envelope = sign(key, {k: v for k, v in envelope.items() if k != "signature_base64"})
+    result = engine.ingest(store, run_id, envelope)
+    assert "native_check_scope_mismatch" in result["blockers"]
+    ledger = native_runtime.growth_ledger.replay(engine.load(store, run_id), store.now())
+    assert ledger["asset_count"] == 0 and ledger["actual_costs"] == {"cost": 2}
+    forged = engine.load(store, run_id)
+    previous = None
+    for event in forged["growth_events"]:
+        if event["kind"] == "outcome":
+            event["payload"].update(qualified=True, success=True, reasons=[])
+        event["previous"] = previous
+        event["digest"] = sha256_json({k: v for k, v in event.items() if k != "digest"})
+        previous = event["digest"]
+    with pytest.raises(ValueError, match="another native verifier"):
+        native_runtime.growth_ledger.replay(forged, store.now())
+
+
+@pytest.mark.parametrize(
+    "observed,received,accepted", [(0, 2, True), (1, 2, True), (2, 2, False), (1, 3, False)]
+)
+def test_execution_endpoint_is_distinct_from_cleanup_endpoint(
+    observed: int, received: int, accepted: bool
+) -> None:
+    # Independent interval oracle: execute in [0,1], receipt/cleanup through 2.
+    # The extra cleanup second is not an extension of the source execution slot.
+    def instant(seconds: int) -> str:
+        return f"2090-01-01T00:00:0{seconds}Z"
+
+    interval = {"start": instant(0), "execution_end": instant(1), "end": instant(2)}
+    run = {
+        "native_registration": {
+            "bindings": {
+                "work": {
+                    "valid_from": instant(0),
+                    "valid_until": instant(9),
+                    "contract_sha256": "source",
+                }
+            },
+            "clocks": {"source": {}},
+        },
+        "native_admitted": {"proposal": {"actions": ["work"], "admitted_at": instant(0)}},
+        "native_staged": {
+            "delivery": {
+                "identity": "proposal",
+                "check": {"envelopes": {"work": {"clock_window": interval}}},
+            }
+        },
+    }
+    blockers = native_runtime.result_time_blockers(
+        run, "work", instant(observed), instant(received)
+    )
+    assert (blockers == []) is accepted
