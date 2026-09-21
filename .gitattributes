@@ -1,2 +1,5 @@
 # Optimizer manifests bind these fixtures by byte digest on every platform.
 examples/phase_optimizer/inputs/*.txt text eol=lf
+# Interchange manifests bind original schema/fixture bytes, not normalized JSON.
+examples/verified_growth/interchange/*.json text eol=lf
+examples/native_interchange/*.json text eol=lf
