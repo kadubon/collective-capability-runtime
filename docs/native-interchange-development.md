@@ -16,7 +16,7 @@ The new Python modules provide bounded byte parsing and exact conversion,
 fixed optional native checkers, projection and independently implemented
 translation checks, explicit registration/staging/admission, and source-bound
 CAIT export/check/reconciliation. Native tools execute before database locks.
-The explicit native CLI, three registered owned wire schemas, pinned installed
+The explicit native CLI, four registered owned wire schemas, pinned installed
 source/schema hashes and an installed example interface are now implemented.
 There is no new HTTP endpoint. See [the current guide](native-interchange.md).
 
@@ -57,7 +57,7 @@ python -m pytest tests/test_native_interchange.py tests/test_native_transactions
 python -m ccr optimizer native example --json
 ```
 
-The latest local continuation run passed 51 tests, including offline socket guards,
+The latest local continuation run passed 56 tests, including offline socket guards,
 malformed input, exact conversion, native tampering, selected faults and all four
 runtime scenarios plus an integrated same-run loop. The ordinary base environment intentionally skips native
 tests without this explicit setup; those skips are not native conformance.
@@ -69,9 +69,10 @@ command. No companion repository is modified.
 
 ## Qualification remains incomplete
 
-The latest continuation selection measured 986/1030 native-module
-statements (95.73%) and 421/462 branches (91.13%), including every native module.
-The aggregate new-module 95%/90% gate passed. The earlier `b1b5cfe` gate passed
+The latest continuation selection measured 1019/1038 native-module
+statements (98.17%) and 445/462 branches (96.32%), including every native module.
+Each native module independently meets 95% statements and 90% branches; the gate
+now enforces those per-module thresholds as well as the aggregate. The earlier `b1b5cfe` gate passed
 at 95.61%/90.85% locally and in CI. Further changes require a fresh
 measurement; there is no exclusion or waiver for a native module.
 
@@ -106,6 +107,13 @@ environment outside the checkout. Both the new native example and legacy
 growth example passed there; `uv pip check` reported compatible dependencies.
 This was a local development build retaining version 1.8.0, not public PyPI
 publication or verification of a released 1.9.0 artifact.
+
+Additional CLI round-trip testing found that embedded legacy fractional packet
+fields were rejected by the strict native quantity parser. Accounting exports
+now preserve canonical CCR source rows as strings, compare them to authenticated
+original history, and use a separately registered closed export schema. The
+real CLI export/feedback/reconcile regression test passes without relaxing the
+native rational/integer parser or changing legacy signature rules.
 
 ## Required work before release
 

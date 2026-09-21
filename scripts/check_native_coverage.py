@@ -29,12 +29,30 @@ def main() -> int:
     statements = 100 * totals["covered_lines"] / max(totals["num_statements"], 1)
     branches = 100 * totals["covered_branches"] / max(totals["num_branches"], 1)
     missing = sorted(expected - rows.keys())
-    ok = not missing and statements >= 95 and branches >= 90 and totals["num_branches"] > 0
+    underqualified = {
+        name: {
+            "statement_percent": 100 * row["covered_lines"] / max(row["num_statements"], 1),
+            "branch_percent": 100 * row["covered_branches"] / row["num_branches"]
+            if row["num_branches"]
+            else 100,
+        }
+        for name, row in rows.items()
+        if row["covered_lines"] < 0.95 * row["num_statements"]
+        or row["covered_branches"] < 0.90 * row["num_branches"]
+    }
+    ok = (
+        not missing
+        and not underqualified
+        and statements >= 95
+        and branches >= 90
+        and totals["num_branches"] > 0
+    )
     print(
         json.dumps(
             {
                 "ok": ok,
                 "missing_modules": missing,
+                "underqualified_modules": underqualified,
                 "statement_percent": statements,
                 "branch_percent": branches,
                 **totals,

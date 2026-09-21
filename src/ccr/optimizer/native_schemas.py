@@ -11,6 +11,7 @@ VERSIONS = {
     "native-source": "ccr.native_source.v1",
     "native-registration": "ccr.native_registration.v1",
     "native-projection": "ccr.native_projection.v1",
+    "native-accounting-export": "ccr.native_accounting_export.v1",
 }
 
 

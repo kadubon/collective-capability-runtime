@@ -156,10 +156,50 @@ def main() -> None:
             },
         }
     )
+    encoded = {"type": "string", "minLength": 2, "maxLength": 131072}
+    envelopes = {
+        "type": "array",
+        "maxItems": 512,
+        "items": record({"sha256": digest, "content": encoded}),
+    }
+    accounting = record(
+        {
+            "schema_version": {"const": "ccr.native_accounting_export.v1"},
+            "run_id": text,
+            "config_digest": digest,
+            "revision": {"type": "integer", "minimum": 0, "maximum": 9007199254740992},
+            "journal_digest": digest,
+            "clock_origin": timestamp,
+            "bundle": record(
+                {
+                    "record_type": {"const": "cait_source_bundle_v1"},
+                    "contract": {"type": "object", "maxProperties": 512},
+                    "events": envelopes,
+                    "evidence": envelopes,
+                    "models": {"type": "array", "maxItems": 0},
+                }
+            ),
+            "event_bindings": mapping(digest, 512),
+            "remaining_obligations": {
+                "type": "array",
+                "maxItems": 512,
+                "items": text,
+                "uniqueItems": True,
+            },
+            "ccr_sources": {"type": "array", "maxItems": 512, "items": encoded},
+            "non_actionable": {"type": "array", "maxItems": 32, "items": text},
+            "source_authentication": {
+                "const": (
+                    "CCR signatures checked separately; native CAIT authentication unestablished"
+                )
+            },
+        }
+    )
     for name, schema in {
         "native-source": source,
         "native-registration": registration,
         "native-projection": projection,
+        "native-accounting-export": accounting,
     }.items():
         schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
         (directory / (name + ".schema.json")).write_text(

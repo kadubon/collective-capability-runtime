@@ -10,10 +10,12 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-from ccr.ids import sha256_json
+from ccr.ids import canonical_bytes, sha256_json
 from ccr.optimizer import growth_ledger
 from ccr.optimizer.model import timestamp
 from ccr.optimizer.native_artifacts import verify
+from ccr.optimizer.native_schemas import validate
+from ccr.optimizer.native_wire import loads
 
 
 def export(run: dict[str, Any], current: str) -> dict[str, Any]:
@@ -250,8 +252,8 @@ def export(run: dict[str, Any], current: str) -> dict[str, Any]:
     }
     # Shape/source validation is not a substitute for the independent report checker.
     source.prepare(bundle)
-    return {
-        "profile": "ccr-cait-source-export-1",
+    exported = {
+        "schema_version": "ccr.native_accounting_export.v1",
         "run_id": run["run_id"],
         "config_digest": run["config"]["config_digest"],
         "revision": run["revision"],
@@ -261,7 +263,9 @@ def export(run: dict[str, Any], current: str) -> dict[str, Any]:
         "event_bindings": bindings,
         "remaining_obligations": obligations,
         "ccr_sources": [
-            row for row in run["growth_events"] if row["kind"] in {"outcome", "lifecycle"}
+            canonical_bytes(row).decode("utf-8")
+            for row in run["growth_events"]
+            if row["kind"] in {"outcome", "lifecycle"}
         ],
         "non_actionable": [
             "research coordinate overlaps task service; not added to CAIT totals",
@@ -271,6 +275,9 @@ def export(run: dict[str, Any], current: str) -> dict[str, Any]:
             "CCR signatures checked separately; native CAIT authentication unestablished"
         ),
     }
+    validate("native-accounting-export", exported)
+    loads(canonical_bytes(exported))
+    return exported
 
 
 def check_feedback(
@@ -282,22 +289,23 @@ def check_feedback(
     from ccr.optimizer.growth_model import closed
 
     verify("cait")
+    validate("native-accounting-export", exported)
+    loads(canonical_bytes(exported))
 
     closed(
         exported,
-        "profile run_id config_digest revision journal_digest clock_origin bundle "
+        "schema_version run_id config_digest revision journal_digest clock_origin bundle "
         "event_bindings remaining_obligations non_actionable source_authentication ccr_sources",
     )
     ledger = growth_ledger.replay(run, current)
+    originals_list = [r for r in run["growth_events"] if r["kind"] in {"outcome", "lifecycle"}]
     if (
-        exported["profile"] != "ccr-cait-source-export-1"
-        or exported["run_id"] != run["run_id"]
+        exported["run_id"] != run["run_id"]
         or exported["config_digest"] != run["config"]["config_digest"]
         or exported["revision"] != run["revision"]
         or exported["journal_digest"] != ledger["journal_digest"]
         or exported["clock_origin"] != run["created_at"]
-        or exported["ccr_sources"]
-        != [r for r in run["growth_events"] if r["kind"] in {"outcome", "lifecycle"}]
+        or exported["ccr_sources"] != [canonical_bytes(r).decode("utf-8") for r in originals_list]
     ):
         raise ValueError("stale or substituted CCR source history")
     checker = importlib.import_module("cait_schema.accounting.checker")
@@ -320,11 +328,11 @@ def check_feedback(
         or c["time_unit"] != "ccr-elapsed-second"
     ):
         raise ValueError("CAIT accounting premise substitution")
-    originals = {r["digest"]: r for r in exported["ccr_sources"]}
+    originals = {r["digest"]: r for r in originals_list}
     expected_obligations = set()
     expected_events = set()
     formed = set()
-    for original in exported["ccr_sources"]:
+    for original in originals_list:
         payload = original["payload"]
         if original["kind"] == "lifecycle":
             if payload["state"] != "withdrawn" or payload["asset"] not in formed:

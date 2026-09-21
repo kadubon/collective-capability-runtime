@@ -55,13 +55,20 @@ inside the transaction. A native acceptance never supplies approval or settlemen
 
 ## Supported representations
 
-Three new closed wire schemas are registered and packaged:
-`ccr.native_source.v1`, `ccr.native_registration.v1`, and
-`ccr.native_projection.v1`. Sources contain original native documents as UTF-8
+Four new closed wire schemas are registered and packaged:
+`ccr.native_source.v1`, `ccr.native_registration.v1`,
+`ccr.native_projection.v1`, and `ccr.native_accounting_export.v1`.
+Sources contain original native documents as UTF-8
 JSON strings. Raw source/document SHA-256 values remain separate from producer
 canonical identities and CCR canonical registration digests. Parsing bounds
 bytes, nodes, depth, containers, strings and integer/rational size. Input cannot
 choose imports, schema URLs, executables or output paths.
+
+The accounting export preserves original CCR journal records as canonical JSON
+strings. The checker compares those strings to independently authenticated CCR
+history; it does not reinterpret legacy fractional packet fields as native
+quantities. The surrounding native accounting data still uses strict integer
+tokens and exact rational strings. Existing CCR signing bytes remain unchanged.
 
 The registration is immutable before training work. It binds run/config/study,
 training arm, pool, existing actions and action digests, source contract/action,

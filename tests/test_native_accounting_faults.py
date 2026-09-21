@@ -12,6 +12,8 @@ from typing import Any
 import pytest
 
 from ccr.optimizer import engine, native_accounting
+from ccr.optimizer.growth_example import observation, sign
+from ccr.optimizer.growth_runtime import lifecycle
 from tests.test_growth import config, finish, start
 from tests.test_native_interchange import native
 
@@ -42,7 +44,7 @@ def test_cait_detects_selected_false_native_acceptance_faults(
     report = reports.analyze(exported["bundle"])
     assert native_accounting.check_feedback(run, exported, report, store.now())["complete"]
     for key, value in (
-        ("revision", -1),
+        ("revision", run["revision"] + 1),
         ("ccr_sources", []),
         ("clock_origin", "2000-01-01T00:00:00Z"),
     ):
@@ -128,3 +130,100 @@ def test_cait_export_refuses_empty_history_and_preserves_partial_work(tmp_path: 
     checked = native_accounting.check_feedback(run, exported, report, store.now())
     assert not checked["complete"] and checked["remaining_obligations"]
     assert checked["reward_added"] == checked["asset_stock_added"] == 0
+
+
+@native
+def test_cait_source_clock_and_scoped_lifecycle_limits(tmp_path: Path) -> None:
+    store, run_id, key = history(tmp_path)
+    run = engine.load(store, run_id)
+    with pytest.raises(ValueError, match="clock bounds"):
+        native_accounting.export(run, "2000-01-01T00:00:00Z")
+    oversized = copy.deepcopy(run)
+    actions = oversized["config"]["growth"]["actions"]
+    for i in range(17):
+        actions["extra" + str(i)] = copy.deepcopy(actions["greedy"])
+    with pytest.raises(ValueError, match="mapping bound"):
+        native_accounting.export(oversized, store.now())
+    asset = next(iter(run["config"]["growth"]["assets"]))
+    lifecycle(
+        store,
+        run_id,
+        sign(
+            key,
+            {
+                "event_id": "quarantine-for-review",
+                "run_id": run_id,
+                "config_digest": run["config"]["config_digest"],
+                "asset": asset,
+                "state": "quarantined",
+                "reason": "unsupported native lifecycle remains partial",
+                "observed_at": store.now(),
+                "verifier_id": "reviewer",
+                "worker_id": "producer",
+            },
+        ),
+    )
+    run = engine.load(store, run_id)
+    exported = native_accounting.export(run, store.now())
+    report = importlib.import_module("cait_schema.accounting.report").analyze(exported["bundle"])
+    checked = native_accounting.check_feedback(run, exported, report, store.now())
+    assert not checked["complete"] and checked["invalidated_assets"] == [asset]
+    assert checked["remaining_obligations"][0].startswith("unsupported-lifecycle:")
+
+
+@native
+def test_cait_missing_creation_is_partial(tmp_path: Path) -> None:
+    key, raw = config()
+    raw["growth"]["actions"]["form"]["verification_work"]["review"] = 100
+    store, run_id = start(tmp_path, raw)
+    assert engine.plan(store, run_id)["chosen"]["immediate_step"] == "greedy"
+    finish(store, run_id, key)
+    run = engine.load(store, run_id)
+    exported = native_accounting.export(run, store.now())
+    report = importlib.import_module("cait_schema.accounting.report").analyze(exported["bundle"])
+    checked = native_accounting.check_feedback(run, exported, report, store.now())
+    assert not checked["complete"]
+    assert checked["remaining_obligations"][0].startswith("missing-creation:")
+
+
+@native
+def test_cait_inconclusive_pending_and_feedback_bounds(tmp_path: Path) -> None:
+    key, raw = config()
+    for asset in raw["growth"]["assets"].values():
+        asset["expires_at"] = (
+            (datetime.now(timezone.utc) + timedelta(minutes=10)).replace(microsecond=0).isoformat()
+        )
+    store, run_id = start(tmp_path, raw)
+    finish(store, run_id, key)
+    finish(store, run_id, key)
+    trial = engine.step(store, run_id, apply=True)["trial"]
+    engine.claim(store, run_id, trial["trial_id"], worker="producer")
+    envelope = observation(store, run_id, trial["trial_id"], key, success=False)
+    envelope["observation"]["status"] = "inconclusive"
+    engine.ingest(
+        store, run_id, sign(key, {k: v for k, v in envelope.items() if k != "signature_base64"})
+    )
+    engine.step(store, run_id, apply=True)
+    run = engine.load(store, run_id)
+    exported = native_accounting.export(run, store.now())
+    report = importlib.import_module("cait_schema.accounting.report").analyze(exported["bundle"])
+    checked = native_accounting.check_feedback(run, exported, report, store.now())
+    assert not checked["complete"] and "unfinished-CCR-work" in checked["remaining_obligations"]
+    assert any(x.startswith("unsupported-use-status:") for x in checked["remaining_obligations"])
+    with pytest.raises(ValueError, match="stale"):
+        native_accounting.reconcile(
+            store, run_id, exported, report, expected_revision=run["revision"] + 1
+        )
+    with engine.edit_run(store, run_id) as (edited, _):
+        edited["frozen_policy"] = {"selected_fault": True}
+    with pytest.raises(ValueError, match="frozen"):
+        native_accounting.reconcile(
+            store, run_id, exported, report, expected_revision=run["revision"]
+        )
+    with engine.edit_run(store, run_id) as (edited, _):
+        edited["frozen_policy"] = None
+        edited["native_feedback"] = {str(i): {} for i in range(64)}
+    with pytest.raises(ValueError, match="bound reached"):
+        native_accounting.reconcile(
+            store, run_id, exported, report, expected_revision=run["revision"]
+        )

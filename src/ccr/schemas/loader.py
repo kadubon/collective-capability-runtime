@@ -15,7 +15,12 @@ from ccr.paths import manifest_path
 SCHEMA_FILENAMES = {
     **{
         name: name + ".schema.json"
-        for name in ("native-source", "native-registration", "native-projection")
+        for name in (
+            "native-source",
+            "native-registration",
+            "native-projection",
+            "native-accounting-export",
+        )
     },
     **{
         name: name + ".schema.json"

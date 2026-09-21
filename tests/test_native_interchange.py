@@ -117,6 +117,32 @@ def test_actual_released_companion_checks(producer: str, monkeypatch: Any) -> No
         native_checks.check(json.dumps(source).encode())
 
 
+@native
+def test_native_sidecar_and_semantic_acceptance_are_required(monkeypatch: Any) -> None:
+    import importlib
+
+    from ccr.optimizer import native_replan
+    from ccr.optimizer.native_example import source_fixture
+
+    original = json.loads(source_fixture("alt"))
+    tasks = json.loads(original["documents"]["tasks"])
+    for changed in ({"tasks": []}, {**tasks, "invented_authority": True}):
+        source = copy.deepcopy(original)
+        source["documents"]["tasks"] = json.dumps(changed)
+        with pytest.raises(ValueError, match="sidecar"):
+            native_checks.check(json.dumps(source).encode())
+    with pytest.raises(ValueError, match="CPCF source"):
+        native_replan.cpcf({}, source_fixture("alt"))
+    with pytest.raises(ValueError, match="unsupported"):
+        source_fixture("unregistered")
+    facade = importlib.import_module("collective_phase_control_fabric.growth_control")
+    # Selected false-acceptance boundary fault: a successful Python call with a
+    # negative semantic result must never become a positive native proposal.
+    monkeypatch.setattr(facade, "check_epistemic_plan", lambda *_: {"policy_feasible": False})
+    with pytest.raises(ValueError, match="not feasible"):
+        native_checks.check(source_fixture("cpcf"))
+
+
 def setup_run(
     tmp_path: Path, *, continuation: bool = False, database_url: str = ""
 ) -> tuple[Any, Any, str, bytes, dict[str, Any]]:
@@ -195,6 +221,14 @@ def test_cpcf_admission_changes_real_plan_and_signed_result(tmp_path: Path) -> N
     assert engine.ingest(store, run_id, observation(store, run_id, trial["trial_id"], key))["ok"]
     assert engine.plan(store, run_id)["chosen"]["immediate_step"] == "transfer"
     assert engine.report(store, run_id)["ledgers"]["training"]["asset_count"] == 1
+    from ccr.optimizer.native_history import cpcf_history
+
+    with pytest.raises(ValueError, match="no qualified registered observation"):
+        cpcf_history(
+            engine.load(store, run_id), registration["bindings"]["form"]["contract_sha256"]
+        )
+    cait = native_projection.project((FIXTURES / "cait.json").read_bytes(), registration)
+    assert cait["bindings"] == [] and cait["service_credit"] == 0
 
 
 @native

@@ -25,7 +25,8 @@
       "schemas/growth-report.schema.json",
       "schemas/native-source.schema.json",
       "schemas/native-registration.schema.json",
-      "schemas/native-projection.schema.json"
+      "schemas/native-projection.schema.json",
+      "schemas/native-accounting-export.schema.json"
     ],
     "docs": [
       "README.md",

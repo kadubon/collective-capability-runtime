@@ -123,3 +123,31 @@ def test_native_integrated_example_has_independent_finite_accounting_oracle(
     assert report["feedback"]["reward_added"] == report["feedback"]["asset_stock_added"] == 0
     assert report["after_reconciliation"]["actual_costs"] == {"cost": 16}
     assert list(tmp_path.iterdir()) == []
+
+
+@native
+def test_native_cli_accounting_roundtrip(tmp_path: Path, capsys: Any) -> None:
+    import importlib
+
+    from tests.test_native_accounting_faults import history
+
+    _, run_id, _ = history(tmp_path)
+    p = parser(tmp_path)
+    assert native_cli.execute(p.parse_args(["native", "export", "--run", run_id])) == 0
+    exported = json.loads(capsys.readouterr().out)
+    report = importlib.import_module("cait_schema.accounting.report").analyze(exported["bundle"])
+    export_file, report_file = tmp_path / "export.json", tmp_path / "report.json"
+    export_file.write_text(json.dumps(exported), encoding="utf-8")
+    report_file.write_text(json.dumps(report), encoding="utf-8")
+    args = ["--run", run_id, "--export", str(export_file), "--report", str(report_file)]
+    assert native_cli.execute(p.parse_args(["native", "feedback", *args])) == 0
+    assert json.loads(capsys.readouterr().out)["complete"]
+    assert (
+        native_cli.execute(
+            p.parse_args(
+                ["native", "reconcile", *args, "--expected-revision", str(exported["revision"])]
+            )
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["reward_added"] == 0
