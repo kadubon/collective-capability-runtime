@@ -321,6 +321,30 @@ def check_feedback(
     ):
         raise ValueError("CAIT accounting premise substitution")
     originals = {r["digest"]: r for r in exported["ccr_sources"]}
+    expected_obligations = set()
+    formed = set()
+    for original in exported["ccr_sources"]:
+        payload = original["payload"]
+        if original["kind"] == "lifecycle":
+            if payload["state"] != "withdrawn" or payload["asset"] not in formed:
+                expected_obligations.add("unsupported-lifecycle:" + original["digest"])
+        elif payload["group"] == "training":
+            action = g["actions"][payload["action_id"]]
+            asset = payload["artifact_sha256"]
+            if action["produces"]:
+                if not payload["success"] or g["assets"][asset]["parents"] or asset in formed:
+                    expected_obligations.add("unmapped-formation:" + original["digest"])
+                else:
+                    formed.add(asset)
+            elif action["kind"] in {"reuse", "service"}:
+                if asset not in formed:
+                    expected_obligations.add("missing-creation:" + original["digest"])
+                elif payload["status"] not in {"success", "failed", "timeout"}:
+                    expected_obligations.add("unsupported-use-status:" + original["digest"])
+    if any(t["group"] == "training" and t["state"] != "evaluated" for t in run["trials"]):
+        expected_obligations.add("unfinished-CCR-work")
+    if set(exported["remaining_obligations"]) != expected_obligations:
+        raise ValueError("unsupported accounting obligation is not bound to CCR history")
     seen = set()
     for event in prepared.events:
         parent = originals.get(exported["event_bindings"].get(event["id"]))

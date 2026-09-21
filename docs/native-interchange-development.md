@@ -65,18 +65,18 @@ command. No companion repository is modified.
 
 ## Qualification remains incomplete
 
-The native test selection measured 541/634 statements (85.33%) and 241/334
-branches (72.16%). It does **not** meet the requested 95% statement / 90% branch
+The native test selection measured 559/657 statements (85.08%) and 257/356
+branches (72.19%). It does **not** meet the requested 95% statement / 90% branch
 thresholds. The combined coverage display was 81%; this is not a statement-coverage result.
 Coverage is an open gate, not an exception or waiver.
 
-The full base run initially reported 286 passed, 13 skipped and one release-audit
-failure caused by the disposable native environment being inside the checkout.
-That environment was moved outside the checkout; the failing package/build/audit
-test then passed. The whole suite must be rerun on the eventual final source.
-Formatting, lint, strict source typing, compilation, repository audit and the
-existing schema registry audit passed before the most recent additions; rerun
-all gates after completing the implementation.
+The full base rerun passed **287 tests with 15 skips**. An earlier release-audit
+failure was caused by the disposable native environment being inside the
+checkout; moving that environment outside the checkout corrected the issue
+without changing the audit. Formatting, lint, strict source typing and native
+tests passed after the final source-bound-obligation correction. Compilation,
+repository audit and the existing schema registry audit also passed during
+development. The whole qualification must be rerun on the eventual final source.
 
 No local PostgreSQL service was available: Docker's Linux-engine named pipe was
 absent and PostgreSQL tools were not found in WSL. PostgreSQL qualification has

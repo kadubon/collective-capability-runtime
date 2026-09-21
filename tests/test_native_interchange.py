@@ -277,6 +277,10 @@ def test_cait_signed_roundtrip_reconciles_and_opens_funded_review(tmp_path: Path
     checked = native_accounting.check_feedback(run, exported, report, store.now())
     assert checked["complete"] and checked["invalidated_assets"] == [asset]
     assert checked["costs"] == {"cost": 8}
+    forged = copy.deepcopy(exported)
+    forged["remaining_obligations"] = ["invented-review-demand"]
+    with pytest.raises(ValueError, match="not bound"):
+        native_accounting.check_feedback(run, forged, report, store.now())
     native_accounting.reconcile(store, run_id, exported, report, expected_revision=run["revision"])
     assert native_accounting.reconcile(
         store, run_id, exported, report, expected_revision=run["revision"]
