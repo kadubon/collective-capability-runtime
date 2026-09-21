@@ -95,7 +95,22 @@ jobs:
           --cov=ccr.providers.http
           --cov=ccr.phase.eligibility
           --cov-report=term
-          --cov-fail-under=90
+      - name: Add isolated pinned native coverage to the unchanged safety threshold
+        env:
+          CCR_NATIVE_CONFORMANCE: "1"
+        run: |
+          uv venv /tmp/ccr-native-qualification --python 3.14
+          uv pip sync --python /tmp/ccr-native-qualification/bin/python --require-hashes scripts/requirements-native.lock
+          uv pip install --python /tmp/ccr-native-qualification/bin/python --no-deps --editable .
+          /tmp/ccr-native-qualification/bin/python -m pytest tests/test_native_interchange.py tests/test_native_transactions.py tests/test_native_cli.py tests/test_native_projection_faults.py tests/test_native_accounting_faults.py --cov=ccr.optimizer --cov-append --cov-report=term
+          uv run coverage report --fail-under=90
+      - name: Native statement and branch qualification
+        env:
+          CCR_NATIVE_CONFORMANCE: "1"
+          COVERAGE_FILE: .coverage.native
+        run: |
+          /tmp/ccr-native-qualification/bin/python -m pytest tests/test_native_interchange.py tests/test_native_transactions.py tests/test_native_cli.py tests/test_native_projection_faults.py tests/test_native_accounting_faults.py --cov=ccr.optimizer --cov-branch --cov-report=json:native-coverage.json
+          /tmp/ccr-native-qualification/bin/python scripts/check_native_coverage.py native-coverage.json
       - run: uv run ccr schema validate --kind packet --file examples/minimal/packet.json
       - run: uv run ccr schema validate --kind task --file examples/minimal/task.json
       - run: uv run ccr schema validate --kind packet --file examples/phase_formation/packets/checked/packet.phase.seed.json
@@ -117,9 +132,15 @@ jobs:
         run: |
           uv venv /tmp/ccr-installed
           uv pip install --python /tmp/ccr-installed/bin/python dist/*.whl cryptography
+          uv venv /tmp/ccr-native-installed --python 3.14
+          uv pip sync --python /tmp/ccr-native-installed/bin/python --require-hashes scripts/requirements-native.lock
+          uv pip install --python /tmp/ccr-native-installed/bin/python --no-deps dist/*.whl
           cd /tmp
           /tmp/ccr-installed/bin/ccr optimizer growth-example --json
           /tmp/ccr-installed/bin/ccr agent explain --json
+          /tmp/ccr-native-installed/bin/ccr optimizer native example --json
+          /tmp/ccr-native-installed/bin/ccr optimizer native sources --json
+          uv pip check --python /tmp/ccr-native-installed/bin/python
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: distribution-checksums

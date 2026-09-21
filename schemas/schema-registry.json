@@ -618,6 +618,34 @@
     },
     {
       "origin": "ccr-public",
+      "schema_file": "native-accounting-export.schema.json",
+      "schema_kind": "native-accounting-export",
+      "schema_sha256": "ca2b1d59c7ce950d4bfbcc7884108a11c08ac60f24950a5297182d2cff0b1c77",
+      "schema_version": "ccr.native_accounting_export.v1"
+    },
+    {
+      "origin": "ccr-public",
+      "schema_file": "native-projection.schema.json",
+      "schema_kind": "native-projection",
+      "schema_sha256": "3cca3aa53652dbbb9093bde63591cbb805001f7e68870d39d4ecad5bc3258859",
+      "schema_version": "ccr.native_projection.v1"
+    },
+    {
+      "origin": "ccr-public",
+      "schema_file": "native-registration.schema.json",
+      "schema_kind": "native-registration",
+      "schema_sha256": "90556e2178fdd9d9c291709b2f42e31acd328132b227b3de8034f4ae39e81109",
+      "schema_version": "ccr.native_registration.v1"
+    },
+    {
+      "origin": "ccr-public",
+      "schema_file": "native-source.schema.json",
+      "schema_kind": "native-source",
+      "schema_sha256": "0a6feafc09ade405ee9d8edc5cbf78b2a6ee30651c416625884cc04296c01538",
+      "schema_version": "ccr.native_source.v1"
+    },
+    {
+      "origin": "ccr-public",
       "schema_file": "generic-report.schema.json",
       "schema_kind": "generic-report",
       "schema_sha256": "bea02bab97d7e310c41ba6056ac145afd496163ca54d114161f20ee813e41214",
@@ -1261,6 +1289,6 @@
       "schema_version": "pic.trc_trace_report.v1"
     }
   ],
-  "registry_digest": "a1677a61ca1909d3493424f3a4507dc6d5faa8a71a542de0f070da94a88c4041",
+  "registry_digest": "7fd6087c314b14f383087573117513241d691de3bbdb4a2c1478d3594033c9fd",
   "schema_version": "ccr.schema_registry.v1"
 }

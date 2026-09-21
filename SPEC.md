@@ -324,3 +324,11 @@ frozen-comparison path. Service observations, planning forecasts and causal or
 statistical improvement are distinct. Growth does not grant admission, approval
 or settlement authority. Unresolved attribution and invalidated evidence remain
 visible; synthetic records cannot establish production performance.
+
+
+## Native interchange 1.9.0
+
+Native source admission is an additive opt-in profile. Original producer documents, registered CCR action digests and independently reconstructed projections precede explicit transactional admission. Existing plan, lease and signed-result controls remain authoritative. The supported profile is finite synthetic training; unsupported mappings fail closed.
+
+See [Native interchange](docs/native-interchange.md) and its
+[qualification record](docs/native-interchange-validation.md).

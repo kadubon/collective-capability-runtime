@@ -1,0 +1,6 @@
+{
+  "alt": {"repository": "https://github.com/kadubon/alt-foundry-kernel", "tag": "v0.5.0", "commit": "cdb5c7d845364f0bec42ebe5e865871b2bde2e91"},
+  "vek": {"repository": "https://github.com/kadubon/verification-ecology-kit", "tag": "v1.3.0", "commit": "b07998135cb9dccde1e67db3c6ed77fdec847e09"},
+  "cait": {"repository": "https://github.com/kadubon/cait-certificate-schema", "tag": "v0.2.0", "commit": "7d12bcf0bc4c6eae2acdd177175b6be414a274f6"},
+  "cpcf": {"repository": "https://github.com/kadubon/collective-phase-control-fabric", "tag": "v1.0.1", "commit": "340b4899d5b0892e06d7d2c1ab1f1d48df15e981"}
+}

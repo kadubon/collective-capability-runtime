@@ -1,0 +1,268 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "ccr.native_registration.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "config_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "study_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "arm": {
+      "const": "training"
+    },
+    "pool_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "bindings": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 64,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "producer": {
+            "enum": [
+              "alt",
+              "vek",
+              "cait",
+              "cpcf"
+            ]
+          },
+          "contract_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "source_action": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "action_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date-time",
+            "maxLength": 40
+          },
+          "valid_until": {
+            "type": "string",
+            "format": "date-time",
+            "maxLength": 40
+          },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "native_action_digest": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "native_capability_digest": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "native_verifier": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "host_verifier": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "target_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "effects": {
+                "const": "model_only"
+              }
+            },
+            "required": [
+              "native_action_digest",
+              "native_capability_digest",
+              "native_verifier",
+              "host_verifier",
+              "target_sha256",
+              "effects"
+            ]
+          },
+          "observations": {
+            "type": "object",
+            "additionalProperties": false,
+            "minProperties": 1,
+            "properties": {
+              "success": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "failed": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "timeout": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "invalid": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "inconclusive": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "pending": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "censored": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            }
+          }
+        },
+        "required": [
+          "producer",
+          "contract_sha256",
+          "source_action",
+          "action_sha256",
+          "valid_from",
+          "valid_until"
+        ]
+      }
+    },
+    "pools": {
+      "type": "object",
+      "minProperties": 0,
+      "maxProperties": 32,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "clocks": {
+      "type": "object",
+      "minProperties": 0,
+      "maxProperties": 64,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "utc_origin": {
+            "type": "string",
+            "format": "date-time",
+            "maxLength": 40
+          },
+          "tick_origin": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "seconds_per_tick": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "utc_origin",
+          "tick_origin",
+          "seconds_per_tick"
+        ]
+      }
+    },
+    "units": {
+      "type": "object",
+      "minProperties": 0,
+      "maxProperties": 32,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "rate": {
+            "type": "string",
+            "maxLength": 81,
+            "pattern": "^[1-9][0-9]*(/[1-9][0-9]*)?$"
+          },
+          "rounding": {
+            "enum": [
+              "exact",
+              "upper"
+            ]
+          }
+        },
+        "required": [
+          "target",
+          "rate",
+          "rounding"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_id",
+    "config_digest",
+    "study_id",
+    "arm",
+    "pool_id",
+    "bindings",
+    "units"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

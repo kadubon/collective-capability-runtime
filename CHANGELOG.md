@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.9.0 - 2026-09-22
+
+- Adds opt-in source inspection, independent projection checks and explicit
+  runtime admission for pinned ALT 0.5, VEK 1.3 and maintained CPCF 1.0.1.
+- Adds source-bound CAIT 0.2 reconciliation without repeated service or stock,
+  signed CPCF observation replanning, and typed VEK work-state reporting.
+- Adds a same-run four-companion synthetic example, registered wire schemas,
+  installed source/schema hashes and hash-locked optional test dependencies.
+- Adds actual SQLite/PostgreSQL admission contention and selected fault tests.
+  Native execution requires explicit source-to-UTC clocks; execution and cleanup
+  endpoints, signed result receipt and historical replay are checked separately.
+  CPCF proposals bind frozen task/capability/verifier scope and retain model-only
+  effects; unsupported host obligations fail closed.
+  Publication and review status are recorded in `docs/native-interchange-validation.md`.
+
 ## 1.8.0 - 2026-09-12
 
 - Adds an explicit verified-growth profile, chained outcome/lineage journal,

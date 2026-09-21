@@ -3,6 +3,10 @@
 Use this index to choose a workflow. CCR is a local-first coordination runtime;
 it does not supply an LLM or treat agent agreement as verified truth.
 
+For the 1.9.0 native companion profile, consult
+[Native interchange](native-interchange.md) and its
+[validation/publication record](native-interchange-validation.md).
+
 ## Start Locally
 
 1. Install CCR and run [Getting Started](getting-started.md).
@@ -55,6 +59,8 @@ the [Security Audit Checklist](security-audit-checklist.md) for the complete
 control set.
 
 ## Reference Guides
+
+- [Native companion interchange (development)](native-interchange.md)
 
 - [ASI-Proxy Mission](asi-proxy-mission.md)
 - [ASI-Proxy Loop](asi-proxy-loop.md)

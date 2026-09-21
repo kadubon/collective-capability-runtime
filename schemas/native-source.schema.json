@@ -1,0 +1,226 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "ccr.native_source.v1"
+    },
+    "producer": {
+      "enum": [
+        "alt",
+        "vek",
+        "cait",
+        "cpcf"
+      ]
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "documents": {
+      "type": "object",
+      "minProperties": 2,
+      "maxProperties": 5,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 131072
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "producer",
+    "version",
+    "documents"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "producer": {
+            "const": "alt"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "version": {
+            "const": "0.5.0"
+          },
+          "documents": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              },
+              "plan": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              },
+              "tasks": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              }
+            },
+            "required": [
+              "contract",
+              "plan",
+              "tasks"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "producer": {
+            "const": "vek"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "version": {
+            "const": "1.3.0"
+          },
+          "documents": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              },
+              "history": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              },
+              "plan": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              },
+              "report": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              }
+            },
+            "required": [
+              "contract",
+              "history",
+              "plan",
+              "report"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "producer": {
+            "const": "cait"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "version": {
+            "const": "0.2.0"
+          },
+          "documents": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "bundle": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              },
+              "report": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              }
+            },
+            "required": [
+              "bundle",
+              "report"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "producer": {
+            "const": "cpcf"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "version": {
+            "const": "1.0.1"
+          },
+          "documents": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              },
+              "objects": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              },
+              "epistemic": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              },
+              "frontier": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              },
+              "plan": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              }
+            },
+            "required": [
+              "contract",
+              "objects",
+              "epistemic",
+              "frontier",
+              "plan"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

@@ -62,6 +62,10 @@ def check(run: dict[str, Any], proposal: dict[str, Any], current: str) -> dict[s
     objectives = []
     for step in expected:
         a = g["actions"][step]
+        if "native_registration" in run and step == expected[0]:
+            from ccr.optimizer.native_runtime import blockers as native_blockers
+
+            errors.extend(native_blockers(run, step, current, group))
         arm = next(
             i
             for i in run["config"]["interventions"]

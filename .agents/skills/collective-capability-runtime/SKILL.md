@@ -5,7 +5,7 @@ license: Apache-2.0
 metadata:
   author: K. Takahashi
   repository: https://github.com/kadubon/collective-capability-runtime
-  version: "1.8.0"
+  version: "1.9.0"
 ---
 
 # Collective Capability Runtime
@@ -89,6 +89,11 @@ Use when the primary object is collective AI-agent work: a local mission, task q
 `ok` means only the named finite command or transition completed. `accepted` is local checker admission; it is not `settled`. `settled=false` is expected when declared requirements or residuals remain. Read [result and operation boundary](references/result-and-operation-boundary.md) before reporting execution, authority, or outcome.
 
 ## Retrieve only what is needed
+
+- Read `docs/native-interchange.md` for the finite native companion path.
+  Use explicit register/stage/admit/reconcile writes; native checker acceptance
+  does not grant eligibility, capacity, service credit or execution permission.
+  See [native boundaries](references/native-interchange.md) for interpretation.
 
 - Read `docs/getting-started.md` for a new local mission.
 - Read `docs/command-map.md` for a command's write boundary.

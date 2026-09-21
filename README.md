@@ -8,7 +8,17 @@ without treating repeated answers or raw agent count as proof.
 CCR does not run an LLM. Agents and tools use its CLI, JSON schemas, SQLite or
 PostgreSQL state, and optional HTTP API to exchange auditable work.
 
-## New in v1.8.0
+## New in v1.9.0
+
+An opt-in native companion path admits pinned ALT reuse, VEK verification work
+and CPCF first-action proposals through CCR's existing reservation, lease and
+signed-result controls. CAIT reconciles original source accounting and can change
+later eligible work without duplicating credit. This is a finite synthetic
+profile; native forecasts are not observed capacity or execution authority.
+See [Native interchange](docs/native-interchange.md) and
+[qualification and publication](docs/native-interchange-validation.md).
+
+## Verified growth (v1.8 compatibility)
 
 An explicit opt-in growth policy adds evidence-bound service accounting,
 receiver-qualified reuse, and bounded verification-aware allocation. The v1
@@ -28,6 +38,9 @@ scientific boundaries and actual publication status. Existing configurations
 continue to use the [legacy Phase Optimizer](docs/phase-optimizer.md).
 
 ## Agent Skill
+
+Native companion commands, exact supported contracts, synthetic examples and
+authority boundaries are documented in [Native interchange](docs/native-interchange.md).
 
 This repository includes an Agent Skills-compatible workflow at
 [`.agents/skills/collective-capability-runtime/SKILL.md`](.agents/skills/collective-capability-runtime/SKILL.md).

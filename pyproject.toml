@@ -1,6 +1,6 @@
 [project]
 name = "collective-capability-runtime"
-version = "1.8.0"
+version = "1.9.0"
 description = "Residual-preserving runtime for verifiable multi-agent coordination."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -110,6 +110,9 @@ packages = ["src/ccr"]
 "docs/phase-optimizer.md" = "ccr/data/docs/phase-optimizer.md"
 "examples/phase_optimizer" = "ccr/data/examples/phase_optimizer"
 "examples/verified_growth" = "ccr/data/examples/verified_growth"
+"examples/native_interchange" = "ccr/data/examples/native_interchange"
+"docs/native-interchange.md" = "ccr/data/docs/native-interchange.md"
+"docs/native-interchange-development.md" = "ccr/data/docs/native-interchange-development.md"
 "docs/verified-growth.md" = "ccr/data/docs/verified-growth.md"
 "docs/verified-growth-interchange.md" = "ccr/data/docs/verified-growth-interchange.md"
 "docs/verified-growth-validation.md" = "ccr/data/docs/verified-growth-validation.md"

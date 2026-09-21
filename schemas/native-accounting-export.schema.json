@@ -1,0 +1,162 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "ccr.native_accounting_export.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "config_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740992
+    },
+    "journal_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "clock_origin": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 40
+    },
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "cait_source_bundle_v1"
+        },
+        "contract": {
+          "type": "object",
+          "maxProperties": 512
+        },
+        "events": {
+          "type": "array",
+          "maxItems": 512,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "content": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              }
+            },
+            "required": [
+              "sha256",
+              "content"
+            ]
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "maxItems": 512,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "content": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 131072
+              }
+            },
+            "required": [
+              "sha256",
+              "content"
+            ]
+          }
+        },
+        "models": {
+          "type": "array",
+          "maxItems": 0
+        }
+      },
+      "required": [
+        "record_type",
+        "contract",
+        "events",
+        "evidence",
+        "models"
+      ]
+    },
+    "event_bindings": {
+      "type": "object",
+      "minProperties": 0,
+      "maxProperties": 512,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "remaining_obligations": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "uniqueItems": true
+    },
+    "ccr_sources": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 131072
+      }
+    },
+    "non_actionable": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "source_authentication": {
+      "const": "CCR signatures checked separately; native CAIT authentication unestablished"
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_id",
+    "config_digest",
+    "revision",
+    "journal_digest",
+    "clock_origin",
+    "bundle",
+    "event_bindings",
+    "remaining_obligations",
+    "ccr_sources",
+    "non_actionable",
+    "source_authentication"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

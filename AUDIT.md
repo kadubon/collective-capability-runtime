@@ -131,3 +131,11 @@ frozen-comparison path. Service observations, planning forecasts and causal or
 statistical improvement are distinct. Growth does not grant admission, approval
 or settlement authority. Unresolved attribution and invalidated evidence remain
 visible; synthetic records cannot establish production performance.
+
+
+## Native interchange 1.9.0
+
+Native qualification uses actual pinned companion checks, an independent CCR projector checker, SQLite/PostgreSQL contention and selected injected faults. The integrated finite example and a local development-wheel install outside the checkout have passed. These are not public PyPI release verification or empirical acceleration evidence. Existing quality thresholds remain required; current receipts and outstanding gates are recorded separately.
+
+See [Native interchange](docs/native-interchange.md) and its
+[qualification record](docs/native-interchange-validation.md).

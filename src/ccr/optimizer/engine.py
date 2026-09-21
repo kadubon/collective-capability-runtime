@@ -379,6 +379,12 @@ def claim(
             missing = prerequisites(
                 run["config"]["growth"], action, replay(run, current, group=trial["group"])
             )
+            if "native_registration" in run:
+                from ccr.optimizer.native_runtime import blockers as native_blockers
+
+                missing.extend(
+                    native_blockers(run, trial["growth_action"], current, trial["group"])
+                )
             if missing:
                 return response(ok=False, blockers=missing)
         if trial["state"] not in {"queued", "awaiting_approval", "leased"}:
@@ -470,6 +476,12 @@ def dispatch(
             missing = prerequisites(
                 run["config"]["growth"], action, replay(run, current, group=trial["group"])
             )
+            if "native_registration" in run:
+                from ccr.optimizer.native_runtime import blockers as native_blockers
+
+                missing.extend(
+                    native_blockers(run, trial["growth_action"], current, trial["group"])
+                )
             if missing:
                 return response(ok=False, blockers=missing)
         check_lease(trial, current, worker, token)

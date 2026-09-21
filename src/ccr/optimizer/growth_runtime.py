@@ -199,6 +199,13 @@ def ingest(store: ControlStore, run_id: str, envelope: dict[str, Any]) -> dict[s
             growth_model.unique(o["external_inputs"])
         ledger = growth_ledger.replay(run, current, group=trial["group"])
         reasons = growth_ledger.prerequisites(g, a, ledger)
+        if "native_registration" in run:
+            from ccr.optimizer.native_runtime import result_scope_blockers, result_time_blockers
+
+            reasons.extend(
+                result_time_blockers(run, trial["growth_action"], result["observed_at"], current)
+            )
+            reasons.extend(result_scope_blockers(run, trial["growth_action"], envelope))
         # Existing signature, fencing, packet eligibility and residual logic is authoritative.
         admitted = engine._ingest_result(store, run, current, result)
         # Keep the new exact wire values after legacy eligibility validation.

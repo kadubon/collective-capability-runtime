@@ -22,7 +22,11 @@
       "schemas/growth-profile.schema.json",
       "schemas/growth-result.schema.json",
       "schemas/growth-plan.schema.json",
-      "schemas/growth-report.schema.json"
+      "schemas/growth-report.schema.json",
+      "schemas/native-source.schema.json",
+      "schemas/native-registration.schema.json",
+      "schemas/native-projection.schema.json",
+      "schemas/native-accounting-export.schema.json"
     ],
     "docs": [
       "README.md",
@@ -44,7 +48,9 @@
       "docs/phase-optimizer.md",
       "docs/verified-growth.md",
       "docs/verified-growth-interchange.md",
-      "docs/verified-growth-validation.md"
+      "docs/verified-growth-validation.md",
+      "docs/native-interchange.md",
+      "docs/native-interchange-validation.md"
     ],
     "runtime_state": [
       "ccr.sqlite",
@@ -83,6 +89,10 @@
     "capital_admitted_is_not_settlement": true
   },
   "primary_commands": [
+    {
+      "command": "ccr optimizer native sources --json",
+      "purpose": "Inspect pinned native companion support and finite profile limits without importing source authority or mutating runtime state."
+    },
     {
       "command": "ccr loop next --json",
       "purpose": "Return the next advisory non-mutating residual or token action for the ASI-proxy loop."
