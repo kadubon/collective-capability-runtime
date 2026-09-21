@@ -226,3 +226,11 @@ frozen-comparison path. Service observations, planning forecasts and causal or
 statistical improvement are distinct. Growth does not grant admission, approval
 or settlement authority. Unresolved attribution and invalidated evidence remain
 visible; synthetic records cannot establish production performance.
+
+
+## Native interchange development
+
+Use the development `optimizer native` family for explicit companion admission, then use the existing optimizer plan, apply, lease and signed result flow. Native reports do not bypass the existing approval or provider execution boundary.
+
+See [Native interchange](native-interchange.md) and its
+[qualification record](native-interchange-development.md).

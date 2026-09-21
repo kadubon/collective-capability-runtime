@@ -440,6 +440,7 @@ def test_alt_native_receiver_admission_runs_existing_lifecycle(tmp_path: Path) -
         "arm": "training",
         "pool_id": g["quota"]["pool_id"],
         "units": {"resource": {"target": "cost", "rate": "1", "rounding": "exact"}},
+        "pools": {"verifier": "worker"},
         "bindings": {
             names[s]: {
                 "producer": "alt",
@@ -477,10 +478,13 @@ def test_alt_native_receiver_admission_runs_existing_lifecycle(tmp_path: Path) -
 
 
 @native
-def test_vek_signed_negative_completes_work_without_service_credit(tmp_path: Path) -> None:
+@pytest.mark.parametrize("status", ["positive", "negative", "timeout", "inconclusive", "invalid"])
+def test_vek_signed_negative_completes_work_without_service_credit(
+    tmp_path: Path, status: str
+) -> None:
     import importlib
 
-    from ccr.optimizer.growth_example import observation
+    from ccr.optimizer.growth_example import observation, sign
     from tests.test_growth import config, start
 
     original = json.loads((FIXTURES / "vek.json").read_bytes())
@@ -566,13 +570,37 @@ def test_vek_signed_negative_completes_work_without_service_credit(tmp_path: Pat
         store, run_id, native_raw, projected, expected_revision=1, idempotency_key="vek"
     )
     native_runtime.admit(store, run_id, staged["proposal_id"], expected_revision=2)
+    before = engine.load(store, run_id)
+    assert all(
+        row["status"] == "pending"
+        for row in native_runtime.verification_work(before, store.now()).values()
+    )
+    assert all(
+        row["status"] == "censored"
+        for row in native_runtime.verification_work(before, "2100-01-01T00:00:00Z").values()
+    )
     trial = engine.step(store, run_id, apply=True)["trial"]
     engine.claim(store, run_id, trial["trial_id"], worker="producer")
-    result = engine.ingest(
-        store, run_id, observation(store, run_id, trial["trial_id"], key, success=False)
+    envelope = observation(
+        store, run_id, trial["trial_id"], key, success=status in {"positive", "invalid"}
     )
+    if status in {"timeout", "inconclusive"}:
+        envelope["observation"]["status"] = status
+    if status == "invalid":
+        result = {k: v for k, v in envelope["result"].items() if k != "signature_base64"}
+        result["actual_resources"]["cost"] = 999
+        envelope["result"] = sign(key, result)
+    envelope = sign(key, {k: v for k, v in envelope.items() if k != "signature_base64"})
+    result = engine.ingest(store, run_id, envelope)
     assert result["reward"] == 0
     report = engine.report(store, run_id)
     assert report["trials"][0]["state"] == "evaluated"
     assert report["ledgers"]["training"]["observed_service"] == {"task": 0, "research": 0}
-    assert report["next_action"]["chosen"]["immediate_step"] == list(action_names.values())[1]
+    work = native_runtime.verification_work(engine.load(store, run_id), store.now())
+    first = work[next(iter(action_names.values()))]
+    assert first["status"] == status
+    assert first["verification_completed"] == (status in {"positive", "negative"})
+    if status != "invalid":
+        assert report["next_action"]["chosen"]["immediate_step"] == list(action_names.values())[1]
+    else:
+        assert report["next_action"]["chosen"] is None

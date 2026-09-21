@@ -287,3 +287,11 @@ frozen-comparison path. Service observations, planning forecasts and causal or
 statistical improvement are distinct. Growth does not grant admission, approval
 or settlement authority. Unresolved attribution and invalidated evidence remain
 visible; synthetic records cannot establish production performance.
+
+
+## Native interchange development
+
+Native checking supplies a feasibility predicate, not an operational observation. A binding becomes an advisory candidate only after explicit admission. Every immediate action still satisfies the current CCR feasibility predicate; future catalogue steps retain full resource and cleanup bounds. A returned accounting view has zero additive reward and zero additive asset stock. CPCF visible history is reconstructed from registered symbols of qualified signed results, and its continuation guarantee is not transferred.
+
+See [Native interchange](docs/native-interchange.md) and its
+[qualification record](docs/native-interchange-development.md).

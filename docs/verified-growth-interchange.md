@@ -28,3 +28,11 @@ adds unresolved review work, without promoting packets or changing service
 credit. CAIT export is always read-only. PIC's existing compatibility matrix
 and evidence-only conformance path are preserved. CPCF is not modified or
 required.
+
+
+## Native interchange development
+
+The legacy evidence importer remains unchanged. The separate development `optimizer native` family consumes ALT 0.5, VEK 1.3, CAIT 0.2 and maintained CPCF 1.0.1 through pinned optional APIs. New records are not relabeled as legacy adapter tokens.
+
+See [Native interchange](native-interchange.md) and its
+[qualification record](native-interchange-development.md).

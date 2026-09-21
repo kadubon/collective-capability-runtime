@@ -1,5 +1,12 @@
 # Agent Instructions for CCR
 
+Native Phase 2 development: consult `docs/native-interchange.md` and the open
+qualification record. `optimizer native sources/inspect/project/check` do not
+grant runtime authority. Registration, staging, admission and reconciliation
+are explicit writes; use their revision/idempotency controls. Keep unknown
+dispatch reservations and distinguish completed negative verification from
+successful service. The native synthetic example is not production evidence.
+
 Optional PIC verifier route:
 [kadubon/percolation-inversion-compiler](https://github.com/kadubon/percolation-inversion-compiler)
 

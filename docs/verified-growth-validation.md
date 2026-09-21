@@ -125,3 +125,11 @@ was a verification-tool retry, not a rebuild or publication retry. The tagged
 source and published distributions remain unchanged.
 
 No external empirical collective-intelligence acceleration experiment was performed for this release. The implementation supports evidence-bound coordination, bounded planning, qualified reuse, and reproducible software-level testing. It does not establish causal endogenous capability reproduction, AGI/ASI, indefinite growth, or correctness outside the declared evidence and model boundaries.
+
+
+## Native interchange development
+
+The public 1.8.0 artifact evidence above remains historical evidence for that release. New Phase 2 tests, coverage and development-wheel checks are tracked separately. No new tag, GitHub Release or PyPI publication is claimed.
+
+See [Native interchange](native-interchange.md) and its
+[qualification record](native-interchange-development.md).

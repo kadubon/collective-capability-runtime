@@ -29,6 +29,11 @@ continue to use the [legacy Phase Optimizer](docs/phase-optimizer.md).
 
 ## Agent Skill
 
+Native companion admission and feedback are being qualified in the additive
+Phase 2 development branch. See [Native interchange](docs/native-interchange.md)
+for its actual CLI, pinned contracts, synthetic example and remaining gates.
+This is not a CCR 1.9.0 release announcement.
+
 This repository includes an Agent Skills-compatible workflow at
 [`.agents/skills/collective-capability-runtime/SKILL.md`](.agents/skills/collective-capability-runtime/SKILL.md).
 Compatible agents can discover it from this repository, or copy it to a supported user skills directory

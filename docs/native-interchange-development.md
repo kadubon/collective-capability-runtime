@@ -57,7 +57,7 @@ python -m pytest tests/test_native_interchange.py tests/test_native_transactions
 python -m ccr optimizer native example --json
 ```
 
-The recorded continuation run passed 46 tests, including offline socket guards,
+The latest local continuation run passed 51 tests, including offline socket guards,
 malformed input, exact conversion, native tampering, selected faults and all four
 runtime scenarios plus an integrated same-run loop. The ordinary base environment intentionally skips native
 tests without this explicit setup; those skips are not native conformance.
@@ -69,10 +69,11 @@ command. No companion repository is modified.
 
 ## Qualification remains incomplete
 
-The recorded continuation selection measured 961/1019 native-module statements
-(94.31%) and 407/462 branches (88.10%). It does **not** meet the requested 95%
-statement / 90% branch thresholds. Further changes require a fresh measurement.
-Coverage is an open gate, not an exception or waiver.
+The latest continuation selection measured 986/1030 native-module
+statements (95.73%) and 421/462 branches (91.13%), including every native module.
+The aggregate new-module 95%/90% gate passed. The earlier `b1b5cfe` gate passed
+at 95.61%/90.85% locally and in CI. Further changes require a fresh
+measurement; there is no exclusion or waiver for a native module.
 
 The unchanged repository safety-critical CI gate also failed at **74.35%** on
 development commit `4432e9a`, in
@@ -80,9 +81,13 @@ development commit `4432e9a`, in
 That test selection does not yet include the new native suite/dependency setup.
 The gate remains at 90%. Python/platform/PIC and the existing PostgreSQL smoke
 jobs passed in that run; the PostgreSQL job does not exercise native admission.
-Later source changes require fresh CI evidence and do not erase this failure.
+That historical failure was resolved on `b1b5cfe` by measuring the isolated native
+suite before enforcing the same 90% safety threshold. The separate native
+statement/branch gate is also enforced. All jobs passed in
+[CI run 35604173119](https://github.com/kadubon/collective-capability-runtime/actions/runs/35604173119).
+Later source changes require fresh CI evidence and do not erase earlier failures.
 
-The full base rerun passed **287 tests with 15 skips**. An earlier release-audit
+The continuation base rerun passed **290 tests with 27 skips**. An earlier release-audit
 failure was caused by the disposable native environment being inside the
 checkout; moving that environment outside the checkout corrected the issue
 without changing the audit. Formatting, lint, strict source typing and native
@@ -109,7 +114,7 @@ publication or verification of a released 1.9.0 artifact.
    specification rather than assuming retained JSON is enforced semantics.
 2. Finish ALT lifecycle, parent/input/evaluator substitution and cost-identity
    checks. Complete source timing/occupancy and dependency translation checks.
-3. Finish VEK predecessor/separation/contingency mappings, work-state distinctions,
+3. Finish VEK predecessor/separation/contingency mappings,
    expiry/dispatch rechecks, and reconciliation of all signed check statuses.
    Unsupported contingent work is currently rejected.
 4. Finish CAIT incomplete/negative-history handling and independent per-event
@@ -129,5 +134,6 @@ publication or verification of a released 1.9.0 artifact.
    protected Trusted Publishing steps. Verify exact released wheel/sdist hashes
    and fresh no-cache public-PyPI installed offline paths before claiming release.
 
-No tag, release or PyPI publication has been initiated. The existing Wiki has
-been inspected but not changed. No earlier CPCF qualification waiver is used.
+No tag, release or PyPI publication has been initiated. The existing Wiki was
+updated at commit `e92e77e` with a development page and explicit release gaps;
+it does not announce 1.9.0. No earlier CPCF qualification waiver is used.

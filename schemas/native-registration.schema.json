@@ -124,6 +124,21 @@
         ]
       }
     },
+    "pools": {
+      "type": "object",
+      "minProperties": 0,
+      "maxProperties": 32,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
     "units": {
       "type": "object",
       "minProperties": 0,

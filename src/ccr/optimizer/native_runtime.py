@@ -199,3 +199,47 @@ def blockers(run: dict[str, Any], name: str, current: str, group: str) -> list[s
                 return ["native_ALT_prerequisite_not_observed"]
         return []
     return ["native_proposal_not_admitted:" + name]
+
+
+def verification_work(run: dict[str, Any], current: str) -> dict[str, Any]:
+    """Replay typed VEK work status without converting it into service capacity.
+
+    Invalid means a signed result failed CCR qualification. Censored means the
+    observation window ended without a result; reservations remain authoritative.
+    Neither label fabricates a negative check or releases uncertain execution.
+    """
+    growth_ledger.replay(run, current)
+    outcomes = {
+        row["payload"]["action_id"]: row["payload"]
+        for row in run["growth_events"]
+        if row["kind"] == "outcome" and row["payload"]["group"] == "training"
+    }
+    work = {}
+    for name, binding in run.get("native_registration", {}).get("bindings", {}).items():
+        if binding["producer"] != "vek":
+            continue
+        outcome = outcomes.get(name)
+        if outcome is None:
+            status = (
+                "censored"
+                if timestamp(current) >= timestamp(run["config"]["growth"]["window_end"])
+                else "pending"
+            )
+        elif not outcome["qualified"]:
+            status = "invalid"
+        else:
+            status = {
+                "success": "positive",
+                "failed": "negative",
+                "timeout": "timeout",
+                "inconclusive": "inconclusive",
+            }[outcome["status"]]
+        work[name] = {
+            "source_action": binding["source_action"],
+            "status": status,
+            "verification_completed": status in {"positive", "negative"},
+            "signed_source": outcome["acceptance_evidence"] if outcome else None,
+            "service_credit": 0,
+            "observed_capacity": None,
+        }
+    return work

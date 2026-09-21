@@ -70,6 +70,7 @@ def registered(tmp_path: Path, producer: str) -> tuple[dict[str, Any], bytes, di
         "arm": "training",
         "pool_id": raw["growth"]["quota"]["pool_id"],
         "units": units,
+        "pools": {"verifier": "worker"} if producer == "alt" else {"reviewer-alias": "reviewer"},
         "bindings": {
             name: {
                 "producer": producer,
@@ -123,6 +124,9 @@ def test_independent_checker_rejects_selected_native_boundary_faults(
         mutation(("contract", "costs", cost_index, "amount"), "999")
         mutation(("contract", "costs", cost_index, "unit"), "unregistered")
         mutation(("contract", "options", first, "costs"), [cost_id, cost_id])
+        occupied = next(i for i, o in enumerate(options) if o["id"] in selected and o["occupancy"])
+        mutation(("contract", "options", occupied, "occupancy", 0, "quantity"), 2)
+        mutation(("contract", "options", occupied, "occupancy", 0, "resource"), "unmapped")
     elif producer == "vek":
         action_id = next(iter(documents["plan"]["schedule"]))
         index = next(
@@ -138,6 +142,13 @@ def test_independent_checker_rejects_selected_native_boundary_faults(
         mutation(("contract", "actions", index, "requires_negative"), ["unmapped"])
         mutation(("contract", "actions", index, "costs"), [2, 1])
         mutation(("contract", "actions", index, "duration"), 100)
+        changed = copy.deepcopy(original)
+        changed["documents"]["contract"]["resources"].append(
+            {"resource_id": "reviewer-alias", "kind": "pool", "unit": "work", "capacity": [1] * 16}
+        )
+        for action in changed["documents"]["contract"]["actions"]:
+            action["costs"].append(1)
+        cases.append(changed)
     else:
         row = next(
             i

@@ -90,6 +90,11 @@ Use when the primary object is collective AI-agent work: a local mission, task q
 
 ## Retrieve only what is needed
 
+- Read `docs/native-interchange.md` for the development native companion path.
+  Use explicit register/stage/admit/reconcile writes; native checker acceptance
+  does not grant eligibility, capacity, service credit or execution permission.
+  See [native boundaries](references/native-interchange.md) for interpretation.
+
 - Read `docs/getting-started.md` for a new local mission.
 - Read `docs/command-map.md` for a command's write boundary.
 - Read `docs/collective-workcells.md` only for staged independent collaboration.

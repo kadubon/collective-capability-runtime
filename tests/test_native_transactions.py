@@ -130,6 +130,7 @@ def test_registration_and_projection_negative_controls(tmp_path: Path) -> None:
         ("arm", "baseline"),
         ("study_id", "other"),
         ("pool_id", "other"),
+        ("pools", {"alias": "unregistered"}),
         ("bindings", {}),
         ("units", {"x": {"target": "cost", "rate": "1", "rounding": "lower"}}),
         ("units", {"x": {"target": "other", "rate": "1", "rounding": "exact"}}),

@@ -225,6 +225,7 @@ def _run(root: Path) -> dict[str, Any]:
         "arm": "training",
         "pool_id": g["quota"]["pool_id"],
         "bindings": bindings,
+        "pools": {"verifier": "reviewer"},
         "units": {
             unit: {"target": "cost", "rate": "1", "rounding": "exact"}
             for unit in ("resource", "check-work", "credits")

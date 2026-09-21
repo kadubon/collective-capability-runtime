@@ -150,6 +150,7 @@ def invoke(args: argparse.Namespace) -> dict[str, Any]:
         "registration": run.get("native_registration"),
         "admitted": run.get("native_admitted", {}),
         "feedback": run.get("native_feedback", {}),
+        "verification_work": native_runtime.verification_work(run, store.now()),
         "ledgers": report.get("ledgers", {}),
         "next_action": report.get("next_action"),
         "mutated_runtime": False,

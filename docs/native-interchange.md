@@ -67,6 +67,9 @@ The registration is immutable before training work. It binds run/config/study,
 training arm, pool, existing actions and action digests, source contract/action,
 validity and exact or conservative upper unit conversion. This development
 subset permits synthetic evidence only. Fractional costs cannot be rounded down.
+An optional `pools` map binds producer resource names to existing canonical CCR
+capacity keys; absent aliases retain exact names. ALT occupancy and VEK pool
+claims are summed after alias resolution, so renaming a pool cannot enlarge it.
 
 - ALT 0.5.0: real plan and task-sidecar reconstruction, formation/transfer/reuse
   mapping, scoped receivers/inputs/evaluators, and signed prerequisite outcomes.
@@ -75,6 +78,10 @@ subset permits synthetic evidence only. Fractional costs cannot be rounded down.
   constraints, serial timing including CCR cleanup, and signed negative checks
   with zero capability service. Unsupported contingencies and unsafe parallel
   translations are rejected. Forecast service is never observed capacity.
+  Status/replay distinguish positive, negative, timeout, invalid, inconclusive,
+  pending and censored work from signed CCR outcomes and the observation window.
+  Only qualified positive/negative results count as completed verification.
+  Censoring is a read-only label and does not release reservations.
 - CAIT 0.2.0: original signed CCR costs, supported root creation, use and withdrawal
   enter native source streams and native analysis/checking. Reconciliation checks
   every expected physical event as well as totals. Unsupported history remains
@@ -119,7 +126,7 @@ amend a frozen growth catalogue. Unpublished draft native records using the old
 `profile` labels must be recreated using the registered schema versions; this
 does not change any released legacy record or signature.
 
-Full source-clock/effect/occupancy qualification, VEK's complete work-state
-mapping, remaining adversarial cases, coverage gates, discovery documentation
+Full source-clock/effect qualification, VEK contingent scheduling,
+remaining adversarial cases, final coverage gates and release documentation
 and final release qualification remain tracked in the development register.
 Do not infer release readiness from an individually passing example.

@@ -163,3 +163,11 @@ coordination, bounded planning, qualified reuse, and reproducible software-level
 testing. It does not establish causal endogenous capability reproduction,
 AGI/ASI, indefinite growth, or correctness outside the declared evidence and
 model boundaries.
+
+
+## Native interchange development
+
+The development native path adds explicit source admission and source-bound feedback around this existing runtime. It preserves legacy growth schemas and signing bytes; existing registrations need no migration.
+
+See [Native interchange](native-interchange.md) and its
+[qualification record](native-interchange-development.md).

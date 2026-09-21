@@ -101,6 +101,7 @@ def main() -> None:
             "arm": {"const": "training"},
             "pool_id": text,
             "bindings": mapping(binding, 64, 1),
+            "pools": mapping(text, 32),
             "units": mapping(
                 record(
                     {
@@ -115,7 +116,8 @@ def main() -> None:
                 ),
                 32,
             ),
-        }
+        },
+        ("pools",),
     )
     # Foreign checker result content is independently validated by the pinned
     # producer, then compared exactly during CCR checking. No fields are authority.

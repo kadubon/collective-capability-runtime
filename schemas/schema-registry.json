@@ -627,7 +627,7 @@
       "origin": "ccr-public",
       "schema_file": "native-registration.schema.json",
       "schema_kind": "native-registration",
-      "schema_sha256": "ff75917b68b22a8b738f682bf6d7621f100e254f06ad10edbc771cd70a333a15",
+      "schema_sha256": "3e0ae73967dd919290d70431927ed8a6139753f4c8d659197dd55ec40d023a8e",
       "schema_version": "ccr.native_registration.v1"
     },
     {
@@ -1282,6 +1282,6 @@
       "schema_version": "pic.trc_trace_report.v1"
     }
   ],
-  "registry_digest": "591fa590214e984505d59e3524d6c30d6ed678e70f5935e3f23c6b63734f18ea",
+  "registry_digest": "61549b29ffe00e7f1252715a9dcd4195bae1e8f8be81b9e379a3a167df0d3abf",
   "schema_version": "ccr.schema_registry.v1"
 }

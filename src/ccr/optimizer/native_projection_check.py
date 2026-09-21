@@ -17,7 +17,11 @@ from ccr.optimizer.native_wire import convert, rational
 
 def registration_check(run: dict[str, Any], registration: dict[str, Any]) -> None:
     validate("native-registration", registration)
-    closed(registration, "schema_version run_id config_digest study_id arm pool_id bindings units")
+    closed(
+        registration,
+        "schema_version run_id config_digest study_id arm pool_id bindings units"
+        + (" pools" if "pools" in registration else ""),
+    )
     g = run["config"]["growth"]
     if (
         registration["schema_version"] != "ccr.native_registration.v1"
@@ -57,6 +61,10 @@ def registration_check(run: dict[str, Any], registration: dict[str, Any]) -> Non
         ):
             raise ValueError("native validity outside observation window")
     units = registration["units"]
+    if any(
+        target not in g["quota"]["capacity"] for target in registration.get("pools", {}).values()
+    ):
+        raise ValueError("unknown canonical capacity pool")
     for unit, mapping in units.items():
         closed(mapping, "target rate rounding")
         if mapping["target"] not in g["units"]["costs"] or not unit:
@@ -191,6 +199,16 @@ def check(run: dict[str, Any], raw: bytes, projection: dict[str, Any]) -> dict[s
                 cost = next(v for v in c["costs"] if v["id"] == cost_id)
                 costs[cost["unit"]] = costs.get(cost["unit"], Fraction()) + rational(cost["amount"])
             duration = (row["end"] - row["start"]) * rational(c["slot_seconds"])
+            occupancy: dict[tuple[int, str], int] = {}
+            for item in row["occupancy"]:
+                pool = registration.get("pools", {}).get(item["resource"], item["resource"])
+                key = (item["slot"], pool)
+                occupancy[key] = occupancy.get(key, 0) + item["quantity"]
+            if any(
+                pool not in action["capacity"] or amount > action["capacity"][pool]
+                for (_, pool), amount in occupancy.items()
+            ):
+                raise ValueError("ALT canonical pool occupancy underfunded or unmapped")
             if row["offer"] is not None:
                 offer = next(q["offer"] for q in c["qualifications"] if q["id"] == row["offer"])
                 receiver = g["receivers"][action["receiver"]]
@@ -217,14 +235,20 @@ def check(run: dict[str, Any], raw: bytes, projection: dict[str, Any]) -> dict[s
             if action["kind"] not in {"diagnostic", "repair", "transfer_validation"}:
                 raise ValueError("VEK work cannot become capability service")
             duration = row["duration"] * rational(c["slot_seconds"])
+            pools: dict[str, int] = {}
             for resource, amount in zip(c["resources"], row["costs"], strict=True):
                 if resource["kind"] == "budget":
                     costs[resource["unit"]] = costs.get(resource["unit"], Fraction()) + amount
-                elif (
-                    resource["resource_id"] not in action["capacity"]
-                    or action["capacity"][resource["resource_id"]] < amount
-                ):
-                    raise ValueError("VEK canonical pool mapping missing")
+                else:
+                    pool = registration.get("pools", {}).get(
+                        resource["resource_id"], resource["resource_id"]
+                    )
+                    pools[pool] = pools.get(pool, 0) + amount
+            if any(
+                pool not in action["capacity"] or amount > action["capacity"][pool]
+                for pool, amount in pools.items()
+            ):
+                raise ValueError("VEK canonical pool mapping missing or underfunded")
             target = next(
                 t for t in run["config"]["task_manifest"] if t["target_id"] == action["target_id"]
             )
