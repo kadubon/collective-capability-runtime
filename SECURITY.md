@@ -229,9 +229,9 @@ or settlement authority. Unresolved attribution and invalidated evidence remain
 visible; synthetic records cannot establish production performance.
 
 
-## Native interchange development
+## Native interchange 1.9.0
 
 Native document input is bounded and cannot choose code imports, remote schema resolution or executable paths. Pinned checker source/schema files are hash-checked offline before fixed optional imports. Native acceptance and file hashes do not establish source authorship. CAIT checks original CCR signatures separately, retains native authentication as unestablished, and cannot add repeated credit. Native feedback is bounded, frozen training is rejected and uncertain execution retains reservations.
 
 See [Native interchange](docs/native-interchange.md) and its
-[qualification record](docs/native-interchange-development.md).
+[qualification record](docs/native-interchange-validation.md).

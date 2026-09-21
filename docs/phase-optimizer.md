@@ -228,9 +228,9 @@ or settlement authority. Unresolved attribution and invalidated evidence remain
 visible; synthetic records cannot establish production performance.
 
 
-## Native interchange development
+## Native interchange 1.9.0
 
 Use the development `optimizer native` family for explicit companion admission, then use the existing optimizer plan, apply, lease and signed result flow. Native reports do not bypass the existing approval or provider execution boundary.
 
 See [Native interchange](native-interchange.md) and its
-[qualification record](native-interchange-development.md).
+[qualification record](native-interchange-validation.md).

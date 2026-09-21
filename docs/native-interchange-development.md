@@ -1,6 +1,6 @@
 # Native interchange development history
 
-The current source is the 1.9.0 review candidate. Mandatory source clocks,
+The 1.9.0 source includes mandatory source clocks,
 historical result validity and CPCF task/capability/verifier scope are implemented
 and covered by the 85-test pinned native selection. The supported finite subset,
 rejection boundaries and outstanding publication gates are recorded in

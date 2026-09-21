@@ -133,9 +133,9 @@ or settlement authority. Unresolved attribution and invalidated evidence remain
 visible; synthetic records cannot establish production performance.
 
 
-## Native interchange development
+## Native interchange 1.9.0
 
 Native qualification uses actual pinned companion checks, an independent CCR projector checker, SQLite/PostgreSQL contention and selected injected faults. The integrated finite example and a local development-wheel install outside the checkout have passed. These are not public PyPI release verification or empirical acceleration evidence. Existing quality thresholds remain required; current receipts and outstanding gates are recorded separately.
 
 See [Native interchange](docs/native-interchange.md) and its
-[qualification record](docs/native-interchange-development.md).
+[qualification record](docs/native-interchange-validation.md).

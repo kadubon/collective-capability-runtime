@@ -97,7 +97,7 @@ def invoke(args: argparse.Namespace) -> dict[str, Any]:
             "source_authentication": "unestablished",
             "ccr_admission": False,
             "continuation_guarantee_transferred": False,
-            "status": "development; release qualification incomplete",
+            "status": "finite synthetic profile; not production evidence",
         }
     if name == "inspect":
         return native_checks.inspect(read(args.file))

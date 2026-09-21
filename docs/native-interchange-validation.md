@@ -1,8 +1,10 @@
 # Native interchange 1.9.0 qualification and publication
 
-Source version 1.9.0 is prepared for review. It is not yet a published release.
-The public GitHub/PyPI version checked on 2026-09-21 remains 1.8.0. No public
-installation or artifact verification for 1.9.0 is claimed here.
+This is the build-time qualification record for source version 1.9.0. Public
+GitHub/PyPI were checked on 2026-09-21 before publication and contained 1.8.0.
+Public installation can only be verified after the publication job completes;
+the exact distribution checksums and post-publication receipt belong to the
+[1.9.0 release record](https://github.com/kadubon/collective-capability-runtime/releases/tag/v1.9.0).
 
 ## Supported finite profile
 
@@ -36,13 +38,12 @@ asserted.
 
 ## Measured local evidence
 
-- Pinned Python 3.14 native selection: 85 passed, no skips, 143.08 seconds, including
+- Pinned Python 3.14 native selection: 85 passed, no skips, 160.44 seconds, including
   real SQLite and PostgreSQL contention. All four published native checkers run.
-- Native modules: 1,232/1,251 statements (98.48%) and 539/558 branches (96.59%). Every
+- Native modules: 1,235/1,254 statements (98.48%) and 541/560 branches (96.61%). Every
   module passes 95% statement and 90% branch gates; no exclusions or lowered gates.
-- Base regression: 298 passed, 57 optional-environment skips, one existing
-  Starlette deprecation warning. The subsequently added clock oracle separately
-  passed in the base environment. Skips are not counted as native conformance.
+- Base regression: 299 passed, 57 optional-environment skips, one existing
+  Starlette deprecation warning. Skips are not counted as native conformance.
 - Formatting, lint, strict typing, compilation, repository audit and the
   184-entry schema registry pass. All 180 prior schema entries and the original
   four native fixture document byte strings are unchanged.
@@ -58,13 +59,15 @@ are not modified. OAWM completion is neither assumed nor required.
 
 ## Publication record
 
-Implementation and local tests are available in PR #7. Exact-head CI, installed
-candidate artifacts and review must be completed before merge. Normal repository
-policy applies, including the maintainer review requirement for broader mutation
-surfaces in `GOVERNANCE.md`. No prior CPCF exception is used.
+Implementation and source-bound validation are available in
+[PR #7](https://github.com/kadubon/collective-capability-runtime/pull/7).
+The maintainer reviewed and approved the implementation at `cd847fa` on
+2026-09-22 JST. Final exact-head checks still govern merge; the approval does not
+waive a failing check. Normal repository and environment policy applies. No prior
+CPCF exception is used.
 
-Merge, tag, GitHub Release, protected Trusted Publishing and public-PyPI no-cache
-installation verification are pending. The existing workflow builds once and
+The release sequence is merge, tag, GitHub Release, protected Trusted Publishing
+and public-PyPI no-cache installation verification. The existing workflow builds once and
 passes those same wheel/sdist bytes to publication and release assets. Release
 completion requires matching their SHA-256 hashes to public PyPI and executing
 legacy and new offline paths from a fresh installed environment outside checkout.

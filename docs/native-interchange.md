@@ -1,7 +1,7 @@
-# Native companion interchange (1.9.0 review candidate)
+# Native companion interchange (1.9.0)
 
-This additive implementation is under review on PR #7. It has not been released
-as CCR 1.9.0. See [validation evidence and open gates](native-interchange-validation.md).
+This additive implementation provides the finite opt-in profile introduced in
+CCR 1.9.0. See [validation evidence and publication checks](native-interchange-validation.md).
 Legacy `optimizer interchange`, growth schemas and signed bytes retain their
 existing meanings. OAWM completion is not assumed.
 

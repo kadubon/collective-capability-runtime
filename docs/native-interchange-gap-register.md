@@ -2,7 +2,8 @@
 
 Baseline inspected: CCR `3b4702454f732c7a0a9f30d87483384dc8a281eb`, source,
 GitHub Release and public PyPI 1.8.0 (2026-09-21). Proposed version: 1.9.0;
-the current review candidate now declares 1.9.0. Publication has not started.
+the source now declares 1.9.0. This is the build-time implementation register;
+post-publication artifact/install evidence belongs to the linked release record.
 
 Current implementation and measured evidence are tracked in
 [Native interchange development](native-interchange-development.md). The rows
@@ -24,7 +25,7 @@ for measured evidence and exact unsupported cases. Publication gates remain open
 | CPCF 1.0.1 | Maintained public facade only | Observable first action, signed history replan, frozen scope and native clock/evidence expiry | Implemented; continuation guarantee not transferred |
 | Runtime | Existing aggregate/transaction/outbox path | SQLite/PostgreSQL admission/apply contention, selected rollback faults, expiry and lease rechecks | Local tests pass |
 | Qualification | Old safety gate retained; every new native module in 95%/90% gate | Local tests pass; exact-candidate CI and installed-artifact checks still required | In progress |
-| Publication | PR #7; existing Wiki; build-once Trusted Publishing retained | Review/merge, Wiki refresh, tag/release, exact artifacts and public no-cache install | Pending |
+| Publication | PR #7; maintainer review approved; existing Wiki refreshed; build-once Trusted Publishing retained | Exact-head checks, merge, tag/release, exact artifacts and public no-cache install | Follow release record |
 
 ## Inspected authority boundaries
 

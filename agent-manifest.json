@@ -50,7 +50,7 @@
       "docs/verified-growth-interchange.md",
       "docs/verified-growth-validation.md",
       "docs/native-interchange.md",
-      "docs/native-interchange-development.md"
+      "docs/native-interchange-validation.md"
     ],
     "runtime_state": [
       "ccr.sqlite",
@@ -91,7 +91,7 @@
   "primary_commands": [
     {
       "command": "ccr optimizer native sources --json",
-      "purpose": "Inspect pinned native companion support and development status without importing source authority or mutating runtime state."
+      "purpose": "Inspect pinned native companion support and finite profile limits without importing source authority or mutating runtime state."
     },
     {
       "command": "ccr loop next --json",

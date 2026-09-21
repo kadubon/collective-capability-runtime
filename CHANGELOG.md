@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.9.0 - release candidate, not yet published
+## 1.9.0 - 2026-09-22
 
 - Adds opt-in source inspection, independent projection checks and explicit
   runtime admission for pinned ALT 0.5, VEK 1.3 and maintained CPCF 1.0.1.

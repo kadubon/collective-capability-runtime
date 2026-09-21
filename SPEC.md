@@ -326,9 +326,9 @@ or settlement authority. Unresolved attribution and invalidated evidence remain
 visible; synthetic records cannot establish production performance.
 
 
-## Native interchange development
+## Native interchange 1.9.0
 
-Native source admission is an additive opt-in profile. Original producer documents, registered CCR action digests and independently reconstructed projections precede explicit transactional admission. Existing plan, lease and signed-result controls remain authoritative. The implementation is still under qualification.
+Native source admission is an additive opt-in profile. Original producer documents, registered CCR action digests and independently reconstructed projections precede explicit transactional admission. Existing plan, lease and signed-result controls remain authoritative. The supported profile is finite synthetic training; unsupported mappings fail closed.
 
 See [Native interchange](docs/native-interchange.md) and its
-[qualification record](docs/native-interchange-development.md).
+[qualification record](docs/native-interchange-validation.md).

@@ -90,7 +90,7 @@ Use when the primary object is collective AI-agent work: a local mission, task q
 
 ## Retrieve only what is needed
 
-- Read `docs/native-interchange.md` for the development native companion path.
+- Read `docs/native-interchange.md` for the finite native companion path.
   Use explicit register/stage/admit/reconcile writes; native checker acceptance
   does not grant eligibility, capacity, service credit or execution permission.
   See [native boundaries](references/native-interchange.md) for interpretation.

@@ -1,7 +1,7 @@
-# Native interchange development boundary
+# Native interchange authority boundary
 
-Read `docs/native-interchange.md` and its development evidence record. The path
-is opt-in synthetic training and remains under release qualification. Use
+Read `docs/native-interchange.md` and `docs/native-interchange-validation.md`. The
+supported path is opt-in finite synthetic training. Use
 `optimizer native sources/inspect` for local inspection, and the isolated
 `optimizer native example` only with the pinned optional dependencies installed.
 
@@ -20,4 +20,4 @@ releases reservations or authorizes retry.
 
 Do not claim Phase 1 OAWM completion, external acceleration, a transferred CPCF
 continuation guarantee, causal attribution, production validation, or 1.9.0
-publication from these development tests.
+publication from synthetic tests alone.
