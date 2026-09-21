@@ -1,0 +1,125 @@
+# Native companion interchange (development)
+
+This additive implementation is under qualification on PR #7. It has not been
+released as CCR 1.9.0. See [development evidence and open gates](native-interchange-development.md).
+Legacy `optimizer interchange`, growth schemas and signed bytes retain their
+existing meanings. OAWM completion is not assumed.
+
+## Install the separate conformance environment
+
+Use Python 3.14 and a disposable environment outside the repository. Install
+`scripts/requirements-native.lock` with `uv pip sync --require-hashes`, then
+install CCR with `--no-deps`. The ordinary CCR environment and Python 3.10 floor
+do not gain these optional companion dependencies. The lock includes transitive
+dependency hashes. The ALT wheel is obtained from its existing GitHub Release.
+
+`examples/native_interchange/artifacts.json` records the exact published wheel
+and available sdist hashes. `installed-pins.json` records Python source, JSON
+schema/data and metadata hashes derived from those verified wheels. Every native
+checker invocation verifies those installed files before importing its fixed
+entry points. The source tags are recorded separately in `source-tags.json`.
+These checks establish byte identity, not a claim that a build provenance
+attestation has been independently verified.
+
+## Commands and local authority
+
+```text
+ccr optimizer native sources --json
+ccr optimizer native inspect --file source.json --json
+ccr optimizer native project --file source.json --registration registration.json --json
+ccr optimizer native register --run RUN --registration registration.json --expected-revision 0 --json
+ccr optimizer native check --run RUN --file source.json --projection projection.json --json
+ccr optimizer native stage --run RUN --file source.json --projection projection.json --expected-revision 1 --idempotency-key DELIVERY --json
+ccr optimizer native admit --run RUN --proposal-id DIGEST --expected-revision 2 --json
+ccr optimizer native export --run RUN --json
+ccr optimizer native feedback --run RUN --export export.json --report report.json --json
+ccr optimizer native reconcile --run RUN --export export.json --report report.json --expected-revision REVISION --json
+ccr optimizer native replan --run RUN --file cpcf-source.json --json
+ccr optimizer native replay --run RUN --json
+ccr optimizer native status --run RUN --json
+ccr optimizer native example --json
+```
+
+All commands emit JSON to stdout. Register, stage, admit and reconcile explicitly
+write the selected ControlStore. Inspect, project, check, export, feedback,
+replan, replay and status do not initialize or mutate it. The example uses an
+isolated temporary SQLite root and ephemeral synthetic verifier keys. There is
+no new unauthenticated HTTP route. Database selection uses the existing
+`--database-url-env` convention on commands that access a run.
+
+Admission admits an advisory source-to-action binding. The existing plan checker
+still controls reservation and immediate task creation. Claim/dispatch recheck
+the binding and existing receiver eligibility. Native checking runs outside
+database transactions; revision, expiry and immutable-source predicates run
+inside the transaction. A native acceptance never supplies approval or settlement.
+
+## Supported representations
+
+Three new closed wire schemas are registered and packaged:
+`ccr.native_source.v1`, `ccr.native_registration.v1`, and
+`ccr.native_projection.v1`. Sources contain original native documents as UTF-8
+JSON strings. Raw source/document SHA-256 values remain separate from producer
+canonical identities and CCR canonical registration digests. Parsing bounds
+bytes, nodes, depth, containers, strings and integer/rational size. Input cannot
+choose imports, schema URLs, executables or output paths.
+
+The registration is immutable before training work. It binds run/config/study,
+training arm, pool, existing actions and action digests, source contract/action,
+validity and exact or conservative upper unit conversion. This development
+subset permits synthetic evidence only. Fractional costs cannot be rounded down.
+
+- ALT 0.5.0: real plan and task-sidecar reconstruction, formation/transfer/reuse
+  mapping, scoped receivers/inputs/evaluators, and signed prerequisite outcomes.
+  Shared physical cost IDs without an explicit supported allocation are rejected.
+- VEK 1.3.0: real history replay, plan/report checking, separate budget and pool
+  constraints, serial timing including CCR cleanup, and signed negative checks
+  with zero capability service. Unsupported contingencies and unsafe parallel
+  translations are rejected. Forecast service is never observed capacity.
+- CAIT 0.2.0: original signed CCR costs, supported root creation, use and withdrawal
+  enter native source streams and native analysis/checking. Reconciliation checks
+  every expected physical event as well as totals. Unsupported history remains
+  partial. Reconciliation adds zero reward/stock; qualified losses can enable
+  preregistered funded review. Feedback storage is bounded to 64 records.
+- CPCF 1.0.1: only the maintained `growth_control` facade is used. A current
+  observable first action is advisory. Optional preregistered status-to-symbol
+  maps reconstruct visible history from qualified, signed training results.
+  Unmapped results, mismatched history and old proposals cannot select a branch.
+  Replanning does not automatically stage or admit the new proposal.
+
+The planner checks native admission for the immediate task. It still funds and
+checks the entire registered CCR bundle, including cleanup. Hypothetical future
+bundle steps cannot become tasks before their own current admission check.
+CPCF continuation guarantees are explicitly not transferred.
+
+## Executable finite evidence
+
+The integrated example considers a CPCF probe, runs one explicitly changed and
+native-checked VEK serial verification problem, then ALT formation, transfer and
+four services through CCR reservation, lease and signed-result code. The negative
+verification result contributes no service. Eight distinct attempts consume
+16 synthetic cost units; four service events retain one historical asset.
+After a signed withdrawal, native CAIT reconciliation changes the next allocation
+to funded review without adding cost, service or stock again.
+
+Separate tests exercise subsequent CPCF replanning, actual SQLite/PostgreSQL
+four-worker contention, rollback after selected journal faults, stale revisions,
+expiry and source/receiver/quantity substitutions. Selected fault injection is
+not exhaustive mutation qualification.
+
+Evidence labels have separate meanings: `documented` describes a contract;
+`schema_checked` its wire form; `native_checked` the pinned companion's checked
+properties; `ccr_runtime_tested` the finite host execution; and
+`operationally_observed` actual admitted operating evidence. The synthetic
+examples do not establish the last category or causal/statistical acceleration.
+
+## Migration and remaining qualification
+
+Existing users need no migration. New native registrations are opt-in and cannot
+amend a frozen growth catalogue. Unpublished draft native records using the old
+`profile` labels must be recreated using the registered schema versions; this
+does not change any released legacy record or signature.
+
+Full source-clock/effect/occupancy qualification, VEK's complete work-state
+mapping, remaining adversarial cases, coverage gates, discovery documentation
+and final release qualification remain tracked in the development register.
+Do not infer release readiness from an individually passing example.

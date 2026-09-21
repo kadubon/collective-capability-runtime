@@ -13,13 +13,11 @@ from typing import Any
 from ccr.ids import sha256_json
 from ccr.optimizer import growth_ledger
 from ccr.optimizer.model import timestamp
+from ccr.optimizer.native_artifacts import verify
 
 
 def export(run: dict[str, Any], current: str) -> dict[str, Any]:
-    from importlib.metadata import version
-
-    if version("cait-certificate-schema") != "0.2.0":
-        raise ValueError("CAIT 0.2.0 required")
+    verify("cait")
     source = importlib.import_module("cait_schema.accounting.source")
     g = run["config"]["growth"]
     ledger = growth_ledger.replay(run, current)
@@ -283,6 +281,8 @@ def check_feedback(
 
     from ccr.optimizer.growth_model import closed
 
+    verify("cait")
+
     closed(
         exported,
         "profile run_id config_digest revision journal_digest clock_origin bundle "
@@ -322,13 +322,17 @@ def check_feedback(
         raise ValueError("CAIT accounting premise substitution")
     originals = {r["digest"]: r for r in exported["ccr_sources"]}
     expected_obligations = set()
+    expected_events = set()
     formed = set()
     for original in exported["ccr_sources"]:
         payload = original["payload"]
         if original["kind"] == "lifecycle":
             if payload["state"] != "withdrawn" or payload["asset"] not in formed:
                 expected_obligations.add("unsupported-lifecycle:" + original["digest"])
+            else:
+                expected_events.add((original["digest"], "withdraw", ""))
         elif payload["group"] == "training":
+            expected_events.update((original["digest"], "cost", unit) for unit in payload["costs"])
             action = g["actions"][payload["action_id"]]
             asset = payload["artifact_sha256"]
             if action["produces"]:
@@ -336,11 +340,14 @@ def check_feedback(
                     expected_obligations.add("unmapped-formation:" + original["digest"])
                 else:
                     formed.add(asset)
+                    expected_events.add((original["digest"], "create", ""))
             elif action["kind"] in {"reuse", "service"}:
                 if asset not in formed:
                     expected_obligations.add("missing-creation:" + original["digest"])
                 elif payload["status"] not in {"success", "failed", "timeout"}:
                     expected_obligations.add("unsupported-use-status:" + original["digest"])
+                else:
+                    expected_events.add((original["digest"], "use", ""))
     if any(t["group"] == "training" and t["state"] != "evaluated" for t in run["trials"]):
         expected_obligations.add("unfinished-CCR-work")
     if set(exported["remaining_obligations"]) != expected_obligations:
@@ -392,6 +399,7 @@ def check_feedback(
                 )
                 if (
                     not p["success"]
+                    or data["coordinate"] != "assets"
                     or action["produces"] != data["artifact"]
                     or data["quantity"] != {"declared": "1"}
                     or data["parents"]
@@ -408,6 +416,7 @@ def check_feedback(
                 )
                 if (
                     action["kind"] not in {"service", "reuse"}
+                    or data["coordinate"] != "task"
                     or data["quantity"] != {"declared": str(action["gains"]["task"])}
                     or data["receiver"] != p["action_id"]
                     or data["task"] != action["target_id"]
@@ -427,14 +436,8 @@ def check_feedback(
         if identity in seen:
             raise ValueError("duplicate original CCR accounting event")
         seen.add(identity)
-    expected_costs = {
-        (r["digest"], "cost", u)
-        for r in originals.values()
-        if r["kind"] == "outcome" and r["payload"]["group"] == "training"
-        for u in r["payload"]["costs"]
-    }
-    if not expected_costs <= seen:
-        raise ValueError("missing physical cost history")
+    if expected_events != seen:
+        raise ValueError("missing or substituted physical accounting history")
     for balance in report["balances"]:
         if any(
             Fraction(balance["costs"][g["units"]["costs"][u]]) != v
@@ -495,6 +498,8 @@ def reconcile(
             raise ValueError("stale accounting feedback revision")
         if run["frozen_policy"] or run["state"] != "training":
             raise ValueError("accounting feedback cannot train a frozen policy")
+        if len(run.get("native_feedback", {})) >= 64:
+            raise ValueError("native accounting feedback bound reached")
         actions = []
         if checked["invalidated_assets"] or checked["remaining_obligations"]:
             for name, binding in run.get("native_registration", {}).get("bindings", {}).items():

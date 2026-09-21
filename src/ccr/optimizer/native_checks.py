@@ -8,10 +8,11 @@ nor load caller-named modules. Native acceptance never supplies CCR authority.
 from __future__ import annotations
 
 import importlib
-from importlib.metadata import version
 from typing import Any
 
 from ccr.optimizer.growth_model import closed
+from ccr.optimizer.native_artifacts import verify
+from ccr.optimizer.native_schemas import validate
 from ccr.optimizer.native_wire import loads, raw_digest
 
 PACKAGES = {
@@ -24,10 +25,9 @@ PACKAGES = {
 
 def inspect(raw: bytes) -> dict[str, Any]:
     source = loads(raw)
-    closed(source, "producer version documents")
+    validate("native-source", source)
+    closed(source, "schema_version producer version documents")
     producer = source["producer"]
-    if producer not in PACKAGES or source["version"] != PACKAGES[producer][1]:
-        raise ValueError("unsupported native producer/version")
     names = {
         "alt": "contract plan tasks",
         "vek": "contract history plan report",
@@ -38,8 +38,6 @@ def inspect(raw: bytes) -> dict[str, Any]:
     documents = {}
     identities = {}
     for name, content in source["documents"].items():
-        if not isinstance(content, str):
-            raise ValueError("original UTF-8 document text required")
         encoded = content.encode("utf-8")
         documents[name] = loads(encoded)
         identities[name] = raw_digest(encoded)
@@ -56,8 +54,7 @@ def check(raw: bytes) -> dict[str, Any]:
     inspected = inspect(raw)
     producer = inspected["producer"]
     package, expected = PACKAGES[producer]
-    if version(package) != expected:
-        raise ValueError("native checker installation version mismatch")
+    artifact_pin = verify(producer)
     d = inspected["documents"]
     # Imports below are all fixed host code, never input-selected module paths.
     if producer == "alt":
@@ -107,7 +104,12 @@ def check(raw: bytes) -> dict[str, Any]:
             raise ValueError("CPCF policy is not feasible")
     return {
         **inspected,
-        "native_checker": {"package": package, "version": expected, "result": result},
+        "native_checker": {
+            "package": package,
+            "version": expected,
+            "artifact_pin_sha256": artifact_pin,
+            "result": result,
+        },
         "source_authentication": "unestablished",
         "ccr_admission": False,
         "receiver_eligibility": False,

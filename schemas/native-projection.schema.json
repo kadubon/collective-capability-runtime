@@ -1,0 +1,133 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "ccr.native_projection.v1"
+    },
+    "registration_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "document_sha256": {
+      "type": "object",
+      "minProperties": 2,
+      "maxProperties": 5,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "producer": {
+      "enum": [
+        "alt",
+        "vek",
+        "cait",
+        "cpcf"
+      ]
+    },
+    "bindings": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source_action": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "ccr_action": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "source_action",
+          "ccr_action"
+        ]
+      }
+    },
+    "native_checker": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "artifact_pin_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "result": {
+          "type": "object",
+          "maxProperties": 512
+        }
+      },
+      "required": [
+        "package",
+        "version",
+        "artifact_pin_sha256",
+        "result"
+      ]
+    },
+    "source_authentication": {
+      "const": "unestablished"
+    },
+    "service_credit": {
+      "type": "integer",
+      "const": 0
+    },
+    "observed_capacity": {
+      "type": "null"
+    },
+    "receiver_eligibility": {
+      "const": false
+    },
+    "continuation_guarantee_transferred": {
+      "const": false
+    },
+    "execution_authorization": {
+      "const": false
+    },
+    "settled": {
+      "const": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "registration_sha256",
+    "source_sha256",
+    "document_sha256",
+    "producer",
+    "bindings",
+    "native_checker",
+    "source_authentication",
+    "service_credit",
+    "observed_capacity",
+    "receiver_eligibility",
+    "continuation_guarantee_transferred",
+    "execution_authorization",
+    "settled"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

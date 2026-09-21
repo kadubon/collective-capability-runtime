@@ -30,7 +30,7 @@ def project(raw: bytes, registration: dict[str, Any]) -> dict[str, Any]:
         and row["source_action"] in selected
     ]
     return {
-        "profile": "ccr-native-projection-1",
+        "schema_version": "ccr.native_projection.v1",
         "registration_sha256": sha256_json(registration),
         "source_sha256": source["source_sha256"],
         "document_sha256": source["document_sha256"],

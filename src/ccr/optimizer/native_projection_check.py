@@ -7,17 +7,20 @@ from fractions import Fraction
 from typing import Any
 
 from ccr.ids import sha256_json
-from ccr.optimizer.growth_model import closed, digest, integer
+from ccr.optimizer.growth_model import closed, digest, integer, text
 from ccr.optimizer.native_checks import PACKAGES
 from ccr.optimizer.native_checks import check as native_check
+from ccr.optimizer.native_history import cpcf_history
+from ccr.optimizer.native_schemas import validate
 from ccr.optimizer.native_wire import convert, rational
 
 
 def registration_check(run: dict[str, Any], registration: dict[str, Any]) -> None:
-    closed(registration, "profile run_id config_digest study_id arm pool_id bindings units")
+    validate("native-registration", registration)
+    closed(registration, "schema_version run_id config_digest study_id arm pool_id bindings units")
     g = run["config"]["growth"]
     if (
-        registration["profile"] != "ccr-native-registration-1"
+        registration["schema_version"] != "ccr.native_registration.v1"
         or registration["run_id"] != run["run_id"]
         or registration["config_digest"] != run["config"]["config_digest"]
         or registration["study_id"] != g["study_id"]
@@ -27,15 +30,22 @@ def registration_check(run: dict[str, Any], registration: dict[str, Any]) -> Non
     ):
         raise ValueError("native registration scope mismatch")
     bindings = registration["bindings"]
-    if not isinstance(bindings, dict) or not 1 <= len(bindings) <= 64:
-        raise ValueError("bounded native bindings required")
     for name, binding in bindings.items():
         closed(
-            binding, "producer contract_sha256 source_action action_sha256 valid_from valid_until"
+            binding,
+            "producer contract_sha256 source_action action_sha256 valid_from valid_until"
+            + (" observations" if "observations" in binding else ""),
         )
         if name not in g["actions"] or binding["producer"] not in PACKAGES:
             raise ValueError("unregistered action or producer")
         digest(binding["contract_sha256"])
+        text(binding["source_action"])
+        if "observations" in binding:
+            symbols = binding["observations"]
+            if binding["producer"] != "cpcf":
+                raise ValueError("invalid registered CPCF observation channel")
+            for symbol in symbols.values():
+                text(symbol)
         if binding["action_sha256"] != sha256_json(g["actions"][name]):
             raise ValueError("native binding cannot amend frozen action")
         from ccr.optimizer.model import timestamp
@@ -47,30 +57,27 @@ def registration_check(run: dict[str, Any], registration: dict[str, Any]) -> Non
         ):
             raise ValueError("native validity outside observation window")
     units = registration["units"]
-    if not isinstance(units, dict) or len(units) > 32:
-        raise ValueError("bounded unit mappings required")
     for unit, mapping in units.items():
         closed(mapping, "target rate rounding")
         if mapping["target"] not in g["units"]["costs"] or not unit:
             raise ValueError("unknown resource dimension")
         convert("0", mapping["rate"], rounding=mapping["rounding"])
-        if mapping["rounding"] not in {"exact", "upper"}:
-            raise ValueError("resource requirements cannot round downward")
 
 
 def check(run: dict[str, Any], raw: bytes, projection: dict[str, Any]) -> dict[str, Any]:
     """Check native feasibility and CCR translation separately, without storage writes."""
+    validate("native-projection", projection)
     registration = run["native_registration"]
     registration_check(run, registration)
     closed(
         projection,
-        "profile registration_sha256 source_sha256 document_sha256 producer bindings "
+        "schema_version registration_sha256 source_sha256 document_sha256 producer bindings "
         "native_checker source_authentication service_credit receiver_eligibility "
         "observed_capacity continuation_guarantee_transferred execution_authorization settled",
     )
     source = native_check(raw)
     if (
-        projection["profile"] != "ccr-native-projection-1"
+        projection["schema_version"] != "ccr.native_projection.v1"
         or projection["registration_sha256"] != sha256_json(registration)
         or any(
             projection[k] != source[k]
@@ -101,8 +108,8 @@ def check(run: dict[str, Any], raw: bytes, projection: dict[str, Any]) -> dict[s
     else:
         policy = d["plan"]["spec"]["policy"]
         selected = {policy["action_id"]} if policy else set()
-        if d["plan"]["spec"]["history"]:
-            raise ValueError("visible history needs a signed CCR observation mapping")
+        if d["plan"]["spec"]["history"] != cpcf_history(run, source["document_sha256"]["contract"]):
+            raise ValueError("CPCF visible history differs from signed CCR observations")
     expected = {}
     for name, binding in registration["bindings"].items():
         if (
@@ -280,6 +287,9 @@ def check(run: dict[str, Any], raw: bytes, projection: dict[str, Any]) -> dict[s
         }
     return {
         "ok": True,
+        "observation_sha256": (
+            sha256_json(d["plan"]["spec"]["history"]) if producer == "cpcf" else None
+        ),
         "source_sha256": source["source_sha256"],
         "registration_sha256": sha256_json(registration),
         "envelopes": envelopes,

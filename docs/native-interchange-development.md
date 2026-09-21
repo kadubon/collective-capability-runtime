@@ -16,8 +16,9 @@ The new Python modules provide bounded byte parsing and exact conversion,
 fixed optional native checkers, projection and independently implemented
 translation checks, explicit registration/staging/admission, and source-bound
 CAIT export/check/reconciliation. Native tools execute before database locks.
-The public CLI, HTTP authorization surface, closed schema registry entries and
-installed example interface are **not yet implemented**.
+The explicit native CLI, three registered owned wire schemas, pinned installed
+source/schema hashes and an installed example interface are now implemented.
+There is no new HTTP endpoint. See [the current guide](native-interchange.md).
 
 Actual released native packages used in a separate Python 3.14 environment:
 
@@ -26,7 +27,7 @@ Actual released native packages used in a separate Python 3.14 environment:
 | ALT | 0.5.0 | Checked source/plan/task sidecar gates six registered actions; formation and transfer signed results qualify the receiver; four distinct service results retain one asset |
 | VEK | 1.3.0 | A newly explicit finite serial schedule enters diagnostic work; a signed negative result evaluates the check with zero capability service credit and permits the next work item |
 | CAIT | 0.2.0 | Signed CCR formation, use, cost and withdrawal sources enter the native analyzer/checker; reconciliation preserves eight cost units, four task/research units and one historical asset, and enables registered repair after withdrawal; duplicate reconciliation changes no totals |
-| CPCF | 1.0.1 | Fresh public-facade checking admits the observable initial recommendation; CCR changes selection from `greedy` to `form`, then uses its existing lease and signed-result path |
+| CPCF | 1.0.1 | Fresh public-facade checking admits the observable root; signed CCR status-to-symbol mappings support subsequent native replanning; old or mismatched histories fail |
 
 These are finite synthetic software tests. They are not operational observations,
 empirical acceleration measurements, identified causal effects, execution
@@ -36,8 +37,10 @@ its own original signatures.
 
 Generated fixture source documents are retained as original JSON strings in
 `examples/native_interchange`. `artifacts.json` records public producer artifact
-URLs and SHA-256 values independently checked after download. This does not yet
-constitute the required full schema/dependency/source-commit pin manifest.
+URLs and SHA-256 values independently checked after download. `installed-pins.json`
+binds released Python/schema/metadata files, checked freshly before native calls.
+`source-tags.json` records inspected immutable tag commits. The separate
+`scripts/requirements-native.lock` pins transitive dependencies with hashes.
 
 ## Reproducing the current development tests
 
@@ -50,12 +53,13 @@ GitHub Release distribution; it is not assumed to be on PyPI.
 Set `CCR_NATIVE_CONFORMANCE=1`, then run:
 
 ```text
-python -m pytest tests/test_native_interchange.py
+python -m pytest tests/test_native_interchange.py tests/test_native_transactions.py tests/test_native_cli.py tests/test_native_projection_faults.py tests/test_native_accounting_faults.py
+python -m ccr optimizer native example --json
 ```
 
-The latest native run passed 31 tests, including offline socket guards, malformed
-input, exact conversion, native tampering, SQLite concurrent staging and the
-four runtime scenarios. The ordinary base environment intentionally skips native
+The recorded continuation run passed 46 tests, including offline socket guards,
+malformed input, exact conversion, native tampering, selected faults and all four
+runtime scenarios plus an integrated same-run loop. The ordinary base environment intentionally skips native
 tests without this explicit setup; those skips are not native conformance.
 
 Fixture generation uses installed pinned producer APIs. CPCF inputs are generated
@@ -65,9 +69,9 @@ command. No companion repository is modified.
 
 ## Qualification remains incomplete
 
-The native test selection measured 559/657 statements (85.08%) and 257/356
-branches (72.19%). It does **not** meet the requested 95% statement / 90% branch
-thresholds. The combined coverage display was 81%; this is not a statement-coverage result.
+The recorded continuation selection measured 961/1019 native-module statements
+(94.31%) and 407/462 branches (88.10%). It does **not** meet the requested 95%
+statement / 90% branch thresholds. Further changes require a fresh measurement.
 Coverage is an open gate, not an exception or waiver.
 
 The unchanged repository safety-critical CI gate also failed at **74.35%** on
@@ -86,15 +90,21 @@ tests passed after the final source-bound-obligation correction. Compilation,
 repository audit and the existing schema registry audit also passed during
 development. The whole qualification must be rerun on the eventual final source.
 
-No local PostgreSQL service was available: Docker's Linux-engine named pipe was
-absent and PostgreSQL tools were not found in WSL. PostgreSQL qualification has
-not run; this is not evidence that the PostgreSQL implementation passes. Existing
-CI supplies PostgreSQL but has not yet been extended for the new native tests.
+PostgreSQL 16 was subsequently installed in WSL and a disposable loopback-only
+cluster was created. Actual SQLite and PostgreSQL four-worker native admission
+and task-creation contention passed: one admission and one task, including a
+fresh ControlStore instance reading the authoritative state. Selected rollback
+tests also passed. Broader PostgreSQL fault qualification remains incomplete.
+
+A locally built development wheel was installed in a separate hash-locked
+environment outside the checkout. Both the new native example and legacy
+growth example passed there; `uv pip check` reported compatible dependencies.
+This was a local development build retaining version 1.8.0, not public PyPI
+publication or verification of a released 1.9.0 artifact.
 
 ## Required work before release
 
-1. Complete contract registration: owned closed schemas, raw schema/dependency
-   pins, producer commit identities, explicit clocks, semantic action/effect
+1. Complete contract registration qualification: explicit clocks, semantic action/effect
    mappings and typed physical-cost allocation. Audit all fields against the
    specification rather than assuming retained JSON is enforced semantics.
 2. Finish ALT lifecycle, parent/input/evaluator substitution and cost-identity
@@ -104,15 +114,14 @@ CI supplies PostgreSQL but has not yet been extended for the new native tests.
    Unsupported contingent work is currently rejected.
 4. Finish CAIT incomplete/negative-history handling and independent per-event
    reconciliation tests. Current export supports a bounded root-asset subset;
-   unsupported formation/lifecycle/use records retain obligations. Bound feedback
-   storage and fully audit cutoff and evidence-period semantics.
-5. Implement CPCF observation mapping and subsequent native replanning. The
-   current projection rejects nonempty visible histories rather than selecting
-   a branch without a signed observation mapping.
-6. Add the required integrated two-cycle example, independent tiny mapping oracle,
-   systematic selected fault tests, SQLite/PostgreSQL admission/reservation/task
-   contention and crash recovery, holdout and resource-alias counterexamples.
-7. Complete CLI/API/schema/installed-reference integration, documentation and
+   unsupported formation/lifecycle/use records retain obligations. Complete the
+   cutoff and evidence-period audit. Feedback storage is now bounded.
+5. Qualify CPCF observation mapping against additional ambiguous/unsupported
+   outcomes and effect/clock scopes. Signed-status replanning now works.
+6. Broaden the implemented integrated loop and tiny accounting oracle with
+   systematic selected faults, holdout/resource-alias controls, and additional
+   PostgreSQL crash boundaries. The existing example is runtime behavior.
+7. Complete API/discovery/installed-reference integration, documentation and
    machine-readable discovery. Extend CI and the existing release workflow with
    pinned native qualification and the requested coverage gates, preserving all
    existing checks and build-once publication behavior.

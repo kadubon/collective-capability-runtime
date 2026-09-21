@@ -90,6 +90,7 @@ def main() -> None:
         raw = encoded(
             {
                 "producer": producer,
+                "schema_version": "ccr.native_source.v1",
                 "version": PACKAGES[producer][1],
                 "documents": {key: encoded(value) for key, value in documents.items()},
             }

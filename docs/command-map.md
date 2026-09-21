@@ -150,6 +150,10 @@ not grant that authority.
 
 ## Phase Optimizer
 
+The development `optimizer native` family is documented in
+[Native interchange](native-interchange.md), including explicit write commands
+and the isolated four-companion example. It is not yet a qualified release.
+
 See [Phase Optimizer](phase-optimizer.md) for the configuration and result contracts.
 
 | Command | Behavior | Local write |

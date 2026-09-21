@@ -56,6 +56,8 @@ control set.
 
 ## Reference Guides
 
+- [Native companion interchange (development)](native-interchange.md)
+
 - [ASI-Proxy Mission](asi-proxy-mission.md)
 - [ASI-Proxy Loop](asi-proxy-loop.md)
 - [ASI-Proxy Measurement](asi-proxy-acceleration.md)

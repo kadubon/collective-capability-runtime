@@ -50,7 +50,7 @@ def evaluate(run: dict[str, Any], steps: list[str], current: str, group: str) ->
     forecasts = []
     for name in remaining:
         a = g["actions"][name]
-        if "native_registration" in run:
+        if "native_registration" in run and name == remaining[0]:
             from ccr.optimizer.native_runtime import blockers as native_blockers
 
             reasons.extend(native_blockers(run, name, current, group))

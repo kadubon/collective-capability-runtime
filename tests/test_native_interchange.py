@@ -117,17 +117,29 @@ def test_actual_released_companion_checks(producer: str, monkeypatch: Any) -> No
         native_checks.check(json.dumps(source).encode())
 
 
-def setup_run(tmp_path: Path) -> tuple[Any, Any, str, bytes, dict[str, Any]]:
+def setup_run(
+    tmp_path: Path, *, continuation: bool = False, database_url: str = ""
+) -> tuple[Any, Any, str, bytes, dict[str, Any]]:
     from tests.test_growth import config, start
 
     key, raw = config()
     raw["base"]["interventions"][0]["resource_upper_bound"]["cost"] = 5
-    store, run_id = start(tmp_path, raw)
+    if continuation:
+        next(a for a in raw["base"]["interventions"] if a["intervention_id"] == "reuse")[
+            "resource_upper_bound"
+        ]["cost"] = 5
+    if database_url:
+        from ccr.storage.control import ControlStore
+
+        store = ControlStore(tmp_path, database_url)
+        run_id = engine.initialize(store, mission=raw["growth"]["study_id"], config=raw)["run_id"]
+    else:
+        store, run_id = start(tmp_path, raw)
     run = engine.load(store, run_id)
     source = (FIXTURES / "cpcf.json").read_bytes()
     inspected = native_checks.inspect(source)
     registration = {
-        "profile": "ccr-native-registration-1",
+        "schema_version": "ccr.native_registration.v1",
         "run_id": run_id,
         "config_digest": run["config"]["config_digest"],
         "study_id": raw["growth"]["study_id"],
@@ -145,6 +157,14 @@ def setup_run(tmp_path: Path) -> tuple[Any, Any, str, bytes, dict[str, Any]]:
         },
         "units": {"credits": {"target": "cost", "rate": "1", "rounding": "exact"}},
     }
+    if continuation:
+        registration["bindings"]["form"]["observations"] = {"success": "red", "failed": "blue"}
+        registration["bindings"]["reuse"] = {
+            **registration["bindings"]["form"],
+            "source_action": "reuse",
+            "action_sha256": sha256_json(raw["growth"]["actions"]["reuse"]),
+            "observations": {"success": "recorded"},
+        }
     native_runtime.register(store, run_id, registration, expected_revision=0)
     return key, store, run_id, source, registration
 
@@ -198,6 +218,53 @@ def test_native_same_revision_sqlite_staging(tmp_path: Path) -> None:
 
 
 @native
+def test_cpcf_replans_only_from_registered_signed_observations(tmp_path: Path) -> None:
+    from ccr.optimizer import native_replan
+    from tests.test_growth import finish
+
+    key, store, run_id, raw, registration = setup_run(tmp_path, continuation=True)
+
+    def admit(source: bytes, delivery: str) -> None:
+        revision = engine.load(store, run_id)["revision"]
+        staged = native_runtime.stage(
+            store,
+            run_id,
+            source,
+            native_projection.project(source, registration),
+            expected_revision=revision,
+            idempotency_key=delivery,
+        )
+        native_runtime.admit(store, run_id, staged["proposal_id"], expected_revision=revision + 1)
+
+    admit(raw, "root")
+    finish(store, run_id, key)
+    run = engine.load(store, run_id)
+    with pytest.raises(ValueError, match="visible history"):
+        check(run, raw, native_projection.project(raw, registration))
+    replanned = native_replan.cpcf(run, raw)
+    plan = native_checks.inspect(replanned)["documents"]["plan"]["spec"]
+    assert plan["history"] == [
+        {
+            "action_id": "prepare",
+            "observation": "red",
+            "entry": False,
+            "comparison_history_length": 0,
+        }
+    ]
+    assert plan["policy"]["action_id"] == "reuse"
+    assert engine.plan(store, run_id)["chosen"]["immediate_step"] == "transfer"
+    finish(store, run_id, key)
+    assert engine.plan(store, run_id)["chosen"]["immediate_step"] != "reuse"
+    admit(replanned, "observed")
+    assert engine.plan(store, run_id)["chosen"]["immediate_step"] == "reuse"
+    finish(store, run_id, key)
+    assert engine.report(store, run_id)["ledgers"]["training"]["observed_service"] == {
+        "task": 2,
+        "research": 2,
+    }
+
+
+@native
 def test_cait_signed_roundtrip_reconciles_and_opens_funded_review(tmp_path: Path) -> None:
     import importlib
     from datetime import datetime, timedelta, timezone
@@ -233,7 +300,7 @@ def test_cait_signed_roundtrip_reconciles_and_opens_funded_review(tmp_path: Path
     store, run_id = start(tmp_path, raw)
     run = engine.load(store, run_id)
     registration = {
-        "profile": "ccr-native-registration-1",
+        "schema_version": "ccr.native_registration.v1",
         "run_id": run_id,
         "config_digest": run["config"]["config_digest"],
         "study_id": g["study_id"],
@@ -366,7 +433,7 @@ def test_alt_native_receiver_admission_runs_existing_lifecycle(tmp_path: Path) -
     store, run_id = start(tmp_path, raw)
     run = engine.load(store, run_id)
     registration = {
-        "profile": "ccr-native-registration-1",
+        "schema_version": "ccr.native_registration.v1",
         "run_id": run_id,
         "config_digest": run["config"]["config_digest"],
         "study_id": g["study_id"],
@@ -473,7 +540,7 @@ def test_vek_signed_negative_completes_work_without_service_credit(tmp_path: Pat
     store, run_id = start(tmp_path, raw)
     run = engine.load(store, run_id)
     registration = {
-        "profile": "ccr-native-registration-1",
+        "schema_version": "ccr.native_registration.v1",
         "run_id": run_id,
         "config_digest": run["config"]["config_digest"],
         "study_id": g["study_id"],

@@ -17,6 +17,9 @@ from ccr.storage.control import ControlStore
 def register(sub: Any) -> None:
     parser = sub.add_parser("optimizer", help="Optimize verified capability under fixed budgets.")
     commands = parser.add_subparsers(dest="optimizer_command", required=True)
+    from ccr.optimizer import native_cli
+
+    native_cli.register(commands)
     demo = commands.add_parser("growth-example")
     demo.add_argument("--json", action="store_true", dest="json_output")
     demo.set_defaults(func=execute)

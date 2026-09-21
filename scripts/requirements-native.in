@@ -1,0 +1,10 @@
+# Isolated Python 3.14 conformance environment; not CCR runtime dependencies.
+alt-foundry-kernel @ https://github.com/kadubon/alt-foundry-kernel/releases/download/v0.5.0/alt_foundry_kernel-0.5.0-py3-none-any.whl
+verification-ecology-kit==1.3.0
+cait-certificate-schema==0.2.0
+collective-phase-control-fabric==1.0.1
+cryptography==50.0.1
+hypothesis==6.168.0
+pytest==9.1.1
+pytest-cov==7.1.0
+psycopg[binary]==3.3.3

@@ -10,6 +10,7 @@ from ccr.ids import sha256_json
 from ccr.optimizer import engine, growth_ledger
 from ccr.optimizer.growth_model import integer, text
 from ccr.optimizer.model import timestamp
+from ccr.optimizer.native_history import cpcf_history
 from ccr.optimizer.native_projection_check import check, registration_check
 from ccr.optimizer.native_wire import raw_digest
 from ccr.storage.control import ControlStore
@@ -119,6 +120,7 @@ def admit(
             "actions": sorted(checked["envelopes"]),
             "registration_sha256": sha256_json(run["native_registration"]),
             "admitted_at": current,
+            "observation_sha256": checked["observation_sha256"],
         }
         run["native_admitted"][proposal_id] = entry
         growth_ledger.append(
@@ -167,7 +169,33 @@ def blockers(run: dict[str, Any], name: str, current: str, group: str) -> list[s
             or entry["registration_sha256"] != sha256_json(registration)
             or entry["source_sha256"] != raw_digest(record["raw"].encode("utf-8"))
             or name not in record["check"]["envelopes"]
+            or not any(
+                row["kind"] == "native_admission"
+                and row["payload"] == {"proposal_id": identity, **entry}
+                for row in run["growth_events"]
+            )
         ):
             return ["native_admission_integrity"]
+        if registration["bindings"][name]["producer"] == "cpcf":
+            try:
+                history = cpcf_history(run, registration["bindings"][name]["contract_sha256"])
+            except ValueError:
+                return ["native_observation_unmapped"]
+            if entry["observation_sha256"] != sha256_json(history):
+                continue
+        if registration["bindings"][name]["producer"] == "alt":
+            growth_ledger.replay(run, current, group=group)
+            completed = {
+                registration["bindings"][row["payload"]["action_id"]]["source_action"]
+                for row in run["growth_events"]
+                if row["kind"] == "outcome"
+                and row["payload"]["group"] == group
+                and row["payload"]["success"]
+                and row["payload"]["action_id"] in registration["bindings"]
+                and registration["bindings"][row["payload"]["action_id"]]["contract_sha256"]
+                == registration["bindings"][name]["contract_sha256"]
+            }
+            if not set(record["check"]["envelopes"][name]["obligations"]) <= completed:
+                return ["native_ALT_prerequisite_not_observed"]
         return []
     return ["native_proposal_not_admitted:" + name]
