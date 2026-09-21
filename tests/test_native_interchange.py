@@ -144,7 +144,11 @@ def test_native_sidecar_and_semantic_acceptance_are_required(monkeypatch: Any) -
 
 
 def setup_run(
-    tmp_path: Path, *, continuation: bool = False, database_url: str = ""
+    tmp_path: Path,
+    *,
+    continuation: bool = False,
+    database_url: str = "",
+    valid_until: str | None = None,
 ) -> tuple[Any, Any, str, bytes, dict[str, Any]]:
     from tests.test_growth import config, start
 
@@ -178,7 +182,7 @@ def setup_run(
                 "source_action": "prepare",
                 "action_sha256": sha256_json(raw["growth"]["actions"]["form"]),
                 "valid_from": "2020-01-01T00:00:00Z",
-                "valid_until": raw["growth"]["window_end"],
+                "valid_until": valid_until or raw["growth"]["window_end"],
             }
         },
         "units": {"credits": {"target": "cost", "rate": "1", "rounding": "exact"}},
@@ -513,8 +517,9 @@ def test_alt_native_receiver_admission_runs_existing_lifecycle(tmp_path: Path) -
 
 @native
 @pytest.mark.parametrize("status", ["positive", "negative", "timeout", "inconclusive", "invalid"])
+@pytest.mark.parametrize("condition", ["completed", "positive", "negative"])
 def test_vek_signed_negative_completes_work_without_service_credit(
-    tmp_path: Path, status: str
+    tmp_path: Path, status: str, condition: str
 ) -> None:
     import importlib
 
@@ -530,6 +535,15 @@ def test_vek_signed_negative_completes_work_without_service_credit(
     c["services"][0]["valid_until"] = 16
     for work in c["work"]:
         work["deadline"] = 16
+    source_names = list(docs["plan"]["schedule"])
+    first_action = next(a for a in c["actions"] if a["action_id"] == source_names[0])
+    second_action = next(a for a in c["actions"] if a["action_id"] == source_names[1])
+    second_work = next(w for w in c["work"] if w["work_id"] == second_action["work_id"])
+    second_work["predecessors"] = [first_action["work_id"]]
+    if condition != "completed":
+        second_action["requires_success" if condition == "positive" else "requires_negative"] = [
+            source_names[0]
+        ]
     model = importlib.import_module("verification_ecology_kit.capacity.model")
     checker = importlib.import_module("verification_ecology_kit.capacity.checker")
     reports = importlib.import_module("verification_ecology_kit.capacity.report")
@@ -605,6 +619,9 @@ def test_vek_signed_negative_completes_work_without_service_credit(
     )
     native_runtime.admit(store, run_id, staged["proposal_id"], expected_revision=2)
     before = engine.load(store, run_id)
+    assert native_runtime.blockers(
+        before, list(action_names.values())[1], store.now(), "training"
+    ) == ["native_VEK_prerequisite_not_observed"]
     assert all(
         row["status"] == "pending"
         for row in native_runtime.verification_work(before, store.now()).values()
@@ -634,7 +651,7 @@ def test_vek_signed_negative_completes_work_without_service_credit(
     first = work[next(iter(action_names.values()))]
     assert first["status"] == status
     assert first["verification_completed"] == (status in {"positive", "negative"})
-    if status != "invalid":
+    if status in {"positive", "negative"} and condition in {"completed", status}:
         assert report["next_action"]["chosen"]["immediate_step"] == list(action_names.values())[1]
     else:
         assert report["next_action"]["chosen"] is None

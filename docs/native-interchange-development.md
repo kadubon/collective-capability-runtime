@@ -57,7 +57,7 @@ python -m pytest tests/test_native_interchange.py tests/test_native_transactions
 python -m ccr optimizer native example --json
 ```
 
-The latest local continuation run passed 56 tests, including offline socket guards,
+The latest local continuation run passed 70 tests, including offline socket guards,
 malformed input, exact conversion, native tampering, selected faults and all four
 runtime scenarios plus an integrated same-run loop. The ordinary base environment intentionally skips native
 tests without this explicit setup; those skips are not native conformance.
@@ -70,7 +70,7 @@ command. No companion repository is modified.
 ## Qualification remains incomplete
 
 The latest continuation selection measured 1019/1038 native-module
-statements (98.17%) and 445/462 branches (96.32%), including every native module.
+statements (98.32%) and 445/462 branches (96.27%), including every native module.
 Each native module independently meets 95% statements and 90% branches; the gate
 now enforces those per-module thresholds as well as the aggregate. The earlier `b1b5cfe` gate passed
 at 95.61%/90.85% locally and in CI. Further changes require a fresh
@@ -115,6 +115,28 @@ original history, and use a separately registered closed export schema. The
 real CLI export/feedback/reconcile regression test passes without relaxing the
 native rational/integer parser or changing legacy signature rules.
 
+## Additional signed-prerequisite and validity qualification
+
+The latest native selection passed **70 tests in 127.13 seconds**, with actual
+SQLite and PostgreSQL execution and no skips. Native coverage was 1,052/1,070
+statements (98.32%) and 464/482 branches (96.27%); every native module separately
+passed the 95% statement / 90% branch gates. No threshold or exclusion changed.
+
+Finite VEK predecessor completion and positive/negative activation now change
+subsequent CCR eligibility using authenticated outcomes from the same registered
+source contract. Fifteen status/condition combinations exercise positive,
+negative, timeout, inconclusive and invalid outcomes. Native forecast branches
+do not discharge these prerequisites. Duplicate source-action registrations,
+unmapped prerequisites and contradictory conditions fail closed.
+
+Host validity now includes execution and cleanup before staging/admission and
+before reservation/lease. A selected clock advance after reservation rejects the
+lease without dropping the reservation on both database backends. Event and
+receipt times are checked when admitting results; expired attempts retain their
+costs but create no asset or service credit. Historical replay checks the
+original receipt time and rejects promotion by rehashing derived journal flags.
+These checks do not substitute for the remaining producer-clock/UTC mapping.
+
 ## Required work before release
 
 1. Complete contract registration qualification: explicit clocks, semantic action/effect
@@ -122,9 +144,11 @@ native rational/integer parser or changing legacy signature rules.
    specification rather than assuming retained JSON is enforced semantics.
 2. Finish ALT lifecycle, parent/input/evaluator substitution and cost-identity
    checks. Complete source timing/occupancy and dependency translation checks.
-3. Finish VEK predecessor/separation/contingency mappings,
-   expiry/dispatch rechecks, and reconciliation of all signed check statuses.
-   Unsupported contingent work is currently rejected.
+3. Qualify VEK source clocks and independent verifier separation. Finite,
+   uniquely mapped predecessor completion and positive/negative activation now
+   use qualified signed CCR results. Unmapped/contradictory conditions and
+   verifier separation without a host mapping are rejected. Host expiry is
+   rechecked through reservation, lease, result receipt and historical replay.
 4. Finish CAIT incomplete/negative-history handling and independent per-event
    reconciliation tests. Current export supports a bounded root-asset subset;
    unsupported formation/lifecycle/use records retain obligations. Complete the

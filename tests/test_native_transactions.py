@@ -140,6 +140,10 @@ def test_registration_and_projection_negative_controls(tmp_path: Path) -> None:
         altered[key] = value
         with pytest.raises(ValueError):
             registration_check(run, altered)
+    altered = copy.deepcopy(registration)
+    altered["bindings"]["greedy"] = copy.deepcopy(altered["bindings"]["form"])
+    with pytest.raises(ValueError, match="ambiguous"):
+        registration_check(run, altered)
     for key, value in [
         ("producer", "unknown"),
         ("action_sha256", "0" * 64),
@@ -230,3 +234,114 @@ def test_native_expiry_freeze_delivery_and_changed_check(tmp_path: Path, monkeyp
         patch.setattr(engine, "edit_run", expired)
         assert not engine.claim(store, run_id, trial["trial_id"], worker="producer")["ok"]
     assert engine.load(store, run_id)["trials"][0]["state"] == "queued"
+
+
+@native
+@pytest.mark.parametrize("backend", ["sqlite", "postgres"])
+def test_native_cleanup_cannot_cross_expiry_after_reservation(
+    tmp_path: Path, monkeypatch: Any, backend: str
+) -> None:
+    from datetime import timedelta
+
+    from ccr.optimizer import growth_checker
+    from ccr.optimizer.model import timestamp
+
+    url = os.getenv("CCR_TEST_POSTGRES_URL", "") if backend == "postgres" else ""
+    if backend == "postgres" and not url:
+        pytest.skip("requires real PostgreSQL")
+    _, store, run_id, raw, registration = setup_run(tmp_path, database_url=url)
+    projection = native_projection.project(raw, registration)
+    snapshot = engine.load(store, run_id)
+    action = snapshot["config"]["growth"]["actions"]["form"]
+    cutoff = timestamp(registration["bindings"]["form"]["valid_until"])
+    current = (
+        cutoff - timedelta(seconds=action["duration_seconds"] + action["cleanup_seconds"])
+    ).isoformat()
+    original_edit = engine.edit_run
+
+    @contextmanager
+    def at_cutoff(*args: Any, **kwargs: Any) -> Any:
+        with original_edit(*args, **kwargs) as (run, _):
+            yield run, current
+
+    # The exclusive native validity endpoint includes cleanup. Being valid at
+    # dispatch is insufficient when the conservative end reaches that endpoint.
+    with monkeypatch.context() as patch:
+        patch.setattr(engine, "edit_run", at_cutoff)
+        with pytest.raises(ValueError, match="ends after validity"):
+            native_runtime.stage(
+                store, run_id, raw, projection, expected_revision=1, idempotency_key="too-late"
+            )
+    assert engine.load(store, run_id) == snapshot
+    staged = native_runtime.stage(
+        store, run_id, raw, projection, expected_revision=1, idempotency_key="source"
+    )
+    native_runtime.admit(store, run_id, staged["proposal_id"], expected_revision=2)
+    proposal = engine.plan(store, run_id)
+    assert growth_checker.check(engine.load(store, run_id), proposal, current)["ok"] is False
+    trial = engine.step(store, run_id, apply=True, expected_revision=3)["trial"]
+    reserved = engine.load(store, run_id)
+    with monkeypatch.context() as patch:
+        patch.setattr(engine, "edit_run", at_cutoff)
+        rejected = engine.claim(store, run_id, trial["trial_id"], worker="producer")
+    assert rejected["ok"] is False and "native_source_expired" in rejected["blockers"]
+    assert engine.load(store, run_id) == reserved
+    assert reserved["growth_reservation"] is not None
+
+
+@native
+@pytest.mark.parametrize("late_event", [False, True])
+def test_native_result_expiry_keeps_costs_and_cannot_be_promoted_on_replay(
+    tmp_path: Path, monkeypatch: Any, late_event: bool
+) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from ccr.optimizer import growth_ledger
+    from ccr.optimizer.growth_example import observation, sign
+
+    cutoff = (datetime.now(timezone.utc) + timedelta(minutes=2)).replace(microsecond=0).isoformat()
+    key, store, run_id, raw, registration = setup_run(tmp_path, valid_until=cutoff)
+    projected = native_projection.project(raw, registration)
+    staged = native_runtime.stage(
+        store, run_id, raw, projected, expected_revision=1, idempotency_key="source"
+    )
+    native_runtime.admit(store, run_id, staged["proposal_id"], expected_revision=2)
+    trial = engine.step(store, run_id, apply=True)["trial"]
+    assert engine.claim(store, run_id, trial["trial_id"], worker="producer")["ok"]
+    envelope = observation(store, run_id, trial["trial_id"], key)
+    if late_event:
+        result = {k: v for k, v in envelope["result"].items() if k != "signature_base64"}
+        result["observed_at"] = cutoff
+        envelope["result"] = sign(key, result)
+        envelope = sign(key, {k: v for k, v in envelope.items() if k != "signature_base64"})
+    original_edit = engine.edit_run
+
+    @contextmanager
+    def delayed(*args: Any, **kwargs: Any) -> Any:
+        with original_edit(*args, **kwargs) as (run, _):
+            yield run, cutoff
+
+    with monkeypatch.context() as patch:
+        patch.setattr(engine, "edit_run", delayed)
+        result = engine.ingest(store, run_id, envelope)
+    assert result["reward"] == 0
+    run = engine.load(store, run_id)
+    ledger = growth_ledger.replay(run, cutoff)
+    assert ledger["actual_costs"] == {"cost": 2}
+    assert ledger["asset_count"] == 0
+    outcome = next(e for e in run["growth_events"] if e["kind"] == "outcome")
+    assert not outcome["payload"]["qualified"]
+    assert "native_result_outside_validity" in outcome["payload"]["reasons"]
+    # Rehashing local derived journal flags cannot promote the unchanged signed
+    # observation into eligibility. The replay rechecks its historical times.
+    forged = copy.deepcopy(run)
+    previous = None
+    for event in forged["growth_events"]:
+        if event["kind"] == "outcome":
+            event["payload"].update(qualified=True, success=True, reasons=[])
+        event["previous"] = previous
+        event["digest"] = sha256_json({k: v for k, v in event.items() if k != "digest"})
+        previous = event["digest"]
+    with pytest.raises(ValueError, match="native result outside validity"):
+        growth_ledger.replay(forged, cutoff)
+    assert native_runtime.result_time_blockers(run, "greedy", cutoff, cutoff) == []

@@ -34,6 +34,11 @@ def registration_check(run: dict[str, Any], registration: dict[str, Any]) -> Non
     ):
         raise ValueError("native registration scope mismatch")
     bindings = registration["bindings"]
+    identities = [
+        (b["producer"], b["contract_sha256"], b["source_action"]) for b in bindings.values()
+    ]
+    if len(set(identities)) != len(identities):
+        raise ValueError("ambiguous registered native action mapping")
     for name, binding in bindings.items():
         closed(
             binding,
@@ -158,19 +163,15 @@ def check(run: dict[str, Any], raw: bytes, projection: dict[str, Any]) -> dict[s
             elapsed = start + target_action["duration_seconds"] + target_action["cleanup_seconds"]
             if elapsed > work["deadline"] * rational(d["contract"]["slot_seconds"]):
                 raise ValueError("VEK serial translation misses deadline or cleanup")
-            if (
-                work["predecessors"]
-                or work["separate_from"]
-                or original_action["requires_success"]
-                or original_action["requires_negative"]
-            ):
+            if work["separate_from"]:
                 raise ValueError(
-                    "VEK contingent work requires additional signed prerequisite mapping"
+                    "VEK separation requires an explicit independent host verifier mapping"
                 )
     for original, name in sorted(expected.items()):
         action = g["actions"][name]
         costs: dict[str, Fraction] = {}
         duration = Fraction(0)
+        prerequisites: dict[str, list[str]] = {}
         obligations: Any
         if producer == "alt":
             c = d["contract"]
@@ -266,6 +267,28 @@ def check(run: dict[str, Any], raw: bytes, projection: dict[str, Any]) -> dict[s
                 ):
                     raise ValueError("parallel VEK schedule cannot be silently serialized")
             obligations = {"work": work, "action": row, "services": c["services"]}
+            for predecessor in work["predecessors"]:
+                predecessor_actions = [
+                    a["action_id"] for a in c["actions"] if a["work_id"] == predecessor
+                ]
+                if len(predecessor_actions) != 1:
+                    raise ValueError("ambiguous VEK predecessor work mapping")
+                prerequisites[predecessor_actions[0]] = ["positive", "negative"]
+            for required in ("positive", "negative"):
+                field = "requires_success" if required == "positive" else "requires_negative"
+                for parent in row[field]:
+                    prerequisites[parent] = sorted(
+                        set(prerequisites.get(parent, [required])) & {required}
+                    )
+            bound = {
+                b["source_action"]: target
+                for target, b in registration["bindings"].items()
+                if b["producer"] == "vek"
+                and b["contract_sha256"] == source["document_sha256"]["contract"]
+            }
+            if any(parent not in bound or not states for parent, states in prerequisites.items()):
+                raise ValueError("unmapped or contradictory VEK prerequisite")
+            prerequisites = {bound[parent]: states for parent, states in prerequisites.items()}
         else:
             c = d["contract"]["spec"]
             objects = d["objects"]
@@ -308,6 +331,7 @@ def check(run: dict[str, Any], raw: bytes, projection: dict[str, Any]) -> dict[s
             "costs": translated,
             "duration_seconds": seconds,
             "obligations": obligations,
+            "prerequisites": prerequisites,
         }
     return {
         "ok": True,

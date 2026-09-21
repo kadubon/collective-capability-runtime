@@ -120,6 +120,11 @@ def replay(run: dict[str, Any], current: str, *, group: str = "training") -> dic
                 ]
             ):
                 raise ValueError("journal cannot promote ineligible signed evidence")
+        if p["qualified"] and "native_registration" in run:
+            from ccr.optimizer.native_runtime import result_time_blockers
+
+            if result_time_blockers(run, p["action_id"], p["observed_at"], event["recorded_at"]):
+                raise ValueError("journal cannot promote native result outside validity")
         replayed[p["trial_id"]] = p["acceptance_evidence"]
         if p["group"] == "training" and p["qualified"] and p["status"] in {"success", "failed"}:
             compatible = {

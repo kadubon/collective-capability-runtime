@@ -83,8 +83,13 @@ claims are summed after alias resolution, so renaming a pool cannot enlarge it.
   Shared physical cost IDs without an explicit supported allocation are rejected.
 - VEK 1.3.0: real history replay, plan/report checking, separate budget and pool
   constraints, serial timing including CCR cleanup, and signed negative checks
-  with zero capability service. Unsupported contingencies and unsafe parallel
-  translations are rejected. Forecast service is never observed capacity.
+  with zero capability service. Prerequisite work must map uniquely to registered
+  work in the same source contract. Completion prerequisites accept qualified
+  positive or negative results; positive/negative activation requirements accept
+  only their respective signed result. Pending, censored, invalid, timeout and
+  inconclusive work do not unlock these dependents. Unmapped or contradictory
+  prerequisites, unsupported verifier separation and unsafe parallel translations
+  are rejected. Forecast service is never observed capacity.
   Status/replay distinguish positive, negative, timeout, invalid, inconclusive,
   pending and censored work from signed CCR outcomes and the observation window.
   Only qualified positive/negative results count as completed verification.
@@ -104,6 +109,15 @@ The planner checks native admission for the immediate task. It still funds and
 checks the entire registered CCR bundle, including cleanup. Hypothetical future
 bundle steps cannot become tasks before their own current admission check.
 CPCF continuation guarantees are explicitly not transferred.
+
+The registered host validity interval is checked again at staging, admission,
+planning, reservation and lease. The action's conservative execution and cleanup
+must finish before its exclusive endpoint. A signed result whose event time or
+receipt is outside that interval remains a charged attempt without qualification
+or service credit. Replay uses the original receipt time, so a later replay
+does not retroactively expire historical credit. Rehashing derived journal flags
+cannot promote such an invalid result. These host checks do not establish the
+still-unqualified source-clock-to-UTC mapping.
 
 ## Executable finite evidence
 
@@ -133,7 +147,7 @@ amend a frozen growth catalogue. Unpublished draft native records using the old
 `profile` labels must be recreated using the registered schema versions; this
 does not change any released legacy record or signature.
 
-Full source-clock/effect qualification, VEK contingent scheduling,
+Full source-clock/effect qualification, VEK verifier separation,
 remaining adversarial cases, final coverage gates and release documentation
 and final release qualification remain tracked in the development register.
 Do not infer release readiness from an individually passing example.

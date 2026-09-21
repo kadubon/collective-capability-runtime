@@ -9,7 +9,7 @@ Current implementation and measured evidence are tracked in
 below describe milestone completion, not whether any code has been written:
 all four native checkers, a same-run integrated example, signed observation
 replanning, SQLite/PostgreSQL contention and installed-wheel examples now execute.
-The 56-test native selection passes 95% statement/90% branch gates for every
+The 70-test native selection passes 95% statement/90% branch gates for every
 native module, with no excluded new module.
 Contract-level release qualification remains incomplete, particularly source-clock
 and action/effect translation. Passing CI is not a waiver for these gaps.

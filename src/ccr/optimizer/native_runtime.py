@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+from datetime import timedelta
 from typing import Any
 
 from ccr.ids import sha256_json
@@ -76,12 +77,14 @@ def stage(
 def _valid(run: dict[str, Any], names: Any, current: str) -> None:
     for name in names:
         binding = run["native_registration"]["bindings"][name]
-        if (
-            not timestamp(binding["valid_from"])
-            <= timestamp(current)
-            < timestamp(binding["valid_until"])
-        ):
-            raise ValueError("native binding expired or not yet valid")
+        action = run["config"]["growth"]["actions"][name]
+        end = timestamp(current) + timedelta(
+            seconds=action["duration_seconds"] + action["cleanup_seconds"]
+        )
+        if not timestamp(binding["valid_from"]) <= timestamp(current) < timestamp(
+            binding["valid_until"]
+        ) or end >= timestamp(binding["valid_until"]):
+            raise ValueError("native binding expired, not yet valid, or ends after validity")
 
 
 def admit(
@@ -197,6 +200,14 @@ def blockers(run: dict[str, Any], name: str, current: str, group: str) -> list[s
             }
             if not set(record["check"]["envelopes"][name]["obligations"]) <= completed:
                 return ["native_ALT_prerequisite_not_observed"]
+        if registration["bindings"][name]["producer"] == "vek":
+            states = verification_work(run, current)
+            prerequisites = record["check"]["envelopes"][name]["prerequisites"]
+            if any(
+                states[parent]["status"] not in accepted
+                for parent, accepted in prerequisites.items()
+            ):
+                return ["native_VEK_prerequisite_not_observed"]
         return []
     return ["native_proposal_not_admitted:" + name]
 
@@ -243,3 +254,18 @@ def verification_work(run: dict[str, Any], current: str) -> dict[str, Any]:
             "observed_capacity": None,
         }
     return work
+
+
+def result_time_blockers(run: dict[str, Any], name: str, observed: str, received: str) -> list[str]:
+    """Check event and receipt times; later replay must not rewrite past validity."""
+    binding = run.get("native_registration", {}).get("bindings", {}).get(name)
+    if binding is None:
+        return []
+    if (
+        not timestamp(binding["valid_from"])
+        <= timestamp(observed)
+        <= timestamp(received)
+        < timestamp(binding["valid_until"])
+    ):
+        return ["native_result_outside_validity"]
+    return []
