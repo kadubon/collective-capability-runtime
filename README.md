@@ -18,25 +18,6 @@ profile; native forecasts are not observed capacity or execution authority.
 See [Native interchange](docs/native-interchange.md) and
 [qualification and publication](docs/native-interchange-validation.md).
 
-## Verified growth (v1.8 compatibility)
-
-An explicit opt-in growth policy adds evidence-bound service accounting,
-receiver-qualified reuse, and bounded verification-aware allocation. The v1
-optimizer and its existing behavior remain available unchanged.
-
-```bash
-python -m pip install "collective-capability-runtime[optimizer]==1.8.0"
-ccr optimizer growth-example --json
-```
-
-The offline example executes a synthetic workcell/task/evidence/reuse loop,
-freezes the policy and compares both arms without contacting providers.
-Read [Verified Growth](docs/verified-growth.md),
-[Interchange](docs/verified-growth-interchange.md), and
-[Release Validation](docs/verified-growth-validation.md) for the finite domain,
-scientific boundaries and actual publication status. Existing configurations
-continue to use the [legacy Phase Optimizer](docs/phase-optimizer.md).
-
 ## Agent Skill
 
 Native companion commands, exact supported contracts, synthetic examples and
@@ -65,19 +46,25 @@ report was accepted.
 
 ## Install
 
-Published package:
+Current published package: 1.9.0, Python 3.10+. Use an isolated environment.
+Installation downloads dependencies; `agent explain` prints guidance:
 
 ```bash
-python -m pip install collective-capability-runtime
+python -m pip install collective-capability-runtime==1.9.0
 ccr agent explain --json
 ```
 
-Repository checkout:
+From the repository root, source-checkout setup (may download dependencies):
 
 ```bash
 uv sync --all-extras
 uv run ccr agent explain --json
 ```
+
+Base use does not require native companion packages. For opt-in native
+interchange, use the exact companion pins and admission steps in
+[Native interchange](docs/native-interchange.md); the current CCR release does
+not update historical interoperability qualifications.
 
 Optional PostgreSQL, API, authentication, and worker support:
 
@@ -100,7 +87,8 @@ ccr provider health --provider pic --json
 
 ## Five-Minute Start
 
-These commands work after installation. They create a local mission and a
+After installation, use a fresh working directory and unused `ccr-runtime`
+path. These commands write runtime state and a report. They create a local mission and a
 human-readable workbench without calling a provider or network endpoint:
 
 ```bash
@@ -262,9 +250,33 @@ uvx twine check dist/*
 These audit commands do not push, tag, publish, dispatch providers, or prove a
 physical outcome.
 
+## Verified growth (v1.8 compatibility)
+
+This is a deliberate older-version compatibility path, not the current install
+recommendation. Use a separate environment if you need to reproduce 1.8.0.
+An explicit opt-in growth policy adds evidence-bound service accounting,
+receiver-qualified reuse, and bounded verification-aware allocation. The v1
+optimizer and its existing behavior remain available unchanged.
+
+```bash
+python -m pip install "collective-capability-runtime[optimizer]==1.8.0"
+ccr optimizer growth-example --json
+```
+
+The offline example writes temporary local runtime state and executes a synthetic workcell/task/evidence/reuse loop,
+freezes the policy and compares both arms without contacting providers.
+Read [Verified Growth](docs/verified-growth.md),
+[Interchange](docs/verified-growth-interchange.md), and
+[Release Validation](docs/verified-growth-validation.md) for the finite domain,
+scientific boundaries and actual publication status. Existing configurations
+continue to use the [legacy Phase Optimizer](docs/phase-optimizer.md).
+
 ## Compatibility
 
 The v1 CLI and JSON interfaces remain compatible. New fields are additive.
 The safety exception is deliberate: side-effecting provider execution must use
 the TRC operation approval and dispatch path. The Python API remains
 semi-stable; CLI commands and registered JSON schemas are the public contract.
+For neighboring coordination tools, see the [Collective Intelligence Research and OSS Index](https://kadubon.github.io/github.io/collective-intelligence-index.html),
+especially [coordination](https://kadubon.github.io/github.io/collective-intelligence-index.html#problem-coordinate) and
+[retry and recovery](https://kadubon.github.io/github.io/collective-intelligence-index.html#problem-retry-recovery). Discovery is separate from execution authorization.
